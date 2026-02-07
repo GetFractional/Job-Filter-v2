@@ -172,10 +172,10 @@ export function CRMTab({ job }: CRMTabProps) {
   }, [job, claims, actContactId, jobContacts]);
 
   return (
-    <div className="px-4 py-4 space-y-6">
+    <div className="py-4 space-y-6">
       {/* Follow-up Alerts */}
       {followUpAlerts.length > 0 && (
-        <div className="bg-amber-50 rounded-xl border border-amber-200 p-4">
+        <div className="bg-amber-50 rounded-lg border border-amber-200 p-4">
           <h4 className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
             <AlertCircle size={14} />
             Follow-up Alerts
@@ -205,7 +205,7 @@ export function CRMTab({ job }: CRMTabProps) {
           </h3>
           <button
             onClick={() => setShowAddContact(!showAddContact)}
-            className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-medium text-brand-600 bg-brand-50 border border-brand-200 rounded-lg hover:bg-brand-100"
+            className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-brand-600 bg-brand-50 border border-brand-200 rounded-lg hover:bg-brand-100"
           >
             {showAddContact ? <X size={10} /> : <UserPlus size={10} />}
             {showAddContact ? 'Cancel' : 'Add'}
@@ -214,7 +214,7 @@ export function CRMTab({ job }: CRMTabProps) {
 
         {/* Add Contact Form */}
         {showAddContact && (
-          <form onSubmit={handleAddContact} className="bg-white rounded-xl border border-neutral-200 p-4 shadow-sm mb-3 space-y-3">
+          <form onSubmit={handleAddContact} className="bg-white rounded-lg border border-neutral-200 p-4 shadow-sm mb-3 space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <input
                 type="text"
@@ -271,32 +271,32 @@ export function CRMTab({ job }: CRMTabProps) {
 
         {/* Contact Cards */}
         {jobContacts.length === 0 && !showAddContact ? (
-          <div className="bg-white rounded-xl border border-neutral-200 p-6 shadow-sm text-center">
+          <div className="bg-white rounded-lg border border-neutral-200 p-6 shadow-sm text-center">
             <Users size={20} className="text-neutral-300 mx-auto mb-2" />
             <p className="text-xs text-neutral-500">No contacts yet for {job.company}</p>
           </div>
         ) : (
           <div className="space-y-2">
             {jobContacts.map((contact) => (
-              <div key={contact.id} className="bg-white rounded-xl border border-neutral-200 p-3 shadow-sm">
+              <div key={contact.id} className="bg-white rounded-lg border border-neutral-200 p-3 shadow-sm">
                 <div className="flex items-start justify-between">
                   <div>
                     <h5 className="text-sm font-semibold text-neutral-900">{contact.name}</h5>
                     {contact.role && <p className="text-xs text-neutral-500">{contact.role}</p>}
                   </div>
-                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${RELATIONSHIP_COLORS[contact.relationship]}`}>
+                  <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-md border ${RELATIONSHIP_COLORS[contact.relationship]}`}>
                     {contact.relationship}
                   </span>
                 </div>
                 <div className="flex items-center gap-3 mt-2">
                   {contact.email && (
-                    <a href={`mailto:${contact.email}`} className="text-[10px] text-brand-600 flex items-center gap-0.5 hover:underline">
+                    <a href={`mailto:${contact.email}`} className="text-[11px] text-brand-600 flex items-center gap-0.5 hover:underline">
                       <Mail size={10} />
                       {contact.email}
                     </a>
                   )}
                   {contact.linkedIn && (
-                    <a href={contact.linkedIn} target="_blank" rel="noopener noreferrer" className="text-[10px] text-brand-600 flex items-center gap-0.5 hover:underline">
+                    <a href={contact.linkedIn} target="_blank" rel="noopener noreferrer" className="text-[11px] text-brand-600 flex items-center gap-0.5 hover:underline">
                       <Linkedin size={10} />
                       LinkedIn
                     </a>
@@ -317,7 +317,7 @@ export function CRMTab({ job }: CRMTabProps) {
           </h3>
           <button
             onClick={() => setShowAddActivity(!showAddActivity)}
-            className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-medium text-brand-600 bg-brand-50 border border-brand-200 rounded-lg hover:bg-brand-100"
+            className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-brand-600 bg-brand-50 border border-brand-200 rounded-lg hover:bg-brand-100"
           >
             {showAddActivity ? <X size={10} /> : <Plus size={10} />}
             {showAddActivity ? 'Cancel' : 'Add'}
@@ -326,7 +326,7 @@ export function CRMTab({ job }: CRMTabProps) {
 
         {/* Add Activity Form */}
         {showAddActivity && (
-          <form onSubmit={handleAddActivity} className="bg-white rounded-xl border border-neutral-200 p-4 shadow-sm mb-3 space-y-3">
+          <form onSubmit={handleAddActivity} className="bg-white rounded-lg border border-neutral-200 p-4 shadow-sm mb-3 space-y-3">
             <div className="grid grid-cols-3 gap-3">
               <select
                 value={actChannel}
@@ -382,7 +382,7 @@ export function CRMTab({ job }: CRMTabProps) {
               placeholder="Activity content / notes..."
               rows={4}
               required
-              className="w-full px-3 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 resize-none"
+              className="w-full px-3 py-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 resize-none"
             />
 
             <div className="flex gap-3">
@@ -407,7 +407,7 @@ export function CRMTab({ job }: CRMTabProps) {
 
         {/* Activity Cards */}
         {jobActivities.length === 0 && !showAddActivity ? (
-          <div className="bg-white rounded-xl border border-neutral-200 p-6 shadow-sm text-center">
+          <div className="bg-white rounded-lg border border-neutral-200 p-6 shadow-sm text-center">
             <Activity size={20} className="text-neutral-300 mx-auto mb-2" />
             <p className="text-xs text-neutral-500">No activities logged yet</p>
           </div>
@@ -419,7 +419,7 @@ export function CRMTab({ job }: CRMTabProps) {
               const outcomeColor = activity.outcome ? OUTCOME_COLORS[activity.outcome] || 'bg-neutral-50 text-neutral-600' : '';
 
               return (
-                <div key={activity.id} className="bg-white rounded-xl border border-neutral-200 p-3 shadow-sm">
+                <div key={activity.id} className="bg-white rounded-lg border border-neutral-200 p-3 shadow-sm">
                   <div className="flex items-center gap-2 mb-1.5">
                     <div className="w-6 h-6 rounded-full bg-neutral-100 flex items-center justify-center shrink-0">
                       <ChannelIcon size={12} className="text-neutral-500" />
@@ -431,23 +431,23 @@ export function CRMTab({ job }: CRMTabProps) {
                     )}
                     <span className="text-xs font-medium text-neutral-700">{activity.channel}</span>
                     {contact && (
-                      <span className="text-[10px] text-neutral-500 truncate">
+                      <span className="text-[11px] text-neutral-500 truncate">
                         {activity.direction === 'Outbound' ? 'to' : 'from'} {contact.name}
                       </span>
                     )}
-                    <span className="text-[10px] text-neutral-400 ml-auto shrink-0">
+                    <span className="text-[11px] text-neutral-400 ml-auto shrink-0">
                       {new Date(activity.createdAt).toLocaleDateString()}
                     </span>
                   </div>
                   <p className="text-xs text-neutral-600 line-clamp-2 ml-8">{activity.content}</p>
                   <div className="flex items-center gap-2 mt-1.5 ml-8">
                     {activity.outcome && (
-                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${outcomeColor}`}>
+                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${outcomeColor}`}>
                         {activity.outcome}
                       </span>
                     )}
                     {activity.followUpDate && (
-                      <span className="text-[10px] text-amber-600 flex items-center gap-0.5">
+                      <span className="text-[11px] text-amber-600 flex items-center gap-0.5">
                         <Clock size={9} />
                         Follow-up: {new Date(activity.followUpDate).toLocaleDateString()}
                       </span>

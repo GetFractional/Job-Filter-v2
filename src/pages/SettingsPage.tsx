@@ -14,8 +14,8 @@ export function SettingsPage() {
   const [activeSection, setActiveSection] = useState<'profile' | 'claims' | 'data'>('profile');
 
   return (
-    <div className="p-4 space-y-4">
-      <h2 className="text-lg font-semibold text-neutral-900">Settings</h2>
+    <div className="space-y-5">
+      <h1 className="text-h1 text-neutral-900">Settings</h1>
 
       {/* Section tabs */}
       <div className="flex gap-2">
@@ -23,10 +23,10 @@ export function SettingsPage() {
           <button
             key={section}
             onClick={() => setActiveSection(section)}
-            className={`px-3 py-1.5 text-sm rounded-lg font-medium capitalize ${
+            className={`px-4 py-2 text-sm rounded-lg font-medium capitalize ${
               activeSection === section
                 ? 'bg-brand-600 text-white'
-                : 'bg-neutral-100 text-neutral-600'
+                : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
             }`}
           >
             {section === 'claims' ? 'Claim Ledger' : section}
@@ -73,13 +73,13 @@ function ProfileSection({ profile, updateProfile }: {
   };
 
   return (
-    <div className="bg-white rounded-xl border border-neutral-200 p-4 space-y-3">
+    <div className="bg-white rounded-lg border border-neutral-200 p-5 shadow-sm space-y-4">
       <div>
         <label className="text-xs font-medium text-neutral-600 mb-1 block">Name</label>
         <input
           value={form.name}
           onChange={(e) => setForm({ ...form, name: e.target.value })}
-          className="w-full px-2 py-1.5 border border-neutral-300 rounded-lg text-sm"
+          className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
         />
       </div>
       <div className="grid grid-cols-2 gap-3">
@@ -89,7 +89,7 @@ function ProfileSection({ profile, updateProfile }: {
             type="number"
             value={form.compFloor}
             onChange={(e) => setForm({ ...form, compFloor: parseInt(e.target.value) || 0 })}
-            className="w-full px-2 py-1.5 border border-neutral-300 rounded-lg text-sm"
+            className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
           />
         </div>
         <div>
@@ -98,7 +98,7 @@ function ProfileSection({ profile, updateProfile }: {
             type="number"
             value={form.compTarget}
             onChange={(e) => setForm({ ...form, compTarget: parseInt(e.target.value) || 0 })}
-            className="w-full px-2 py-1.5 border border-neutral-300 rounded-lg text-sm"
+            className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
           />
         </div>
       </div>
@@ -107,7 +107,7 @@ function ProfileSection({ profile, updateProfile }: {
         <input
           value={form.locationPreference}
           onChange={(e) => setForm({ ...form, locationPreference: e.target.value })}
-          className="w-full px-2 py-1.5 border border-neutral-300 rounded-lg text-sm"
+          className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
         />
       </div>
       <div>
@@ -116,7 +116,7 @@ function ProfileSection({ profile, updateProfile }: {
           value={form.targetRoles}
           onChange={(e) => setForm({ ...form, targetRoles: e.target.value })}
           rows={4}
-          className="w-full px-2 py-1.5 border border-neutral-300 rounded-lg text-sm resize-y"
+          className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm resize-y focus:outline-none focus:ring-2 focus:ring-brand-500"
         />
       </div>
       <div>
@@ -125,7 +125,7 @@ function ProfileSection({ profile, updateProfile }: {
           value={form.requiredBenefits}
           onChange={(e) => setForm({ ...form, requiredBenefits: e.target.value })}
           rows={2}
-          className="w-full px-2 py-1.5 border border-neutral-300 rounded-lg text-sm resize-y"
+          className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm resize-y focus:outline-none focus:ring-2 focus:ring-brand-500"
         />
       </div>
       <div>
@@ -134,7 +134,7 @@ function ProfileSection({ profile, updateProfile }: {
           value={form.preferredBenefits}
           onChange={(e) => setForm({ ...form, preferredBenefits: e.target.value })}
           rows={2}
-          className="w-full px-2 py-1.5 border border-neutral-300 rounded-lg text-sm resize-y"
+          className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm resize-y focus:outline-none focus:ring-2 focus:ring-brand-500"
         />
       </div>
       <div>
@@ -143,12 +143,12 @@ function ProfileSection({ profile, updateProfile }: {
           value={form.disqualifiers}
           onChange={(e) => setForm({ ...form, disqualifiers: e.target.value })}
           rows={2}
-          className="w-full px-2 py-1.5 border border-neutral-300 rounded-lg text-sm resize-y"
+          className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm resize-y focus:outline-none focus:ring-2 focus:ring-brand-500"
         />
       </div>
       <button
         onClick={handleSave}
-        className="w-full bg-brand-600 text-white py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-1"
+        className="w-full bg-brand-600 text-white py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-1.5 hover:bg-brand-700"
       >
         <Save size={14} /> {saved ? 'Saved!' : 'Save Profile'}
       </button>
@@ -180,11 +180,11 @@ function ClaimsSection({ claims, addClaim }: {
   return (
     <div className="space-y-4">
       {/* Import */}
-      <div className="bg-white rounded-xl border border-neutral-200 p-4">
-        <h3 className="text-sm font-semibold text-neutral-900 mb-2 flex items-center gap-2">
+      <div className="bg-white rounded-lg border border-neutral-200 p-5 shadow-sm">
+        <h3 className="text-h3 text-neutral-900 mb-2 flex items-center gap-2">
           <FileText size={14} /> Import from Resume / LinkedIn
         </h3>
-        <p className="text-xs text-neutral-500 mb-2">
+        <p className="text-xs text-neutral-500 mb-3">
           Paste your resume or LinkedIn experience text. Claims will be extracted and stored in the ledger.
         </p>
         <textarea
@@ -192,12 +192,12 @@ function ClaimsSection({ claims, addClaim }: {
           onChange={(e) => setResumeText(e.target.value)}
           placeholder="Paste resume or LinkedIn experience text here..."
           rows={8}
-          className="w-full px-2 py-1.5 border border-neutral-300 rounded-lg text-sm resize-y mb-2"
+          className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm resize-y mb-3 focus:outline-none focus:ring-2 focus:ring-brand-500"
         />
         <button
           onClick={parseResume}
           disabled={!resumeText.trim() || parsing}
-          className="w-full bg-brand-600 text-white py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+          className="w-full bg-brand-600 text-white py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:bg-brand-700"
         >
           {parsing ? 'Parsing...' : 'Parse & Import Claims'}
         </button>
@@ -205,12 +205,12 @@ function ClaimsSection({ claims, addClaim }: {
 
       {/* Claims list */}
       <div>
-        <h3 className="text-sm font-semibold text-neutral-900 mb-2">Claims ({claims.length})</h3>
+        <h3 className="text-h3 text-neutral-900 mb-2">Claims ({claims.length})</h3>
         {claims.length === 0 && (
           <p className="text-xs text-neutral-400 text-center py-4">No claims in ledger. Import from resume above.</p>
         )}
         {claims.map((claim) => (
-          <div key={claim.id} className="bg-white rounded-xl border border-neutral-200 p-3 mb-2">
+          <div key={claim.id} className="bg-white rounded-lg border border-neutral-200 p-3 mb-2 shadow-sm">
             <div className="flex items-start justify-between mb-1">
               <div>
                 <p className="text-sm font-medium text-neutral-900">{claim.role}</p>
@@ -225,18 +225,18 @@ function ClaimsSection({ claims, addClaim }: {
               </ul>
             )}
             {claim.outcomes.length > 0 && (
-              <div className="mt-1">
+              <div className="mt-1.5 flex flex-wrap gap-1">
                 {claim.outcomes.map((o, i) => (
-                  <span key={i} className={`text-[10px] mr-1 px-1.5 py-0.5 rounded ${o.verified ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>
+                  <span key={i} className={`text-[11px] px-1.5 py-0.5 rounded-md ${o.verified ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>
                     {o.description}
                   </span>
                 ))}
               </div>
             )}
             {claim.tools.length > 0 && (
-              <div className="flex flex-wrap gap-1 mt-1">
+              <div className="flex flex-wrap gap-1 mt-1.5">
                 {claim.tools.map((tool, i) => (
-                  <span key={i} className="text-[10px] bg-neutral-100 text-neutral-600 px-1.5 py-0.5 rounded">{tool}</span>
+                  <span key={i} className="text-[11px] bg-neutral-100 text-neutral-600 px-1.5 py-0.5 rounded-md">{tool}</span>
                 ))}
               </div>
             )}
@@ -289,24 +289,24 @@ function DataSection({ refreshData }: { refreshData: () => Promise<void> }) {
 
   return (
     <div className="space-y-4">
-      <div className="bg-white rounded-xl border border-neutral-200 p-4">
-        <h3 className="text-sm font-semibold text-neutral-900 mb-2">Export Data</h3>
+      <div className="bg-white rounded-lg border border-neutral-200 p-5 shadow-sm">
+        <h3 className="text-h3 text-neutral-900 mb-2">Export Data</h3>
         <p className="text-xs text-neutral-500 mb-3">Download all your data as a JSON file.</p>
         <button
           onClick={handleExport}
-          className="w-full bg-neutral-900 text-white py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2"
+          className="w-full bg-neutral-900 text-white py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-neutral-800"
         >
           <Download size={14} /> Export All Data
         </button>
       </div>
 
-      <div className="bg-white rounded-xl border border-red-200 p-4">
-        <h3 className="text-sm font-semibold text-red-700 mb-2">Clear All Data</h3>
+      <div className="bg-white rounded-lg border border-red-200 p-5 shadow-sm">
+        <h3 className="text-h3 text-red-700 mb-2">Clear All Data</h3>
         <p className="text-xs text-neutral-500 mb-3">Permanently delete all jobs, contacts, activities, and assets. This cannot be undone.</p>
         {!confirmClear ? (
           <button
             onClick={() => setConfirmClear(true)}
-            className="w-full bg-red-50 text-red-700 border border-red-200 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2"
+            className="w-full bg-red-50 text-red-700 border border-red-200 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-red-100"
           >
             <Trash2 size={14} /> Clear Data
           </button>
@@ -314,10 +314,10 @@ function DataSection({ refreshData }: { refreshData: () => Promise<void> }) {
           <div className="space-y-2">
             <p className="text-xs text-red-600 font-medium">Are you sure? This is permanent.</p>
             <div className="flex gap-2">
-              <button onClick={handleClear} className="flex-1 bg-red-600 text-white py-2 rounded-lg text-sm font-medium">
+              <button onClick={handleClear} className="flex-1 bg-red-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-red-700">
                 Yes, Delete Everything
               </button>
-              <button onClick={() => setConfirmClear(false)} className="flex-1 bg-neutral-100 text-neutral-700 py-2 rounded-lg text-sm font-medium">
+              <button onClick={() => setConfirmClear(false)} className="flex-1 bg-neutral-100 text-neutral-700 py-2 rounded-lg text-sm font-medium hover:bg-neutral-200">
                 Cancel
               </button>
             </div>
@@ -338,7 +338,6 @@ function parseResumeText(text: string): Partial<Claim>[] {
 
   let currentClaim: Partial<Claim> | null = null;
 
-  // Common patterns for role/company headers
   const rolePattern = /^(?:(.+?)\s+(?:at|@|-|,)\s+(.+?))\s*(?:\||,|\(|$)/i;
   const datePattern = /(\w+\s+\d{4})\s*[-–]\s*(\w+\s+\d{4}|Present|Current)/i;
 
@@ -347,7 +346,6 @@ function parseResumeText(text: string): Partial<Claim>[] {
     const roleMatch = line.match(rolePattern);
 
     if (roleMatch || (dateMatch && currentClaim === null)) {
-      // Save previous claim
       if (currentClaim && (currentClaim.role || currentClaim.company)) {
         claims.push(currentClaim);
       }
@@ -369,11 +367,9 @@ function parseResumeText(text: string): Partial<Claim>[] {
       currentClaim.endDate = (end === 'Present' || end === 'Current') ? undefined : end;
     }
 
-    // Bullet points or lines starting with - are responsibilities
     if (currentClaim && (line.startsWith('-') || line.startsWith('*') || line.startsWith('\u2022'))) {
       const text = line.replace(/^[-*\u2022]\s*/, '').trim();
       if (text) {
-        // Check if it has a numeric metric
         const hasMetric = /\d+[%xX$]|\$\d|increased|grew|reduced|improved|generated|drove/i.test(text);
         if (hasMetric) {
           const outcome: ClaimOutcome = {
@@ -389,7 +385,6 @@ function parseResumeText(text: string): Partial<Claim>[] {
     }
   }
 
-  // Save last claim
   if (currentClaim && (currentClaim.role || currentClaim.company)) {
     claims.push(currentClaim);
   }

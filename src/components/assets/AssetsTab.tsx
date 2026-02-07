@@ -78,7 +78,7 @@ function CopyButton({ text }: { text: string }) {
   return (
     <button
       onClick={(e) => { e.stopPropagation(); handleCopy(); }}
-      className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium transition-colors ${
+      className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium transition-colors ${
         copied
           ? 'bg-green-50 text-green-700'
           : 'bg-neutral-50 text-neutral-500 hover:bg-neutral-100'
@@ -185,7 +185,7 @@ export function AssetsTab({ job }: AssetsTabProps) {
     const colorClass = ASSET_TYPE_COLORS[selectedAsset.type] || 'bg-neutral-50 text-neutral-700';
 
     return (
-      <div className="px-4 py-4 space-y-4">
+      <div className="py-4 space-y-4">
         <div className="flex items-center gap-3">
           <button
             onClick={() => { setSelectedAsset(null); setIsEditing(false); }}
@@ -194,17 +194,17 @@ export function AssetsTab({ job }: AssetsTabProps) {
             <ArrowLeft size={18} />
           </button>
           <div className="flex items-center gap-2 flex-1 min-w-0">
-            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${colorClass}`}>
+            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-md border shrink-0 ${colorClass}`}>
               <Icon size={10} className="inline mr-1" />
               {selectedAsset.type}
             </span>
-            <span className="text-[10px] text-neutral-400">v{selectedAsset.version}</span>
+            <span className="text-[11px] text-neutral-400">v{selectedAsset.version}</span>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <CopyButton text={selectedAsset.content} />
             <button
               onClick={() => handleToggleApproved(selectedAsset)}
-              className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium ${
+              className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium ${
                 selectedAsset.approved
                   ? 'bg-green-50 text-green-700 border border-green-200'
                   : 'bg-neutral-50 text-neutral-500 border border-neutral-200 hover:bg-neutral-100'
@@ -222,25 +222,25 @@ export function AssetsTab({ job }: AssetsTabProps) {
               value={editingContent}
               onChange={(e) => setEditingContent(e.target.value)}
               rows={20}
-              className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-sm text-neutral-900 font-mono leading-relaxed focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 resize-none"
+              className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm text-neutral-900 font-mono leading-relaxed focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 resize-none"
             />
             <div className="flex gap-3">
               <button
                 onClick={() => setIsEditing(false)}
-                className="flex-1 px-4 py-2.5 border border-neutral-200 rounded-xl text-sm font-medium text-neutral-600 hover:bg-neutral-50"
+                className="flex-1 px-4 py-2.5 border border-neutral-200 rounded-lg text-sm font-medium text-neutral-600 hover:bg-neutral-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveEdit}
-                className="flex-1 px-4 py-2.5 bg-brand-600 text-white rounded-xl text-sm font-medium hover:bg-brand-700"
+                className="flex-1 px-4 py-2.5 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700"
               >
                 Save Changes
               </button>
             </div>
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-neutral-200 p-4 shadow-sm">
+          <div className="bg-white rounded-lg border border-neutral-200 p-4 shadow-sm">
             <pre className="text-sm text-neutral-700 whitespace-pre-wrap leading-relaxed font-sans">
               {selectedAsset.content}
             </pre>
@@ -250,14 +250,14 @@ export function AssetsTab({ job }: AssetsTabProps) {
         {!isEditing && (
           <button
             onClick={() => handleStartEdit(selectedAsset)}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-neutral-200 rounded-xl text-sm font-medium text-neutral-600 hover:bg-neutral-50 shadow-sm"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-neutral-200 rounded-lg text-sm font-medium text-neutral-600 hover:bg-neutral-50 shadow-sm"
           >
             <Pencil size={14} />
             Edit Content
           </button>
         )}
 
-        <div className="flex items-center justify-between text-[10px] text-neutral-400 px-1">
+        <div className="flex items-center justify-between text-[11px] text-neutral-400 px-1">
           <span>{selectedAsset.modelUsed} | {selectedAsset.modelTier}</span>
           <span>{new Date(selectedAsset.createdAt).toLocaleDateString()}</span>
         </div>
@@ -267,13 +267,13 @@ export function AssetsTab({ job }: AssetsTabProps) {
 
   // Asset list view
   return (
-    <div className="px-4 py-4 space-y-4">
+    <div className="py-4 space-y-4">
       {/* Generate Button */}
       <div className="relative">
         <button
           onClick={() => setShowGenMenu(!showGenMenu)}
           disabled={generating !== null}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-brand-600 text-white rounded-xl text-sm font-medium hover:bg-brand-700 disabled:opacity-50 shadow-sm"
+          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 disabled:opacity-50 shadow-sm"
         >
           {generating ? (
             <>
@@ -290,7 +290,7 @@ export function AssetsTab({ job }: AssetsTabProps) {
         </button>
 
         {showGenMenu && (
-          <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl border border-neutral-200 shadow-lg z-10 overflow-hidden">
+          <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg border border-neutral-200 shadow-lg z-10 overflow-hidden">
             {GENERATE_OPTIONS.map((opt) => {
               const Icon = opt.icon;
               return (
@@ -305,7 +305,7 @@ export function AssetsTab({ job }: AssetsTabProps) {
               );
             })}
             {claims.length === 0 && (
-              <p className="text-[10px] text-amber-600 px-4 py-2 border-t border-neutral-100">
+              <p className="text-[11px] text-amber-600 px-4 py-2 border-t border-neutral-100">
                 Add claims in Settings for personalized assets
               </p>
             )}
@@ -315,8 +315,8 @@ export function AssetsTab({ job }: AssetsTabProps) {
 
       {/* Existing Assets */}
       {jobAssets.length === 0 ? (
-        <div className="bg-white rounded-xl border border-neutral-200 p-8 shadow-sm text-center">
-          <div className="w-12 h-12 bg-neutral-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+        <div className="bg-white rounded-lg border border-neutral-200 p-8 shadow-sm text-center">
+          <div className="w-12 h-12 bg-neutral-100 rounded-lg flex items-center justify-center mx-auto mb-3">
             <FileText size={20} className="text-neutral-400" />
           </div>
           <p className="text-sm text-neutral-500 mb-1">No assets generated yet</p>
@@ -334,16 +334,16 @@ export function AssetsTab({ job }: AssetsTabProps) {
               <button
                 key={asset.id}
                 onClick={() => setSelectedAsset(asset)}
-                className="w-full text-left bg-white rounded-xl border border-neutral-200 p-4 shadow-sm hover:shadow-md hover:border-neutral-300 active:scale-[0.99] transition-all"
+                className="w-full text-left bg-white rounded-lg border border-neutral-200 p-4 shadow-sm hover:shadow-md hover:border-neutral-300 transition-all"
               >
                 <div className="flex items-center gap-2 mb-2">
-                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${colorClass}`}>
+                  <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-md border ${colorClass}`}>
                     <Icon size={10} className="inline mr-1" />
                     {asset.type}
                   </span>
-                  <span className="text-[10px] text-neutral-400">v{asset.version}</span>
+                  <span className="text-[11px] text-neutral-400">v{asset.version}</span>
                   {asset.approved && (
-                    <span className="text-[10px] font-semibold text-green-700 bg-green-50 px-2 py-0.5 rounded-full border border-green-200 flex items-center gap-0.5">
+                    <span className="text-[11px] font-semibold text-green-700 bg-green-50 px-2 py-0.5 rounded-md border border-green-200 flex items-center gap-0.5">
                       <CheckCircle2 size={10} />
                       Approved
                     </span>
@@ -355,7 +355,7 @@ export function AssetsTab({ job }: AssetsTabProps) {
                 <p className="text-xs text-neutral-600 line-clamp-3 leading-relaxed">
                   {asset.content.slice(0, 200)}{asset.content.length > 200 ? '...' : ''}
                 </p>
-                <p className="text-[10px] text-neutral-400 mt-2">
+                <p className="text-[11px] text-neutral-400 mt-2">
                   {new Date(asset.createdAt).toLocaleDateString()}
                 </p>
               </button>

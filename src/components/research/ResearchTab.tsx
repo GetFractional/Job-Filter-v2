@@ -111,7 +111,7 @@ export function ResearchTab({ job }: ResearchTabProps) {
   if (hasBrief && !showWorkflow) {
     const brief = job.researchBrief!;
     return (
-      <div className="px-4 py-4 space-y-4">
+      <div className="py-4 space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-neutral-900 flex items-center gap-1.5">
             <Sparkles size={16} className="text-brand-500" />
@@ -131,7 +131,7 @@ export function ResearchTab({ job }: ResearchTabProps) {
           if (!content || typeof content !== 'string') return null;
 
           return (
-            <div key={key} className="bg-white rounded-xl border border-neutral-200 p-4 shadow-sm">
+            <div key={key} className="bg-white rounded-lg border border-neutral-200 p-4 shadow-sm">
               <h4 className="text-xs font-bold text-neutral-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                 <Icon size={14} className="text-neutral-400" />
                 {label}
@@ -143,7 +143,7 @@ export function ResearchTab({ job }: ResearchTabProps) {
 
         {/* Interview Hypotheses */}
         {brief.interviewHypotheses && brief.interviewHypotheses.length > 0 && (
-          <div className="bg-white rounded-xl border border-brand-200 p-4 shadow-sm">
+          <div className="bg-white rounded-lg border border-brand-200 p-4 shadow-sm">
             <h4 className="text-xs font-bold text-brand-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
               <Lightbulb size={14} className="text-brand-500" />
               Interview Hypotheses
@@ -151,7 +151,7 @@ export function ResearchTab({ job }: ResearchTabProps) {
             <ul className="space-y-2">
               {brief.interviewHypotheses.map((h, i) => (
                 <li key={i} className="text-sm text-neutral-700 flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-brand-50 text-brand-600 flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">
+                  <span className="w-5 h-5 rounded-full bg-brand-50 text-brand-600 flex items-center justify-center text-[11px] font-bold shrink-0 mt-0.5">
                     {i + 1}
                   </span>
                   {h}
@@ -161,7 +161,7 @@ export function ResearchTab({ job }: ResearchTabProps) {
           </div>
         )}
 
-        <p className="text-[10px] text-neutral-400 text-center">
+        <p className="text-[11px] text-neutral-400 text-center">
           Research generated on {new Date(brief.createdAt).toLocaleDateString()}
         </p>
       </div>
@@ -170,11 +170,11 @@ export function ResearchTab({ job }: ResearchTabProps) {
 
   // Research workflow
   return (
-    <div className="px-4 py-4 space-y-4">
+    <div className="py-4 space-y-4">
       {!prompts ? (
         /* Initial state: generate prompts */
-        <div className="bg-white rounded-xl border border-neutral-200 p-6 shadow-sm text-center">
-          <div className="w-14 h-14 bg-brand-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+        <div className="bg-white rounded-lg border border-neutral-200 p-6 shadow-sm text-center">
+          <div className="w-14 h-14 bg-brand-50 rounded-lg flex items-center justify-center mx-auto mb-4">
             <Rocket size={24} className="text-brand-600" />
           </div>
           <h3 className="text-base font-semibold text-neutral-900 mb-1">Run Company Research</h3>
@@ -183,7 +183,7 @@ export function ResearchTab({ job }: ResearchTabProps) {
           </p>
           <button
             onClick={handleGeneratePrompts}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-600 text-white rounded-xl text-sm font-medium hover:bg-brand-700 active:bg-brand-800 shadow-sm"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 active:bg-brand-800 shadow-sm"
           >
             <Sparkles size={16} />
             Generate Prompt Pack
@@ -210,7 +210,7 @@ export function ResearchTab({ job }: ResearchTabProps) {
           {/* Prompt Cards */}
           <div className="space-y-3">
             {prompts.map((prompt) => (
-              <div key={prompt.id} className="bg-white rounded-xl border border-neutral-200 p-4 shadow-sm">
+              <div key={prompt.id} className="bg-white rounded-lg border border-neutral-200 p-4 shadow-sm">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-xs font-semibold text-neutral-800">{prompt.label}</h4>
                   <CopyButton text={prompt.prompt} />
@@ -223,7 +223,7 @@ export function ResearchTab({ job }: ResearchTabProps) {
           </div>
 
           {/* Paste Results */}
-          <div className="bg-white rounded-xl border border-neutral-200 p-4 shadow-sm">
+          <div className="bg-white rounded-lg border border-neutral-200 p-4 shadow-sm">
             <h4 className="text-xs font-semibold text-neutral-800 mb-2 flex items-center gap-1.5">
               <ClipboardPaste size={14} className="text-neutral-400" />
               Paste Research Results
@@ -233,12 +233,12 @@ export function ResearchTab({ job }: ResearchTabProps) {
               onChange={(e) => setPasteContent(e.target.value)}
               placeholder="Paste all Perplexity research results here..."
               rows={10}
-              className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 resize-none"
+              className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 resize-none"
             />
             <button
               onClick={handleParseResults}
               disabled={!pasteContent.trim() || parsing}
-              className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-brand-600 text-white rounded-xl text-sm font-medium hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {parsing ? (
                 <>

@@ -37,7 +37,7 @@ function JobCard({ job, onClick }: { job: Job; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className="w-full text-left bg-white rounded-xl border border-neutral-200 p-4 shadow-sm hover:shadow-md hover:border-neutral-300 active:scale-[0.99] transition-all"
+      className="w-full text-left bg-white rounded-lg border border-neutral-200 p-3 shadow-sm hover:shadow-md hover:border-neutral-300 transition-shadow"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
@@ -46,23 +46,23 @@ function JobCard({ job, onClick }: { job: Job; onClick: () => void }) {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {job.fitLabel && (
-            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${FIT_LABEL_STYLES[job.fitLabel]}`}>
+            <span className={`text-[11px] font-medium px-2 py-0.5 rounded-md ${FIT_LABEL_STYLES[job.fitLabel]}`}>
               {job.fitLabel}
             </span>
           )}
           <ChevronRight size={16} className="text-neutral-300" />
         </div>
       </div>
-      <div className="flex items-center gap-3 mt-2.5">
-        <span className="text-[10px] font-medium text-neutral-500 bg-neutral-100 px-2 py-0.5 rounded-md">
+      <div className="flex items-center gap-3 mt-2">
+        <span className="text-[11px] font-medium text-neutral-500 bg-neutral-100 px-2 py-0.5 rounded-md">
           {job.stage}
         </span>
         {job.fitScore !== undefined && (
-          <span className="text-[10px] font-medium text-neutral-400">
+          <span className="text-[11px] font-medium text-neutral-400">
             Score: {job.fitScore}
           </span>
         )}
-        <span className="text-[10px] text-neutral-400 flex items-center gap-0.5 ml-auto">
+        <span className="text-[11px] text-neutral-400 flex items-center gap-0.5 ml-auto">
           <Clock size={10} />
           {formatTimeAgo(job.updatedAt)}
         </span>
@@ -92,20 +92,19 @@ export function PipelinePage() {
     return map;
   }, [jobs]);
 
-  // Empty state
   if (jobs.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center px-6 py-20 text-center">
-        <div className="w-16 h-16 bg-brand-50 rounded-2xl flex items-center justify-center mb-4">
-          <Briefcase size={28} className="text-brand-600" />
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <div className="w-14 h-14 bg-brand-50 rounded-lg flex items-center justify-center mb-4">
+          <Briefcase size={24} className="text-brand-600" />
         </div>
-        <h2 className="text-lg font-semibold text-neutral-900 mb-1">No jobs yet</h2>
+        <h2 className="text-h2 text-neutral-900 mb-1">No jobs yet</h2>
         <p className="text-sm text-neutral-500 mb-6 max-w-xs">
           Start building your pipeline by capturing your first job opportunity.
         </p>
         <button
           onClick={() => window.dispatchEvent(new CustomEvent('open-capture-modal'))}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-600 text-white rounded-xl text-sm font-medium hover:bg-brand-700 active:bg-brand-800 shadow-sm"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 shadow-sm"
         >
           <Plus size={16} />
           Add Your First Job
@@ -115,29 +114,41 @@ export function PipelinePage() {
   }
 
   return (
-    <div className="px-4 py-4 space-y-6">
+    <div className="space-y-6">
+      {/* Page Header */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-h1 text-neutral-900">Pipeline</h1>
+        <button
+          onClick={() => window.dispatchEvent(new CustomEvent('open-capture-modal'))}
+          className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700"
+        >
+          <Plus size={14} />
+          Add Job
+        </button>
+      </div>
+
       {/* Summary Stats */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="bg-white rounded-xl border border-neutral-200 p-3 shadow-sm text-center">
+        <div className="bg-white rounded-lg border border-neutral-200 p-3 shadow-sm text-center">
           <div className="flex items-center justify-center gap-1.5 mb-1">
             <Briefcase size={14} className="text-neutral-400" />
           </div>
           <p className="text-xl font-bold text-neutral-900">{stats.total}</p>
-          <p className="text-[10px] text-neutral-500 font-medium">Total Jobs</p>
+          <p className="text-[11px] text-neutral-500 font-medium">Total Jobs</p>
         </div>
-        <div className="bg-white rounded-xl border border-neutral-200 p-3 shadow-sm text-center">
+        <div className="bg-white rounded-lg border border-neutral-200 p-3 shadow-sm text-center">
           <div className="flex items-center justify-center gap-1.5 mb-1">
             <TrendingUp size={14} className="text-green-500" />
           </div>
           <p className="text-xl font-bold text-green-700">{stats.pursueCount}</p>
-          <p className="text-[10px] text-neutral-500 font-medium">Pursue</p>
+          <p className="text-[11px] text-neutral-500 font-medium">Pursue</p>
         </div>
-        <div className="bg-white rounded-xl border border-neutral-200 p-3 shadow-sm text-center">
+        <div className="bg-white rounded-lg border border-neutral-200 p-3 shadow-sm text-center">
           <div className="flex items-center justify-center gap-1.5 mb-1">
             <Send size={14} className="text-brand-500" />
           </div>
           <p className="text-xl font-bold text-brand-700">{stats.activeOutreach}</p>
-          <p className="text-[10px] text-neutral-500 font-medium">Active Outreach</p>
+          <p className="text-[11px] text-neutral-500 font-medium">Active Outreach</p>
         </div>
       </div>
 
@@ -150,7 +161,7 @@ export function PipelinePage() {
           <section key={category}>
             <div className="flex items-center gap-2 mb-3">
               <h3 className="text-xs font-bold text-neutral-500 uppercase tracking-wider">{category}</h3>
-              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${CATEGORY_COLORS[category]}`}>
+              <span className={`text-[11px] font-medium px-2 py-0.5 rounded-md border ${CATEGORY_COLORS[category]}`}>
                 {categoryJobs.length}
               </span>
             </div>
@@ -164,7 +175,7 @@ export function PipelinePage() {
                   <div className="flex items-center gap-2 mb-2 ml-1">
                     <div className="w-1.5 h-1.5 rounded-full bg-neutral-300" />
                     <span className="text-xs font-medium text-neutral-600">{stage}</span>
-                    <span className="text-[10px] text-neutral-400">{stageJobs.length}</span>
+                    <span className="text-[11px] text-neutral-400">{stageJobs.length}</span>
                   </div>
                   <div className="space-y-2 pl-1">
                     {stageJobs.map((job) => (
