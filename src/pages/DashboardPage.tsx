@@ -12,6 +12,9 @@ import {
   Clock,
   ArrowRight,
   Layers,
+  Search,
+  ChevronRight,
+  Lightbulb,
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { computeFunnelMetrics, computeBottleneckMetrics } from '../lib/metrics';
@@ -87,8 +90,113 @@ export function DashboardPage() {
   );
 }
 
+interface Recommendation {
+  id: string;
+  icon: React.ReactNode;
+  text: string;
+  linkTo?: string;
+  priority: 'high' | 'medium' | 'low';
+}
+
 function ExecutiveTab({ funnel }: { funnel: FunnelMetrics }) {
+  const jobs = useStore((s) => s.jobs);
+  const activities = useStore((s) => s.activities);
+  const navigate = useNavigate();
   const weekDelta = funnel.capturedThisWeek - funnel.capturedLastWeek;
+
+  const recommendations = useMemo(() => {
+    const recs: Recommendation[] = [];
+    const now = Date.now();
+    const oneWeekAgo = now - 7 * 24 * 60 * 60 * 1000;
+    const fiveDaysAgo = now - 5 * 24 * 60 * 60 * 1000;
+    const terminalStages = new Set(['Closed Won', 'Closed Lost']);
+
+    // 1. Captured but unscored jobs
+    const unscoredJobs = jobs.filter(
+      (j) => (j.stage === 'Captured' && j.fitScore === undefined) ||
+             (j.stage === 'Discovered')
+    );
+    if (unscoredJobs.length > 0) {
+      recs.push({
+        id: 'unscored',
+        icon: <Target size={14} className="text-green-500" />,
+        text: `${unscoredJobs.length} job${unscoredJobs.length !== 1 ? 's' : ''} captured but unscored \u2014 score them`,
+        linkTo: `/job/${unscoredJobs[0].id}`,
+        priority: 'high',
+      });
+    }
+
+    // 2. Jobs in Scored stage needing research
+    const scoredNeedingResearch = jobs.filter((j) => j.stage === 'Scored');
+    if (scoredNeedingResearch.length > 0) {
+      recs.push({
+        id: 'needs-research',
+        icon: <Search size={14} className="text-brand-500" />,
+        text: `${scoredNeedingResearch.length} job${scoredNeedingResearch.length !== 1 ? 's' : ''} in Scored stage need${scoredNeedingResearch.length === 1 ? 's' : ''} research`,
+        linkTo: `/job/${scoredNeedingResearch[0].id}`,
+        priority: 'medium',
+      });
+    }
+
+    // 3. Stalled jobs (5+ days without update, not in terminal stages)
+    const stalledJobs = jobs.filter(
+      (j) => !terminalStages.has(j.stage) &&
+             new Date(j.updatedAt).getTime() < fiveDaysAgo
+    );
+    if (stalledJobs.length > 0) {
+      recs.push({
+        id: 'stalled',
+        icon: <Clock size={14} className="text-amber-500" />,
+        text: `${stalledJobs.length} job${stalledJobs.length !== 1 ? 's' : ''} ha${stalledJobs.length !== 1 ? 've' : 's'} stalled for 5+ days`,
+        linkTo: `/job/${stalledJobs[0].id}`,
+        priority: 'high',
+      });
+    }
+
+    // 4. No outreach sent this week
+    const outreachThisWeek = activities.filter(
+      (a) => a.direction === 'Outbound' &&
+             new Date(a.createdAt).getTime() > oneWeekAgo
+    );
+    if (outreachThisWeek.length === 0 && jobs.length > 0) {
+      // Link to the first job in Assets Ready or Researched stage, or any active job
+      const outreachCandidate = jobs.find(
+        (j) => j.stage === 'Assets Ready' || j.stage === 'Researched'
+      ) || jobs.find((j) => !terminalStages.has(j.stage));
+      recs.push({
+        id: 'no-outreach',
+        icon: <Send size={14} className="text-blue-500" />,
+        text: 'No outreach sent this week \u2014 consider sending',
+        linkTo: outreachCandidate ? `/job/${outreachCandidate.id}` : undefined,
+        priority: 'medium',
+      });
+    }
+
+    // 5. Response received from a company (recent reply activity)
+    const recentResponses = activities.filter(
+      (a) => a.outcome === 'Reply Received' &&
+             a.jobId &&
+             new Date(a.createdAt).getTime() > oneWeekAgo
+    );
+    if (recentResponses.length > 0) {
+      const responseJob = jobs.find((j) => j.id === recentResponses[0].jobId);
+      if (responseJob) {
+        recs.push({
+          id: 'response-received',
+          icon: <MessageSquare size={14} className="text-violet-500" />,
+          text: `Response received from ${responseJob.company} \u2014 schedule screen`,
+          linkTo: `/job/${responseJob.id}`,
+          priority: 'high',
+        });
+      }
+    }
+
+    // Sort by priority then return up to 5
+    const priorityOrder: Record<string, number> = { high: 0, medium: 1, low: 2 };
+    return recs
+      .sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority])
+      .slice(0, 5);
+  }, [jobs, activities]);
 
   return (
     <div className="space-y-4">
@@ -122,6 +230,40 @@ function ExecutiveTab({ funnel }: { funnel: FunnelMetrics }) {
         value={funnel.totalCaptured}
         icon={<Layers size={14} className="text-amber-500" />}
       />
+
+      {/* Actionable Recommendations */}
+      {recommendations.length > 0 && (
+        <div className="bg-white rounded-lg border border-neutral-200 p-4 shadow-sm">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-6 h-6 rounded-full bg-brand-50 flex items-center justify-center">
+              <Lightbulb size={12} className="text-brand-600" />
+            </div>
+            <h3 className="text-xs font-bold text-neutral-500 uppercase tracking-wider">
+              Actionable Recommendations
+            </h3>
+          </div>
+          <div className="space-y-1.5">
+            {recommendations.map((rec) => (
+              <button
+                key={rec.id}
+                onClick={() => rec.linkTo && navigate(rec.linkTo)}
+                disabled={!rec.linkTo}
+                className={`w-full text-left flex items-center gap-3 rounded-lg border px-3 py-2.5 transition-colors ${
+                  rec.priority === 'high'
+                    ? 'border-brand-100 bg-brand-50/40 hover:bg-brand-50'
+                    : 'border-neutral-100 bg-neutral-50/40 hover:bg-neutral-50'
+                } ${rec.linkTo ? 'cursor-pointer' : 'cursor-default'}`}
+              >
+                <div className="shrink-0">{rec.icon}</div>
+                <span className="text-sm text-neutral-700 flex-1">{rec.text}</span>
+                {rec.linkTo && (
+                  <ChevronRight size={14} className="text-neutral-400 shrink-0" />
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Captured Trend */}
       <div className="bg-white rounded-lg border border-neutral-200 p-4 shadow-sm">

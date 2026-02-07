@@ -1,80 +1,76 @@
 @import "tailwindcss";
 
 /* ============================================================
-   Job Filter v2 — Design System Tokens
-   Desktop-first. Dense, calm, professional.
-   Ref: Linear, Notion, Raycast aesthetic.
+   Job Filter v2 — Design System: "Calm Authority"
+   Slate neutrals + Indigo accent. Dense, breathable, premium.
+   Desktop-first. WCAG AA contrast throughout.
    ============================================================ */
 
 @theme {
-  /* Brand palette (blue) */
-  --color-brand-50: #EFF6FF;
-  --color-brand-100: #DBEAFE;
-  --color-brand-200: #BFDBFE;
-  --color-brand-300: #93C5FD;
-  --color-brand-400: #60A5FA;
-  --color-brand-500: #3B82F6;
-  --color-brand-600: #2563EB;
-  --color-brand-700: #1D4ED8;
-  --color-brand-800: #1E40AF;
-  --color-brand-900: #1E3A8A;
+  /* ---- Indigo accent (primary interactive color) ---- */
+  --color-brand-50: #EEF2FF;
+  --color-brand-100: #E0E7FF;
+  --color-brand-200: #C7D2FE;
+  --color-brand-300: #A5B4FC;
+  --color-brand-400: #818CF8;
+  --color-brand-500: #6366F1;
+  --color-brand-600: #4F46E5;
+  --color-brand-700: #4338CA;
+  --color-brand-800: #3730A3;
+  --color-brand-900: #312E81;
 
-  /* Neutral palette (gray) */
-  --color-neutral-50: #F9FAFB;
-  --color-neutral-100: #F3F4F6;
-  --color-neutral-200: #E5E7EB;
-  --color-neutral-300: #D1D5DB;
-  --color-neutral-400: #9CA3AF;
-  --color-neutral-500: #6B7280;
-  --color-neutral-600: #4B5563;
-  --color-neutral-700: #374151;
-  --color-neutral-800: #1F2937;
-  --color-neutral-900: #111827;
+  /* ---- Slate neutrals (cool-toned gray) ---- */
+  --color-neutral-50: #F8FAFC;
+  --color-neutral-100: #F1F5F9;
+  --color-neutral-200: #E2E8F0;
+  --color-neutral-300: #CBD5E1;
+  --color-neutral-400: #94A3B8;
+  --color-neutral-500: #64748B;
+  --color-neutral-600: #475569;
+  --color-neutral-700: #334155;
+  --color-neutral-800: #1E293B;
+  --color-neutral-900: #0F172A;
 
-  /* Status colors */
+  /* ---- Semantic status ---- */
   --color-pursue: #059669;
   --color-maybe: #D97706;
   --color-pass: #DC2626;
 
-  /* Typography */
+  /* ---- Typography ---- */
   --font-sans: "Inter Variable", "Inter", system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 }
 
-/* Base styles */
+/* ============================================================
+   Base
+   ============================================================ */
+
 html {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  font-variant-numeric: tabular-nums;
 }
 
 body {
-  background-color: #FAFAFA;
+  background-color: var(--color-neutral-50);
   color: var(--color-neutral-900);
   font-size: 14px;
   line-height: 1.5;
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-}
+/* ============================================================
+   Scrollbar
+   ============================================================ */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-neutral-300); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-neutral-400); }
 
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--color-neutral-300);
-  border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--color-neutral-400);
-}
-
-/* PWA safe areas */
+/* ============================================================
+   PWA Safe Areas
+   ============================================================ */
 .safe-area-inset {
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
@@ -82,59 +78,132 @@ body {
   padding-right: env(safe-area-inset-right);
 }
 
-/* Typography utility classes */
-.text-h1 {
-  font-size: 24px;
+/* ============================================================
+   Typography Scale
+   ============================================================ */
+
+.text-display { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; }
+.text-h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.25; }
+.text-h2 { font-size: 18px; font-weight: 600; letter-spacing: -0.015em; line-height: 1.3; }
+.text-h3 { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.4; }
+.text-body { font-size: 14px; font-weight: 400; line-height: 1.5; }
+.text-body-medium { font-size: 14px; font-weight: 500; line-height: 1.5; }
+.text-caption { font-size: 12px; font-weight: 400; line-height: 1.4; letter-spacing: 0.01em; }
+.text-small { font-size: 12px; font-weight: 400; line-height: 1.4; }
+.text-micro { font-size: 11px; font-weight: 500; line-height: 1.3; }
+.text-overline { font-size: 11px; font-weight: 600; line-height: 1.2; letter-spacing: 0.06em; text-transform: uppercase; }
+
+/* ============================================================
+   Reusable Component Classes
+   ============================================================ */
+
+.card {
+  background: white;
+  border: 1px solid var(--color-neutral-200);
+  border-radius: 10px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.section-header {
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: -0.025em;
-  line-height: 1.2;
+  color: var(--color-neutral-500);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
-.text-h2 {
-  font-size: 18px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.3;
-}
-
-.text-h3 {
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  line-height: 1.4;
-}
-
-.text-body {
-  font-size: 14px;
-  font-weight: 400;
-  line-height: 1.5;
-}
-
-.text-small {
+.template-mode-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--color-neutral-100);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: 8px;
   font-size: 12px;
-  font-weight: 400;
-  line-height: 1.4;
+  font-weight: 500;
+  color: var(--color-neutral-600);
 }
 
-.text-micro {
+/* ============================================================
+   Interactive Elements
+   ============================================================ */
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background-color: var(--color-brand-600);
+  color: white;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+.btn-primary:hover { background-color: var(--color-brand-700); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  background: transparent;
+  color: var(--color-neutral-600);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+.btn-ghost:hover { background-color: var(--color-neutral-100); }
+
+.input {
+  width: 100%;
+  padding: 8px 12px;
+  background: white;
+  border: 1px solid var(--color-neutral-200);
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-neutral-900);
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+.input:focus {
+  outline: none;
+  border-color: var(--color-brand-400);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+.input::placeholder { color: var(--color-neutral-400); }
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 6px;
   font-size: 11px;
   font-weight: 500;
   line-height: 1.3;
+  white-space: nowrap;
 }
 
-/* Sidebar transition */
+/* ============================================================
+   Transitions & Animations
+   ============================================================ */
+
 .sidebar-transition {
   transition: transform 200ms ease, opacity 200ms ease;
 }
 
-/* Modal animations */
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 
 @keyframes scaleIn {
-  from { transform: scale(0.95); opacity: 0; }
+  from { transform: scale(0.97); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
 }
 
@@ -144,6 +213,6 @@ body {
 }
 
 @keyframes slideUp {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
+  from { transform: translateY(8px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }

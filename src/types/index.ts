@@ -66,7 +66,8 @@ export type AssetType =
   | 'LinkedIn Connect'
   | 'Follow-up Email'
   | 'Interview Prep'
-  | 'Negotiation Script';
+  | 'Negotiation Script'
+  | 'Application Answer';
 
 export type ModelTier = 'tier-0-free' | 'tier-1-low' | 'tier-2-premium';
 
@@ -306,6 +307,28 @@ export interface GenerationLog {
   inputTokens?: number;
   outputTokens?: number;
   createdAt: string;
+}
+
+// ============================================================
+// Application Q&A
+// ============================================================
+
+export interface ApplicationAnswer {
+  id: string;
+  jobId: string;
+  question: string;
+  answer: string;
+  sources: AnswerSource[];
+  approved: boolean;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AnswerSource {
+  type: 'claim' | 'research' | 'profile';
+  label: string;
+  excerpt: string;
 }
 
 // ============================================================

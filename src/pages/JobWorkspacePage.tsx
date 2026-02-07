@@ -6,8 +6,10 @@ import {
   Search,
   FileText,
   Users,
+  MessageSquareText,
   RefreshCw,
   ChevronRight,
+  ChevronLeft,
   AlertTriangle,
   CheckCircle2,
   XCircle,
@@ -20,6 +22,7 @@ import type { FitLabel, PipelineStage, Requirement, RequirementMatch } from '../
 import { ResearchTab } from '../components/research/ResearchTab';
 import { AssetsTab } from '../components/assets/AssetsTab';
 import { CRMTab } from '../components/crm/CRMTab';
+import { QATab } from '../components/qa/QATab';
 
 const FIT_LABEL_STYLES: Record<FitLabel, string> = {
   Pursue: 'text-green-700 bg-green-50 border border-green-200',
@@ -53,6 +56,7 @@ const TABS = [
   { id: 'research' as const, label: 'Research', icon: Search },
   { id: 'assets' as const, label: 'Assets', icon: FileText },
   { id: 'crm' as const, label: 'CRM', icon: Users },
+  { id: 'qa' as const, label: 'Q&A', icon: MessageSquareText },
 ];
 
 function ScoreDial({ score, label }: { score: number; label: FitLabel }) {
@@ -275,32 +279,65 @@ export function JobWorkspacePage() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
+      {/* Header — compact, with action buttons above fold */}
       <div className="bg-white border-b border-neutral-200 px-4 py-3">
-        <div className="flex items-center gap-3 mb-2">
+        <div className="flex items-center gap-3">
           <button
             onClick={() => navigate('/pipeline')}
-            className="p-1 rounded-lg text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100"
+            className="p-1 rounded-lg text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 shrink-0"
           >
-            <ArrowLeft size={20} />
+            <ArrowLeft size={18} />
           </button>
           <div className="min-w-0 flex-1">
-            <h2 className="text-base font-semibold text-neutral-900 truncate">{job.title}</h2>
-            <p className="text-xs text-neutral-500 truncate">{job.company}</p>
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-semibold text-neutral-900 truncate">{job.title}</h2>
+              {job.fitLabel && (
+                <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-md shrink-0 ${FIT_LABEL_STYLES[job.fitLabel]}`}>
+                  {job.fitLabel} {job.fitScore !== undefined && job.fitScore}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2 mt-0.5">
+              <p className="text-xs text-neutral-500 truncate">{job.company}</p>
+              <span className="text-[11px] font-medium text-neutral-500 bg-neutral-100 px-1.5 py-0.5 rounded shrink-0">
+                {job.stage}
+              </span>
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-2 ml-8">
-          {job.fitLabel && (
-            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-md ${FIT_LABEL_STYLES[job.fitLabel]}`}>
-              {job.fitLabel}
-            </span>
-          )}
-          <span className="text-[11px] font-medium text-neutral-600 bg-neutral-100 px-2 py-0.5 rounded-md">
-            {job.stage}
-          </span>
-          {job.fitScore !== undefined && (
-            <span className="text-[11px] text-neutral-400 ml-auto">Score: {job.fitScore}</span>
-          )}
+
+          {/* Action buttons — always visible above fold */}
+          <div className="flex items-center gap-2 shrink-0">
+            {job.jobDescription && (
+              <button
+                onClick={handleRescore}
+                className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium text-neutral-600 bg-neutral-50 border border-neutral-200 rounded-lg hover:bg-neutral-100"
+                title="Re-score this job"
+              >
+                <RefreshCw size={12} />
+                Score
+              </button>
+            )}
+            {prevStage && (
+              <button
+                onClick={handleRevertStage}
+                className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium text-neutral-600 bg-white border border-neutral-200 rounded-lg hover:bg-neutral-50"
+                title={`Move back to ${prevStage}`}
+              >
+                <ChevronLeft size={12} />
+                {prevStage.length > 12 ? prevStage.slice(0, 10) + '...' : prevStage}
+              </button>
+            )}
+            {nextStage && (
+              <button
+                onClick={handleAdvanceStage}
+                className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700"
+                title={`Advance to ${nextStage}`}
+              >
+                {nextStage.length > 12 ? nextStage.slice(0, 10) + '...' : nextStage}
+                <ChevronRight size={12} />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -478,45 +515,14 @@ export function JobWorkspacePage() {
               </div>
             )}
 
-            {/* Action Buttons */}
-            <div className="space-y-3">
-              {job.jobDescription && (
-                <button
-                  onClick={handleRescore}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-neutral-200 rounded-lg text-sm font-medium text-neutral-700 hover:bg-neutral-50 shadow-sm"
-                >
-                  <RefreshCw size={14} />
-                  Re-score
-                </button>
-              )}
-
-              <div className="flex gap-3">
-                {prevStage && (
-                  <button
-                    onClick={handleRevertStage}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-white border border-neutral-200 rounded-lg text-sm font-medium text-neutral-600 hover:bg-neutral-50 shadow-sm"
-                  >
-                    <ArrowLeft size={14} />
-                    {prevStage}
-                  </button>
-                )}
-                {nextStage && (
-                  <button
-                    onClick={handleAdvanceStage}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 shadow-sm"
-                  >
-                    {nextStage}
-                    <ChevronRight size={14} />
-                  </button>
-                )}
-              </div>
-            </div>
+            {/* Actions are now in the header (above fold) */}
           </div>
         )}
 
         {activeTab === 'research' && <div className="py-4"><ResearchTab job={job} /></div>}
         {activeTab === 'assets' && <div className="py-4"><AssetsTab job={job} /></div>}
         {activeTab === 'crm' && <div className="py-4"><CRMTab job={job} /></div>}
+        {activeTab === 'qa' && <div className="py-4"><QATab job={job} /></div>}
       </div>
     </div>
   );

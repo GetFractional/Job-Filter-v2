@@ -40,6 +40,7 @@ const ASSET_TYPE_ICONS: Record<AssetType, typeof Mail> = {
   'Growth Memo': BookOpen,
   'Interview Prep': FileText,
   'Negotiation Script': FileText,
+  'Application Answer': FileText,
 };
 
 const ASSET_TYPE_COLORS: Record<AssetType, string> = {
@@ -50,6 +51,7 @@ const ASSET_TYPE_COLORS: Record<AssetType, string> = {
   'Growth Memo': 'bg-green-50 text-green-700 border-green-200',
   'Interview Prep': 'bg-cyan-50 text-cyan-700 border-cyan-200',
   'Negotiation Script': 'bg-rose-50 text-rose-700 border-rose-200',
+  'Application Answer': 'bg-indigo-50 text-indigo-700 border-indigo-200',
 };
 
 const GENERATE_OPTIONS: { type: AssetType; label: string; icon: typeof Mail }[] = [
@@ -130,9 +132,12 @@ const QUALITY_CHECKS: Record<string, string[]> = {
 export function AssetsTab({ job }: AssetsTabProps) {
   const allAssets = useStore((s) => s.assets);
   const claims = useStore((s) => s.claims);
+  const profile = useStore((s) => s.profile);
   const addAsset = useStore((s) => s.addAsset);
   const updateAsset = useStore((s) => s.updateAsset);
   const addGenerationLog = useStore((s) => s.addGenerationLog);
+
+  const userName = profile?.name || 'Candidate';
 
   const [showGenMenu, setShowGenMenu] = useState(false);
   const [generating, setGenerating] = useState<AssetType | null>(null);
@@ -149,23 +154,23 @@ export function AssetsTab({ job }: AssetsTabProps) {
   );
 
   const generateContent = useCallback((type: AssetType): string => {
-    const params = { job, claims, research: job.researchBrief };
+    const baseCtx = { job, userName, claims, research: job.researchBrief };
 
     switch (type) {
       case 'Outreach Email':
-        return generateOutreachEmail({ job, claims });
+        return generateOutreachEmail({ ...baseCtx });
       case 'LinkedIn Connect':
-        return generateLinkedInConnect({ job, claims });
+        return generateLinkedInConnect({ job, userName, claims });
       case 'Cover Letter':
-        return generateCoverLetter(params);
+        return generateCoverLetter(baseCtx);
       case 'Follow-up Email':
-        return generateFollowUpEmail({ job });
+        return generateFollowUpEmail({ job, userName });
       case 'Growth Memo':
-        return generateGrowthMemo(params);
+        return generateGrowthMemo(baseCtx);
       default:
         return `[${type} generation coming soon]`;
     }
-  }, [job, claims]);
+  }, [job, userName, claims]);
 
   const handleGenerate = useCallback(async (type: AssetType) => {
     setGenerating(type);

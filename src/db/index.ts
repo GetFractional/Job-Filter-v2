@@ -15,6 +15,7 @@ import type {
   Profile,
   Claim,
   GenerationLog,
+  ApplicationAnswer,
 } from '../types';
 
 export class JobFilterDB extends Dexie {
@@ -30,6 +31,7 @@ export class JobFilterDB extends Dexie {
   profiles!: Table<Profile, string>;
   claims!: Table<Claim, string>;
   generationLogs!: Table<GenerationLog, string>;
+  applicationAnswers!: Table<ApplicationAnswer, string>;
 
   constructor() {
     super('JobFilterV2');
@@ -52,13 +54,16 @@ export class JobFilterDB extends Dexie {
       contacts: 'id, companyId, firstName, lastName, createdAt',
       contactJobLinks: 'id, contactId, jobId, createdAt',
     }).upgrade((tx) => {
-      // Migrate existing contacts: split name into firstName/lastName
       return tx.table('contacts').toCollection().modify((contact: Record<string, unknown>) => {
         const name = (contact.name as string) || '';
         const parts = name.trim().split(/\s+/);
         contact.firstName = parts[0] || '';
         contact.lastName = parts.slice(1).join(' ') || '';
       });
+    });
+
+    this.version(3).stores({
+      applicationAnswers: 'id, jobId, createdAt',
     });
   }
 }
