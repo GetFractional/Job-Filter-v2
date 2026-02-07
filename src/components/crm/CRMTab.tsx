@@ -14,14 +14,22 @@ import {
   Send,
   Plus,
   X,
+  Link2,
+  Unlink,
+  Building2,
+  Globe,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { generateOutreachEmail } from '../../lib/assets';
 import type {
   Job,
+  Contact,
   ContactRelationship,
   ActivityChannel,
   ActivityOutcome,
+  Company,
 } from '../../types';
 
 interface CRMTabProps {
@@ -67,21 +75,101 @@ const OUTCOME_COLORS: Record<ActivityOutcome, string> = {
   Other: 'bg-neutral-50 text-neutral-600',
 };
 
+function contactDisplayName(c: Contact): string {
+  return `${c.firstName} ${c.lastName}`.trim() || 'Unnamed';
+}
+
+function contactInitials(c: Contact): string {
+  const first = c.firstName?.[0] || '';
+  const last = c.lastName?.[0] || '';
+  return (first + last).toUpperCase() || '?';
+}
+
+function CompanyCard({ company }: { company: Company }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="bg-white rounded-lg border border-neutral-200 p-4 shadow-sm">
+      <div className="flex items-start justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-brand-50 flex items-center justify-center shrink-0">
+            <Building2 size={18} className="text-brand-600" />
+          </div>
+          <div>
+            <h4 className="text-sm font-semibold text-neutral-900">{company.name}</h4>
+            <div className="flex items-center gap-2 mt-0.5">
+              {company.stage !== 'Unknown' && (
+                <span className="text-[11px] font-medium text-neutral-500 bg-neutral-100 px-1.5 py-0.5 rounded-md">
+                  {company.stage}
+                </span>
+              )}
+              {company.industry && (
+                <span className="text-[11px] text-neutral-400">{company.industry}</span>
+              )}
+            </div>
+          </div>
+        </div>
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="p-1 rounded text-neutral-400 hover:text-neutral-600"
+        >
+          {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        </button>
+      </div>
+
+      {expanded && (
+        <div className="mt-3 pt-3 border-t border-neutral-100 space-y-2">
+          {company.website && (
+            <a href={company.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs text-brand-600 hover:underline">
+              <Globe size={12} className="text-neutral-400" />
+              {company.website}
+            </a>
+          )}
+          {company.businessModel && (
+            <p className="text-xs text-neutral-600"><span className="font-medium text-neutral-700">Model:</span> {company.businessModel}</p>
+          )}
+          {company.riskFlags.length > 0 && (
+            <div>
+              <span className="text-[11px] font-medium text-red-600">Risk flags:</span>
+              <ul className="mt-0.5">
+                {company.riskFlags.map((f, i) => (
+                  <li key={i} className="text-[11px] text-red-600 flex items-center gap-1">
+                    <span className="w-1 h-1 rounded-full bg-red-400" />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {company.notes && <p className="text-xs text-neutral-500 italic">{company.notes}</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function CRMTab({ job }: CRMTabProps) {
   const allContacts = useStore((s) => s.contacts);
   const allActivities = useStore((s) => s.activities);
+  const contactJobLinks = useStore((s) => s.contactJobLinks);
+  const companies = useStore((s) => s.companies);
   const claims = useStore((s) => s.claims);
   const addContact = useStore((s) => s.addContact);
   const addActivity = useStore((s) => s.addActivity);
+  const linkContactToJob = useStore((s) => s.linkContactToJob);
+  const unlinkContactFromJob = useStore((s) => s.unlinkContactFromJob);
 
   const [showAddContact, setShowAddContact] = useState(false);
   const [showAddActivity, setShowAddActivity] = useState(false);
+  const [showLinkExisting, setShowLinkExisting] = useState(false);
 
-  // Contact form state
-  const [contactName, setContactName] = useState('');
+  // Contact form state — first/last name
+  const [contactFirstName, setContactFirstName] = useState('');
+  const [contactLastName, setContactLastName] = useState('');
   const [contactRole, setContactRole] = useState('');
   const [contactEmail, setContactEmail] = useState('');
   const [contactLinkedIn, setContactLinkedIn] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
   const [contactRelationship, setContactRelationship] = useState<ContactRelationship>('Recruiter');
 
   // Activity form state
@@ -92,10 +180,33 @@ export function CRMTab({ job }: CRMTabProps) {
   const [actContactId, setActContactId] = useState('');
   const [actFollowUpDate, setActFollowUpDate] = useState('');
 
-  // Filter contacts linked to this job's company
-  const jobContacts = useMemo(
-    () => allContacts.filter((c) => c.companyId === job.companyId || c.company?.toLowerCase() === job.company.toLowerCase()),
-    [allContacts, job.companyId, job.company]
+  // Company entity for this job
+  const jobCompany = useMemo(
+    () => companies.find((c) => c.id === job.companyId),
+    [companies, job.companyId]
+  );
+
+  // Get linked contact IDs for this job
+  const linkedContactIds = useMemo(
+    () => new Set(contactJobLinks.filter((l) => l.jobId === job.id).map((l) => l.contactId)),
+    [contactJobLinks, job.id]
+  );
+
+  // Contacts linked to this job (via junction) OR company match (legacy compat)
+  const jobContacts = useMemo(() => {
+    return allContacts.filter((c) => {
+      if (linkedContactIds.has(c.id)) return true;
+      // Legacy: company name match
+      if (c.companyId === job.companyId && job.companyId) return true;
+      if (c.company && c.company.toLowerCase() === job.company.toLowerCase()) return true;
+      return false;
+    });
+  }, [allContacts, linkedContactIds, job.companyId, job.company]);
+
+  // Contacts NOT linked (for the "link existing" picker)
+  const unlinkableContacts = useMemo(
+    () => allContacts.filter((c) => !jobContacts.some((jc) => jc.id === c.id)),
+    [allContacts, jobContacts]
   );
 
   // Filter activities for this job
@@ -118,27 +229,42 @@ export function CRMTab({ job }: CRMTabProps) {
   }, [jobActivities]);
 
   const resetContactForm = useCallback(() => {
-    setContactName('');
+    setContactFirstName('');
+    setContactLastName('');
     setContactRole('');
     setContactEmail('');
     setContactLinkedIn('');
+    setContactPhone('');
     setContactRelationship('Recruiter');
     setShowAddContact(false);
   }, []);
 
   const handleAddContact = async (e: FormEvent) => {
     e.preventDefault();
-    if (!contactName.trim()) return;
-    await addContact({
-      name: contactName.trim(),
+    if (!contactFirstName.trim()) return;
+    const contact = await addContact({
+      firstName: contactFirstName.trim(),
+      lastName: contactLastName.trim(),
       role: contactRole.trim() || undefined,
       companyId: job.companyId,
       company: job.company,
       email: contactEmail.trim() || undefined,
       linkedIn: contactLinkedIn.trim() || undefined,
+      phone: contactPhone.trim() || undefined,
       relationship: contactRelationship,
     });
+    // Auto-link to this job
+    await linkContactToJob(contact.id, job.id);
     resetContactForm();
+  };
+
+  const handleLinkExisting = async (contactId: string) => {
+    await linkContactToJob(contactId, job.id);
+    setShowLinkExisting(false);
+  };
+
+  const handleUnlink = async (contactId: string) => {
+    await unlinkContactFromJob(contactId, job.id);
   };
 
   const handleAddActivity = async (e: FormEvent) => {
@@ -163,7 +289,7 @@ export function CRMTab({ job }: CRMTabProps) {
     const selectedContact = jobContacts.find((c) => c.id === actContactId);
     const content = generateOutreachEmail({
       job,
-      contactName: selectedContact?.name,
+      contactName: selectedContact ? contactDisplayName(selectedContact) : undefined,
       contactRole: selectedContact?.role,
       claims,
       research: job.researchBrief,
@@ -172,10 +298,21 @@ export function CRMTab({ job }: CRMTabProps) {
   }, [job, claims, actContactId, jobContacts]);
 
   return (
-    <div className="px-4 py-4 space-y-6">
+    <div className="py-4 space-y-6">
+      {/* Company Entity Card */}
+      {jobCompany && (
+        <section>
+          <h3 className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+            <Building2 size={14} />
+            Company
+          </h3>
+          <CompanyCard company={jobCompany} />
+        </section>
+      )}
+
       {/* Follow-up Alerts */}
       {followUpAlerts.length > 0 && (
-        <div className="bg-amber-50 rounded-xl border border-amber-200 p-4">
+        <div className="bg-amber-50 rounded-lg border border-amber-200 p-4">
           <h4 className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
             <AlertCircle size={14} />
             Follow-up Alerts
@@ -187,7 +324,7 @@ export function CRMTab({ job }: CRMTabProps) {
                 <div key={a.id} className="flex items-center gap-2 text-sm text-amber-800">
                   <Clock size={12} className="shrink-0" />
                   <span className="truncate">
-                    Follow up{contact ? ` with ${contact.name}` : ''} - {new Date(a.followUpDate!).toLocaleDateString()}
+                    Follow up{contact ? ` with ${contactDisplayName(contact)}` : ''} - {new Date(a.followUpDate!).toLocaleDateString()}
                   </span>
                 </div>
               );
@@ -201,37 +338,86 @@ export function CRMTab({ job }: CRMTabProps) {
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-xs font-bold text-neutral-500 uppercase tracking-wider flex items-center gap-1.5">
             <Users size={14} />
-            Contacts
+            Contacts ({jobContacts.length})
           </h3>
-          <button
-            onClick={() => setShowAddContact(!showAddContact)}
-            className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-medium text-brand-600 bg-brand-50 border border-brand-200 rounded-lg hover:bg-brand-100"
-          >
-            {showAddContact ? <X size={10} /> : <UserPlus size={10} />}
-            {showAddContact ? 'Cancel' : 'Add'}
-          </button>
+          <div className="flex items-center gap-1.5">
+            {unlinkableContacts.length > 0 && (
+              <button
+                onClick={() => { setShowLinkExisting(!showLinkExisting); setShowAddContact(false); }}
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-neutral-600 bg-neutral-50 border border-neutral-200 rounded-lg hover:bg-neutral-100"
+              >
+                <Link2 size={10} />
+                Link
+              </button>
+            )}
+            <button
+              onClick={() => { setShowAddContact(!showAddContact); setShowLinkExisting(false); }}
+              className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-brand-600 bg-brand-50 border border-brand-200 rounded-lg hover:bg-brand-100"
+            >
+              {showAddContact ? <X size={10} /> : <UserPlus size={10} />}
+              {showAddContact ? 'Cancel' : 'New'}
+            </button>
+          </div>
         </div>
+
+        {/* Link Existing Contact Picker */}
+        {showLinkExisting && (
+          <div className="bg-white rounded-lg border border-neutral-200 p-3 shadow-sm mb-3">
+            <h4 className="text-xs font-medium text-neutral-700 mb-2">Link existing contact to this job</h4>
+            <div className="max-h-40 overflow-y-auto space-y-1">
+              {unlinkableContacts.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => handleLinkExisting(c.id)}
+                  className="w-full text-left px-3 py-2 rounded-lg hover:bg-neutral-50 flex items-center justify-between group"
+                >
+                  <div>
+                    <span className="text-sm font-medium text-neutral-800">{contactDisplayName(c)}</span>
+                    {c.company && <span className="text-xs text-neutral-400 ml-2">{c.company}</span>}
+                  </div>
+                  <Link2 size={12} className="text-neutral-300 group-hover:text-brand-500" />
+                </button>
+              ))}
+              {unlinkableContacts.length === 0 && (
+                <p className="text-xs text-neutral-400 py-2 text-center">All contacts already linked</p>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Add Contact Form */}
         {showAddContact && (
-          <form onSubmit={handleAddContact} className="bg-white rounded-xl border border-neutral-200 p-4 shadow-sm mb-3 space-y-3">
+          <form onSubmit={handleAddContact} className="bg-white rounded-lg border border-neutral-200 p-4 shadow-sm mb-3 space-y-3">
             <div className="grid grid-cols-2 gap-3">
-              <input
-                type="text"
-                value={contactName}
-                onChange={(e) => setContactName(e.target.value)}
-                placeholder="Name *"
-                required
-                className="px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
-              />
-              <input
-                type="text"
-                value={contactRole}
-                onChange={(e) => setContactRole(e.target.value)}
-                placeholder="Role"
-                className="px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
-              />
+              <div>
+                <label className="text-[11px] font-medium text-neutral-600 mb-1 block">First Name *</label>
+                <input
+                  type="text"
+                  value={contactFirstName}
+                  onChange={(e) => setContactFirstName(e.target.value)}
+                  placeholder="Jane"
+                  required
+                  className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] font-medium text-neutral-600 mb-1 block">Last Name</label>
+                <input
+                  type="text"
+                  value={contactLastName}
+                  onChange={(e) => setContactLastName(e.target.value)}
+                  placeholder="Smith"
+                  className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                />
+              </div>
             </div>
+            <input
+              type="text"
+              value={contactRole}
+              onChange={(e) => setContactRole(e.target.value)}
+              placeholder="Role (e.g. VP of Marketing)"
+              className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+            />
             <div className="grid grid-cols-2 gap-3">
               <input
                 type="email"
@@ -241,13 +427,20 @@ export function CRMTab({ job }: CRMTabProps) {
                 className="px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
               />
               <input
-                type="text"
-                value={contactLinkedIn}
-                onChange={(e) => setContactLinkedIn(e.target.value)}
-                placeholder="LinkedIn URL"
+                type="tel"
+                value={contactPhone}
+                onChange={(e) => setContactPhone(e.target.value)}
+                placeholder="Phone"
                 className="px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
               />
             </div>
+            <input
+              type="text"
+              value={contactLinkedIn}
+              onChange={(e) => setContactLinkedIn(e.target.value)}
+              placeholder="LinkedIn URL"
+              className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+            />
             <div className="flex items-center gap-3">
               <select
                 value={contactRelationship}
@@ -260,7 +453,7 @@ export function CRMTab({ job }: CRMTabProps) {
               </select>
               <button
                 type="submit"
-                disabled={!contactName.trim()}
+                disabled={!contactFirstName.trim()}
                 className="px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 disabled:opacity-50"
               >
                 Add
@@ -270,40 +463,66 @@ export function CRMTab({ job }: CRMTabProps) {
         )}
 
         {/* Contact Cards */}
-        {jobContacts.length === 0 && !showAddContact ? (
-          <div className="bg-white rounded-xl border border-neutral-200 p-6 shadow-sm text-center">
+        {jobContacts.length === 0 && !showAddContact && !showLinkExisting ? (
+          <div className="bg-white rounded-lg border border-neutral-200 p-6 shadow-sm text-center">
             <Users size={20} className="text-neutral-300 mx-auto mb-2" />
-            <p className="text-xs text-neutral-500">No contacts yet for {job.company}</p>
+            <p className="text-xs text-neutral-500 mb-1">No contacts yet for {job.company}</p>
+            <p className="text-[11px] text-neutral-400">Add a new contact or link an existing one</p>
           </div>
         ) : (
           <div className="space-y-2">
-            {jobContacts.map((contact) => (
-              <div key={contact.id} className="bg-white rounded-xl border border-neutral-200 p-3 shadow-sm">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h5 className="text-sm font-semibold text-neutral-900">{contact.name}</h5>
-                    {contact.role && <p className="text-xs text-neutral-500">{contact.role}</p>}
+            {jobContacts.map((contact) => {
+              const isLinked = linkedContactIds.has(contact.id);
+              return (
+                <div key={contact.id} className="bg-white rounded-lg border border-neutral-200 p-3 shadow-sm">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-full bg-brand-50 flex items-center justify-center shrink-0 text-[11px] font-bold text-brand-700">
+                      {contactInitials(contact)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h5 className="text-sm font-semibold text-neutral-900 truncate">
+                          {contactDisplayName(contact)}
+                        </h5>
+                        <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-md border shrink-0 ${RELATIONSHIP_COLORS[contact.relationship]}`}>
+                          {contact.relationship}
+                        </span>
+                      </div>
+                      {contact.role && <p className="text-xs text-neutral-500 mt-0.5">{contact.role}</p>}
+                      <div className="flex items-center gap-3 mt-1.5">
+                        {contact.email && (
+                          <a href={`mailto:${contact.email}`} className="text-[11px] text-brand-600 flex items-center gap-0.5 hover:underline truncate">
+                            <Mail size={10} />
+                            {contact.email}
+                          </a>
+                        )}
+                        {contact.linkedIn && (
+                          <a href={contact.linkedIn} target="_blank" rel="noopener noreferrer" className="text-[11px] text-brand-600 flex items-center gap-0.5 hover:underline">
+                            <Linkedin size={10} />
+                            LinkedIn
+                          </a>
+                        )}
+                        {contact.phone && (
+                          <a href={`tel:${contact.phone}`} className="text-[11px] text-brand-600 flex items-center gap-0.5 hover:underline">
+                            <Phone size={10} />
+                            {contact.phone}
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                    {isLinked && (
+                      <button
+                        onClick={() => handleUnlink(contact.id)}
+                        className="p-1 rounded text-neutral-300 hover:text-red-500 shrink-0"
+                        title="Unlink from this job"
+                      >
+                        <Unlink size={12} />
+                      </button>
+                    )}
                   </div>
-                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${RELATIONSHIP_COLORS[contact.relationship]}`}>
-                    {contact.relationship}
-                  </span>
                 </div>
-                <div className="flex items-center gap-3 mt-2">
-                  {contact.email && (
-                    <a href={`mailto:${contact.email}`} className="text-[10px] text-brand-600 flex items-center gap-0.5 hover:underline">
-                      <Mail size={10} />
-                      {contact.email}
-                    </a>
-                  )}
-                  {contact.linkedIn && (
-                    <a href={contact.linkedIn} target="_blank" rel="noopener noreferrer" className="text-[10px] text-brand-600 flex items-center gap-0.5 hover:underline">
-                      <Linkedin size={10} />
-                      LinkedIn
-                    </a>
-                  )}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>
@@ -313,20 +532,20 @@ export function CRMTab({ job }: CRMTabProps) {
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-xs font-bold text-neutral-500 uppercase tracking-wider flex items-center gap-1.5">
             <Activity size={14} />
-            Activity Log
+            Activity Log ({jobActivities.length})
           </h3>
           <button
             onClick={() => setShowAddActivity(!showAddActivity)}
-            className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-medium text-brand-600 bg-brand-50 border border-brand-200 rounded-lg hover:bg-brand-100"
+            className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-brand-600 bg-brand-50 border border-brand-200 rounded-lg hover:bg-brand-100"
           >
             {showAddActivity ? <X size={10} /> : <Plus size={10} />}
-            {showAddActivity ? 'Cancel' : 'Add'}
+            {showAddActivity ? 'Cancel' : 'Log'}
           </button>
         </div>
 
         {/* Add Activity Form */}
         {showAddActivity && (
-          <form onSubmit={handleAddActivity} className="bg-white rounded-xl border border-neutral-200 p-4 shadow-sm mb-3 space-y-3">
+          <form onSubmit={handleAddActivity} className="bg-white rounded-lg border border-neutral-200 p-4 shadow-sm mb-3 space-y-3">
             <div className="grid grid-cols-3 gap-3">
               <select
                 value={actChannel}
@@ -364,7 +583,7 @@ export function CRMTab({ job }: CRMTabProps) {
               >
                 <option value="">Select contact...</option>
                 {jobContacts.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
+                  <option key={c.id} value={c.id}>{contactDisplayName(c)}</option>
                 ))}
               </select>
               <input
@@ -382,7 +601,7 @@ export function CRMTab({ job }: CRMTabProps) {
               placeholder="Activity content / notes..."
               rows={4}
               required
-              className="w-full px-3 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 resize-none"
+              className="w-full px-3 py-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 resize-none"
             />
 
             <div className="flex gap-3">
@@ -407,7 +626,7 @@ export function CRMTab({ job }: CRMTabProps) {
 
         {/* Activity Cards */}
         {jobActivities.length === 0 && !showAddActivity ? (
-          <div className="bg-white rounded-xl border border-neutral-200 p-6 shadow-sm text-center">
+          <div className="bg-white rounded-lg border border-neutral-200 p-6 shadow-sm text-center">
             <Activity size={20} className="text-neutral-300 mx-auto mb-2" />
             <p className="text-xs text-neutral-500">No activities logged yet</p>
           </div>
@@ -419,7 +638,7 @@ export function CRMTab({ job }: CRMTabProps) {
               const outcomeColor = activity.outcome ? OUTCOME_COLORS[activity.outcome] || 'bg-neutral-50 text-neutral-600' : '';
 
               return (
-                <div key={activity.id} className="bg-white rounded-xl border border-neutral-200 p-3 shadow-sm">
+                <div key={activity.id} className="bg-white rounded-lg border border-neutral-200 p-3 shadow-sm">
                   <div className="flex items-center gap-2 mb-1.5">
                     <div className="w-6 h-6 rounded-full bg-neutral-100 flex items-center justify-center shrink-0">
                       <ChannelIcon size={12} className="text-neutral-500" />
@@ -431,23 +650,23 @@ export function CRMTab({ job }: CRMTabProps) {
                     )}
                     <span className="text-xs font-medium text-neutral-700">{activity.channel}</span>
                     {contact && (
-                      <span className="text-[10px] text-neutral-500 truncate">
-                        {activity.direction === 'Outbound' ? 'to' : 'from'} {contact.name}
+                      <span className="text-[11px] text-neutral-500 truncate">
+                        {activity.direction === 'Outbound' ? 'to' : 'from'} {contactDisplayName(contact)}
                       </span>
                     )}
-                    <span className="text-[10px] text-neutral-400 ml-auto shrink-0">
+                    <span className="text-[11px] text-neutral-400 ml-auto shrink-0">
                       {new Date(activity.createdAt).toLocaleDateString()}
                     </span>
                   </div>
                   <p className="text-xs text-neutral-600 line-clamp-2 ml-8">{activity.content}</p>
                   <div className="flex items-center gap-2 mt-1.5 ml-8">
                     {activity.outcome && (
-                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${outcomeColor}`}>
+                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${outcomeColor}`}>
                         {activity.outcome}
                       </span>
                     )}
                     {activity.followUpDate && (
-                      <span className="text-[10px] text-amber-600 flex items-center gap-0.5">
+                      <span className="text-[11px] text-amber-600 flex items-center gap-0.5">
                         <Clock size={9} />
                         Follow-up: {new Date(activity.followUpDate).toLocaleDateString()}
                       </span>

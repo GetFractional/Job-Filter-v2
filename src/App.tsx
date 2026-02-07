@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useStore } from './store/useStore';
 import { AppShell } from './components/layout/AppShell';
@@ -8,16 +8,39 @@ import { DashboardPage } from './pages/DashboardPage';
 import { ContactsPage } from './pages/ContactsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { CaptureModal } from './components/jobs/CaptureModal';
+import { OnboardingWizard } from './components/onboarding/OnboardingWizard';
+
+const ONBOARDING_KEY = 'jf2-onboarding-complete';
 
 export default function App() {
   const initialize = useStore((s) => s.initialize);
   const isLoading = useStore((s) => s.isLoading);
+  const jobs = useStore((s) => s.jobs);
+
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingChecked, setOnboardingChecked] = useState(false);
 
   useEffect(() => {
     initialize();
   }, [initialize]);
 
-  if (isLoading) {
+  // Check if onboarding should show (first run: no jobs + not dismissed)
+  useEffect(() => {
+    if (!isLoading) {
+      const dismissed = localStorage.getItem(ONBOARDING_KEY);
+      if (!dismissed && jobs.length === 0) {
+        setShowOnboarding(true);
+      }
+      setOnboardingChecked(true);
+    }
+  }, [isLoading, jobs.length]);
+
+  const handleOnboardingComplete = () => {
+    localStorage.setItem(ONBOARDING_KEY, 'true');
+    setShowOnboarding(false);
+  };
+
+  if (isLoading || !onboardingChecked) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-neutral-50">
         <div className="text-center">
@@ -26,6 +49,10 @@ export default function App() {
         </div>
       </div>
     );
+  }
+
+  if (showOnboarding) {
+    return <OnboardingWizard onComplete={handleOnboardingComplete} />;
   }
 
   return (

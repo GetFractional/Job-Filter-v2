@@ -2,7 +2,7 @@
 // Client-side, no AI cost. Calibratable via weight adjustments.
 // See docs/MASTER_PLAN.md section 9 for spec.
 
-import type { Job, FitLabel, Profile, Requirement } from '../types';
+import type { Job, FitLabel, Profile, Requirement, Claim, RequirementPriority, RequirementMatch } from '../types';
 
 // ============================================================
 // Scoring Weights (calibratable)
@@ -67,7 +67,7 @@ export interface ScoreBreakdown {
   riskPenalty: number;
 }
 
-export function scoreJob(job: Partial<Job>, profile: Profile): ScoringResult {
+export function scoreJob(job: Partial<Job>, profile: Profile, claims?: Claim[]): ScoringResult {
   const jd = (job.jobDescription || '').toLowerCase();
   const title = (job.title || '').toLowerCase();
 
@@ -75,7 +75,6 @@ export function scoreJob(job: Partial<Job>, profile: Profile): ScoringResult {
   const reasonsToPursue: string[] = [];
   const reasonsToPass: string[] = [];
   const redFlags: string[] = [];
-  const requirements: Requirement[] = [];
 
   // ----------------------------------------------------------
   // Hard Disqualifiers
@@ -116,7 +115,7 @@ export function scoreJob(job: Partial<Job>, profile: Profile): ScoringResult {
       reasonsToPursue,
       reasonsToPass: [...disqualifiers],
       redFlags,
-      requirementsExtracted: requirements,
+      requirementsExtracted: [],
       breakdown: {
         roleScopeAuthority: 0,
         compensationBenefits: 0,
@@ -274,10 +273,10 @@ export function scoreJob(job: Partial<Job>, profile: Profile): ScoringResult {
   riskPenalty = Math.min(riskPenalty, DEFAULT_WEIGHTS.riskPenaltyMax);
 
   // ----------------------------------------------------------
-  // Extract requirements
+  // Extract requirements (with claim matching)
   // ----------------------------------------------------------
 
-  requirements.push(...extractRequirements(jd));
+  const requirements = extractRequirements(jd, claims);
 
   // ----------------------------------------------------------
   // Final Score
@@ -314,55 +313,545 @@ export function scoreJob(job: Partial<Job>, profile: Profile): ScoringResult {
 }
 
 // ============================================================
-// Requirement Extraction (simple keyword-based)
+// Requirement Extraction (structured, with claim matching)
 // ============================================================
 
-function extractRequirements(jd: string): Requirement[] {
+// Section headers that signal "must have" vs "nice to have"
+const MUST_PATTERNS = [
+  /\brequired\b/i,
+  /\bmust have\b/i,
+  /\bmust-have\b/i,
+  /\bminimum qualifications\b/i,
+  /\brequirements\b/i,
+  /\bwhat you('ll)? need\b/i,
+  /\bwhat we('re)? looking for\b/i,
+  /\bessential\b/i,
+];
+
+const PREFERRED_PATTERNS = [
+  /\bpreferred\b/i,
+  /\bnice to have\b/i,
+  /\bnice-to-have\b/i,
+  /\bbonus\b/i,
+  /\bdesirable\b/i,
+  /\bplus\b/i,
+  /\bpreferred qualifications\b/i,
+  /\badditional qualifications\b/i,
+  /\bwhat sets you apart\b/i,
+];
+
+const TOOL_PATTERNS = [
+  'salesforce', 'hubspot', 'marketo', 'pardot', 'segment', 'amplitude',
+  'mixpanel', 'google analytics', 'ga4', 'tableau', 'looker', 'dbt',
+  'snowflake', 'bigquery', 'braze', 'iterable', 'klaviyo', 'mailchimp',
+  'meta ads', 'google ads', 'linkedin ads', 'tiktok ads',
+  'figma', 'notion', 'jira', 'asana',
+  'optimizely', 'launchdarkly', 'vwo', 'hotjar', 'fullstory',
+  'semrush', 'ahrefs', 'moz',
+  'adobe analytics', 'adobe experience manager',
+  'intercom', 'zendesk', 'drift', 'gong', 'outreach', 'salesloft',
+  'clearbit', 'zoominfo', '6sense', 'demandbase',
+  'attentive', 'postscript', 'yotpo',
+  'power bi', 'excel', 'sql',
+  'shopify', 'magento', 'stripe',
+];
+
+const SKILL_PATTERNS = [
+  'analytical',
+  'communication',
+  'leadership',
+  'project management',
+  'team management',
+  'strategic thinking',
+  'data-driven',
+  'cross-functional',
+  'stakeholder management',
+  'budget management',
+  'p&l',
+  'vendor management',
+  'agency management',
+];
+
+// ============================================================
+// Years-of-experience patterns
+// ============================================================
+
+// Matches: "5+ years", "5-7 years", "minimum 5 years", "at least 5 years"
+// Uses word boundary to avoid matching "10+" inside unrelated text.
+// Only matches when preceded by a bullet, line start, or common preamble.
+const YEARS_PATTERNS: RegExp[] = [
+  // "5+ years of experience in marketing" / "5+ yrs experience with analytics"
+  /(?:^|[-*•◦▪]\s*).*?\b(\d{1,2})\+?\s*(?:years?|yrs?)\s+(?:of\s+)?(?:experience\s+(?:in|with)\s+)?(.+)/i,
+  // "minimum 5 years" / "at least 5 years of experience in ..."
+  /(?:^|[-*•◦▪]\s*).*?(?:minimum|at\s+least)\s+(\d{1,2})\s*(?:years?|yrs?)\s+(?:of\s+)?(?:experience\s+(?:in|with)\s+)?(.+)/i,
+  // "5-7 years of experience in ..."
+  /(?:^|[-*•◦▪]\s*).*?\b(\d{1,2})\s*[-–]\s*\d{1,2}\s*(?:years?|yrs?)\s+(?:of\s+)?(?:experience\s+(?:in|with)\s+)?(.+)/i,
+];
+
+// ============================================================
+// Description cleaning
+// ============================================================
+
+const BULLET_PREFIX_RE = /^[-*•◦▪]+\s*/;
+const TRAILING_PUNCT_RE = /[,;.]+$/;
+
+/**
+ * Clean a requirement description string:
+ * - Strip bullet prefixes
+ * - Capitalize first letter
+ * - Remove trailing punctuation
+ * - Limit to 120 chars (truncate with ellipsis)
+ */
+function cleanDescription(raw: string): string {
+  let desc = raw.replace(BULLET_PREFIX_RE, '').trim();
+  desc = desc.replace(TRAILING_PUNCT_RE, '').trim();
+  if (desc.length === 0) return desc;
+  desc = desc.charAt(0).toUpperCase() + desc.slice(1);
+  if (desc.length > 120) {
+    desc = desc.slice(0, 117) + '...';
+  }
+  return desc;
+}
+
+// ============================================================
+// Similarity / deduplication helpers
+// ============================================================
+
+/**
+ * Normalize a tool name for deduplication.
+ * Lowercase, collapse whitespace, strip trailing "s" for plurals.
+ */
+function normalizeToolName(name: string): string {
+  return name.toLowerCase().trim().replace(/\s+/g, ' ');
+}
+
+/**
+ * Normalize an experience description for similarity comparison.
+ * Lowercase, remove filler words, collapse whitespace.
+ */
+function normalizeExpDescription(desc: string): string {
+  return desc
+    .toLowerCase()
+    .replace(/\b(of|in|with|and|the|a|an|or|for)\b/g, '')
+    .replace(/experience/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Simple word-overlap similarity between two strings (Jaccard-like).
+ * Returns a value between 0 and 1.
+ */
+function descriptionSimilarity(a: string, b: string): number {
+  const wordsA = new Set(normalizeExpDescription(a).split(/\s+/).filter((w) => w.length > 2));
+  const wordsB = new Set(normalizeExpDescription(b).split(/\s+/).filter((w) => w.length > 2));
+  if (wordsA.size === 0 || wordsB.size === 0) return 0;
+
+  let intersection = 0;
+  for (const w of wordsA) {
+    if (wordsB.has(w)) intersection++;
+  }
+  const union = new Set([...wordsA, ...wordsB]).size;
+  return union > 0 ? intersection / union : 0;
+}
+
+/**
+ * Check whether a new experience requirement is a near-duplicate of an
+ * existing one. Two experience requirements are considered duplicates if
+ * their normalized descriptions have >= 0.6 Jaccard similarity.
+ */
+function isDuplicateExperience(existing: Requirement[], desc: string, years?: number): boolean {
+  for (const req of existing) {
+    if (req.type !== 'experience') continue;
+    // If years are the same (or very close) and descriptions are similar, it's a dup
+    const yearsSimilar = req.yearsNeeded === undefined || years === undefined ||
+      Math.abs(req.yearsNeeded - years) <= 1;
+    if (yearsSimilar && descriptionSimilarity(req.description, desc) >= 0.6) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Check whether a skill description is a near-duplicate of an existing
+ * skill requirement (similarity >= 0.7).
+ */
+function isDuplicateSkill(existing: Requirement[], desc: string): boolean {
+  for (const req of existing) {
+    if (req.type !== 'skill') continue;
+    if (descriptionSimilarity(req.description, desc) >= 0.7) {
+      return true;
+    }
+    // Also check exact normalized match
+    if (normalizeExpDescription(req.description) === normalizeExpDescription(desc)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// ============================================================
+// Main extraction
+// ============================================================
+
+function extractRequirements(jd: string, claims?: Claim[]): Requirement[] {
   const reqs: Requirement[] = [];
-  const lines = jd.split(/[.\n]/);
+  const lines = jd.split('\n');
 
-  const yearsPattern = /(\d+)\+?\s*(?:years?|yrs?)\s+(?:of\s+)?(?:experience\s+(?:in|with)\s+)?(.+)/i;
-  const toolPatterns = [
-    'salesforce', 'hubspot', 'marketo', 'pardot', 'segment', 'amplitude',
-    'mixpanel', 'google analytics', 'ga4', 'tableau', 'looker', 'dbt',
-    'snowflake', 'bigquery', 'braze', 'iterable', 'klaviyo', 'mailchimp',
-    'meta ads', 'google ads', 'linkedin ads', 'tiktok ads',
-  ];
+  // Track current section priority
+  let currentPriority: RequirementPriority = 'Must';
 
-  for (const line of lines) {
-    const trimmed = line.trim().toLowerCase();
-    if (!trimmed) continue;
+  // Normalized set of tool names already added (case-insensitive dedup)
+  const addedTools = new Set<string>();
 
-    // Years of experience
-    const yearsMatch = trimmed.match(yearsPattern);
-    if (yearsMatch) {
-      reqs.push({
-        type: 'experience',
-        description: yearsMatch[2].trim(),
-        yearsNeeded: parseInt(yearsMatch[1]),
-      });
+  // Track education and certification to avoid duplicates (allow multiple
+  // distinct entries unlike the old code which capped at 1)
+  const addedEducationNorm = new Set<string>();
+  const addedCertNorm = new Set<string>();
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    const lineLower = line.toLowerCase();
+
+    // Check if this line is a section header that changes priority
+    if (PREFERRED_PATTERNS.some((p) => p.test(line))) {
+      currentPriority = 'Preferred';
+      continue;
+    }
+    if (MUST_PATTERNS.some((p) => p.test(line))) {
+      currentPriority = 'Must';
+      continue;
     }
 
-    // Tools
-    for (const tool of toolPatterns) {
-      if (trimmed.includes(tool)) {
-        const exists = reqs.some((r) => r.type === 'tool' && r.description.toLowerCase() === tool);
-        if (!exists) {
-          reqs.push({ type: 'tool', description: tool.charAt(0).toUpperCase() + tool.slice(1) });
+    // Inline priority detection (for single-line items)
+    let linePriority = currentPriority;
+    if (/\bpreferred\b|\bnice to have\b|\bbonus\b|\bplus\b|\bdesirable\b/i.test(lineLower)) {
+      linePriority = 'Preferred';
+    }
+    if (/\brequired\b|\bmust have\b|\bessential\b/i.test(lineLower)) {
+      linePriority = 'Must';
+    }
+
+    // ---- Years of experience ----
+    for (const pattern of YEARS_PATTERNS) {
+      const yearsMatch = lineLower.match(pattern);
+      if (yearsMatch) {
+        const years = parseInt(yearsMatch[1]);
+        // Sanity: skip if years > 30 (likely a misparse)
+        if (years > 30) continue;
+
+        const rawDesc = yearsMatch[2].trim();
+        const desc = cleanDescription(rawDesc);
+        if (!desc) continue;
+
+        // Dedup: skip if we already have a similar experience requirement
+        if (isDuplicateExperience(reqs, desc, years)) {
+          break;
+        }
+
+        const match = matchExperienceClaim(years, desc, claims);
+
+        reqs.push({
+          type: 'experience',
+          description: desc,
+          yearsNeeded: years,
+          priority: linePriority,
+          match: match.status,
+          evidence: match.evidence,
+        });
+        break; // only take first matching pattern per line
+      }
+    }
+
+    // ---- Tools ----
+    for (const tool of TOOL_PATTERNS) {
+      const normalized = normalizeToolName(tool);
+      if (lineLower.includes(normalized) && !addedTools.has(normalized)) {
+        addedTools.add(normalized);
+        const match = matchToolClaim(tool, claims);
+        reqs.push({
+          type: 'tool',
+          description: capitalizeFirst(tool),
+          priority: linePriority,
+          match: match.status,
+          evidence: match.evidence,
+        });
+      }
+    }
+
+    // ---- Skills (new) ----
+    // Detect lines that mention soft/hard skills from SKILL_PATTERNS
+    for (const skill of SKILL_PATTERNS) {
+      const skillLower = skill.toLowerCase();
+      if (lineLower.includes(skillLower)) {
+        // Build a meaningful description from the line context
+        const skillDesc = buildSkillDescription(line, skill);
+        if (!isDuplicateSkill(reqs, skillDesc)) {
+          const match = matchSkillClaim(skill, claims);
+          reqs.push({
+            type: 'skill',
+            description: cleanDescription(skillDesc),
+            priority: linePriority,
+            match: match.status,
+            evidence: match.evidence,
+          });
         }
       }
     }
 
-    // Education
-    if (trimmed.includes("bachelor") || trimmed.includes("master") || trimmed.includes("mba") || trimmed.includes("degree")) {
-      const exists = reqs.some((r) => r.type === 'education');
-      if (!exists) {
-        reqs.push({ type: 'education', description: line.trim() });
+    // ---- Education ----
+    if (/\bbachelor[''\u2019]?s?\b|\bmaster[''\u2019]?s?\b|\bmba\b|\bdegree\b/i.test(lineLower)) {
+      const desc = cleanDescription(line);
+      const descNorm = normalizeExpDescription(desc);
+      if (desc && !addedEducationNorm.has(descNorm)) {
+        addedEducationNorm.add(descNorm);
+        reqs.push({
+          type: 'education',
+          description: desc,
+          priority: linePriority,
+          match: 'Missing', // User would need to verify manually
+        });
+      }
+    }
+
+    // ---- Certifications ----
+    if (/\bcertified\b|\bcertification\b|\blicensed?\b/i.test(lineLower)) {
+      const desc = cleanDescription(line);
+      const descNorm = normalizeExpDescription(desc);
+      if (desc && !addedCertNorm.has(descNorm)) {
+        addedCertNorm.add(descNorm);
+        reqs.push({
+          type: 'certification',
+          description: desc,
+          priority: linePriority,
+          match: 'Missing',
+        });
       }
     }
   }
 
+  // Sort: Must first, then by type
+  reqs.sort((a, b) => {
+    if (a.priority !== b.priority) return a.priority === 'Must' ? -1 : 1;
+    const typeOrder = ['experience', 'skill', 'tool', 'education', 'certification', 'other'];
+    return typeOrder.indexOf(a.type) - typeOrder.indexOf(b.type);
+  });
+
   return reqs;
+}
+
+// ============================================================
+// Skill description builder
+// ============================================================
+
+/**
+ * Build a user-friendly skill description from a JD line and the matched
+ * skill keyword. Tries to use the full line context (trimmed) but falls
+ * back to the pattern name if the line is too generic.
+ */
+function buildSkillDescription(line: string, skill: string): string {
+  // Use the full line if it looks like a bullet point item
+  const stripped = line.replace(BULLET_PREFIX_RE, '').trim();
+  // If the line is short enough and contains meaningful text, use it
+  if (stripped.length > 0 && stripped.length <= 150) {
+    return stripped;
+  }
+  // Otherwise, just return the skill name itself
+  return capitalizeFirst(skill);
+}
+
+// ============================================================
+// Claim Matching Helpers
+// ============================================================
+
+interface MatchResult {
+  status: RequirementMatch;
+  evidence?: string;
+}
+
+// Stop words to exclude when computing keyword match scores.
+// These add noise and inflate match ratios for unrelated claims.
+const KEYWORD_STOP_WORDS = new Set([
+  'with', 'that', 'this', 'from', 'have', 'been', 'will', 'they',
+  'their', 'them', 'than', 'also', 'over', 'into', 'such', 'more',
+  'well', 'very', 'just', 'like', 'work', 'role', 'team', 'ability',
+  'strong', 'knowledge', 'understanding', 'experience', 'including',
+  'related', 'across', 'within', 'between', 'through',
+]);
+
+function matchExperienceClaim(yearsNeeded: number, description: string, claims?: Claim[]): MatchResult {
+  if (!claims || claims.length === 0) return { status: 'Missing' };
+
+  const descLower = description.toLowerCase();
+  // Filter keywords: must be > 3 chars, not a stop word
+  const keywords = descLower
+    .split(/\s+/)
+    .filter((w) => w.length > 3 && !KEYWORD_STOP_WORDS.has(w));
+
+  for (const claim of claims) {
+    // Calculate approximate years at this role
+    const years = estimateClaimYears(claim);
+
+    // Check if claim responsibilities/outcomes match the description
+    const allText = [
+      claim.role,
+      ...claim.responsibilities,
+      ...claim.outcomes.map((o) => o.description),
+    ].join(' ').toLowerCase();
+
+    // Weight longer keywords more heavily:
+    // Each keyword gets weight = max(1, keyword.length - 3).
+    // This means "marketing" (9 chars, weight 6) counts more than "data" (4 chars, weight 1).
+    let totalWeight = 0;
+    let matchedWeight = 0;
+    for (const kw of keywords) {
+      const weight = Math.max(1, kw.length - 3);
+      totalWeight += weight;
+      if (allText.includes(kw)) {
+        matchedWeight += weight;
+      }
+    }
+
+    // Also check claim.tools for tool-like keywords in the description
+    for (const tool of claim.tools) {
+      const toolLower = tool.toLowerCase();
+      if (descLower.includes(toolLower)) {
+        // Boost: treat tool match as significant evidence
+        matchedWeight += Math.max(1, toolLower.length - 3);
+        totalWeight += Math.max(1, toolLower.length - 3);
+      }
+    }
+
+    const keywordMatchRatio = totalWeight > 0 ? matchedWeight / totalWeight : 0;
+
+    // Threshold: 40% weighted match required for "Met"
+    if (keywordMatchRatio >= 0.4) {
+      if (years >= yearsNeeded) {
+        return {
+          status: 'Met',
+          evidence: `${claim.role} at ${claim.company} (${years}+ yrs)`,
+        };
+      } else if (years >= yearsNeeded * 0.6) {
+        return {
+          status: 'Partial',
+          evidence: `${claim.role} at ${claim.company} (${years} yrs, need ${yearsNeeded})`,
+        };
+      }
+    }
+  }
+
+  // Check across all claims for total years
+  const totalYears = claims.reduce((sum, c) => sum + estimateClaimYears(c), 0);
+  if (totalYears >= yearsNeeded) {
+    return {
+      status: 'Partial',
+      evidence: `${totalYears} total years across ${claims.length} role${claims.length !== 1 ? 's' : ''}`,
+    };
+  }
+
+  return { status: 'Missing' };
+}
+
+function matchToolClaim(tool: string, claims?: Claim[]): MatchResult {
+  if (!claims || claims.length === 0) return { status: 'Missing' };
+
+  const toolLower = tool.toLowerCase();
+
+  for (const claim of claims) {
+    // Check tools array (case-insensitive, normalized)
+    if (claim.tools.some((t) => normalizeToolName(t) === normalizeToolName(toolLower))) {
+      return {
+        status: 'Met',
+        evidence: `Used at ${claim.company} (${claim.role})`,
+      };
+    }
+
+    // Check responsibilities/outcomes text
+    const allText = [
+      ...claim.responsibilities,
+      ...claim.outcomes.map((o) => o.description),
+    ].join(' ').toLowerCase();
+
+    if (allText.includes(toolLower)) {
+      return {
+        status: 'Met',
+        evidence: `Referenced in ${claim.role} at ${claim.company}`,
+      };
+    }
+  }
+
+  return { status: 'Missing' };
+}
+
+/**
+ * Match a skill keyword against claims.
+ * Looks for the skill keyword in responsibilities, outcomes, and role text.
+ */
+function matchSkillClaim(skill: string, claims?: Claim[]): MatchResult {
+  if (!claims || claims.length === 0) return { status: 'Missing' };
+
+  const skillLower = skill.toLowerCase();
+
+  for (const claim of claims) {
+    const allText = [
+      claim.role,
+      ...claim.responsibilities,
+      ...claim.outcomes.map((o) => o.description),
+    ].join(' ').toLowerCase();
+
+    if (allText.includes(skillLower)) {
+      return {
+        status: 'Met',
+        evidence: `Demonstrated in ${claim.role} at ${claim.company}`,
+      };
+    }
+  }
+
+  return { status: 'Missing' };
+}
+
+function estimateClaimYears(claim: Claim): number {
+  if (!claim.startDate) return 0;
+
+  const start = parseClaimDate(claim.startDate);
+  const end = claim.endDate ? parseClaimDate(claim.endDate) : new Date();
+
+  if (!start) return 0;
+  const endDate = end || new Date();
+
+  const diffMs = endDate.getTime() - start.getTime();
+  return Math.max(0, Math.round(diffMs / (365.25 * 24 * 60 * 60 * 1000)));
+}
+
+function parseClaimDate(dateStr: string): Date | null {
+  // Try "Month Year" format
+  const match = dateStr.match(/(\w+)\s+(\d{4})/);
+  if (match) {
+    const months: Record<string, number> = {
+      jan: 0, january: 0, feb: 1, february: 1, mar: 2, march: 2,
+      apr: 3, april: 3, may: 4, jun: 5, june: 5,
+      jul: 6, july: 6, aug: 7, august: 7, sep: 8, september: 8,
+      oct: 9, october: 9, nov: 10, november: 10, dec: 11, december: 11,
+    };
+    const monthNum = months[match[1].toLowerCase()];
+    if (monthNum !== undefined) {
+      return new Date(parseInt(match[2]), monthNum, 1);
+    }
+  }
+
+  // Try just year
+  const yearMatch = dateStr.match(/^(\d{4})$/);
+  if (yearMatch) {
+    return new Date(parseInt(yearMatch[1]), 0, 1);
+  }
+
+  return null;
+}
+
+function capitalizeFirst(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 // ============================================================

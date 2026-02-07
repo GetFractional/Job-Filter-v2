@@ -74,17 +74,21 @@ export function CaptureModal() {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-[fadeIn_200ms_ease-out]"
+        className="absolute inset-0 bg-black/40"
         onClick={handleClose}
+        style={{ animation: 'fadeIn 200ms ease-out' }}
       />
 
       {/* Modal / Drawer */}
-      <div className="relative w-full sm:max-w-lg bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl max-h-[92vh] flex flex-col animate-[slideUp_300ms_ease-out] sm:animate-[scaleIn_200ms_ease-out]">
+      <div
+        className="relative w-full md:max-w-lg bg-white rounded-t-lg md:rounded-lg shadow-2xl max-h-[92vh] flex flex-col"
+        style={{ animation: 'scaleIn 200ms ease-out' }}
+      >
         {/* Handle bar (mobile) */}
-        <div className="sm:hidden flex justify-center pt-3 pb-1">
+        <div className="md:hidden flex justify-center pt-3 pb-1">
           <div className="w-10 h-1 rounded-full bg-neutral-300" />
         </div>
 
@@ -114,7 +118,7 @@ export function CaptureModal() {
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. VP of Growth"
               required
-              className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+              className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
             />
           </div>
 
@@ -130,7 +134,7 @@ export function CaptureModal() {
               onChange={(e) => setCompany(e.target.value)}
               placeholder="e.g. Acme Corp"
               required
-              className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+              className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
             />
           </div>
 
@@ -145,7 +149,7 @@ export function CaptureModal() {
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               placeholder="https://..."
-              className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+              className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
             />
           </div>
 
@@ -161,7 +165,7 @@ export function CaptureModal() {
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
                 placeholder="e.g. New York, NY"
-                className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
               />
             </div>
             <div>
@@ -171,7 +175,7 @@ export function CaptureModal() {
               <select
                 value={locationType}
                 onChange={(e) => setLocationType(e.target.value as LocationType)}
-                className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 appearance-none"
+                className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 appearance-none"
               >
                 {LOCATION_TYPES.map((lt) => (
                   <option key={lt} value={lt}>{lt}</option>
@@ -189,7 +193,7 @@ export function CaptureModal() {
             <select
               value={source}
               onChange={(e) => setSource(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 appearance-none"
+              className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 appearance-none"
             >
               <option value="">Select source...</option>
               {SOURCE_OPTIONS.map((s) => (
@@ -210,7 +214,7 @@ export function CaptureModal() {
               onChange={(e) => setJobDescription(e.target.value)}
               placeholder="Paste the full job description here..."
               rows={8}
-              className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 resize-none"
+              className="w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 resize-none"
             />
           </div>
         </form>
@@ -220,7 +224,7 @@ export function CaptureModal() {
           <button
             type="button"
             onClick={handleClose}
-            className="flex-1 px-4 py-2.5 border border-neutral-200 rounded-xl text-sm font-medium text-neutral-700 hover:bg-neutral-50 active:bg-neutral-100"
+            className="flex-1 px-4 py-2.5 border border-neutral-200 rounded-lg text-sm font-medium text-neutral-700 hover:bg-neutral-50 active:bg-neutral-100"
           >
             Cancel
           </button>
@@ -228,7 +232,7 @@ export function CaptureModal() {
             type="submit"
             onClick={handleSubmit}
             disabled={!title.trim() || !company.trim() || submitting}
-            className="flex-1 px-4 py-2.5 bg-brand-600 text-white rounded-xl text-sm font-medium hover:bg-brand-700 active:bg-brand-800 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 px-4 py-2.5 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 active:bg-brand-800 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {submitting ? (
               <span className="flex items-center justify-center gap-2">
@@ -242,21 +246,6 @@ export function CaptureModal() {
         </div>
       </div>
 
-      {/* Keyframe animations */}
-      <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        @keyframes slideUp {
-          from { transform: translateY(100%); }
-          to { transform: translateY(0); }
-        }
-        @keyframes scaleIn {
-          from { transform: scale(0.95); opacity: 0; }
-          to { transform: scale(1); opacity: 1; }
-        }
-      `}</style>
     </div>
   );
 }

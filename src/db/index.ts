@@ -6,6 +6,7 @@ import type {
   Job,
   Company,
   Contact,
+  ContactJobLink,
   Activity,
   Asset,
   Template,
@@ -14,12 +15,14 @@ import type {
   Profile,
   Claim,
   GenerationLog,
+  ApplicationAnswer,
 } from '../types';
 
 export class JobFilterDB extends Dexie {
   jobs!: Table<Job, string>;
   companies!: Table<Company, string>;
   contacts!: Table<Contact, string>;
+  contactJobLinks!: Table<ContactJobLink, string>;
   activities!: Table<Activity, string>;
   assets!: Table<Asset, string>;
   templates!: Table<Template, string>;
@@ -28,6 +31,7 @@ export class JobFilterDB extends Dexie {
   profiles!: Table<Profile, string>;
   claims!: Table<Claim, string>;
   generationLogs!: Table<GenerationLog, string>;
+  applicationAnswers!: Table<ApplicationAnswer, string>;
 
   constructor() {
     super('JobFilterV2');
@@ -44,6 +48,22 @@ export class JobFilterDB extends Dexie {
       profiles: 'id',
       claims: 'id, company, createdAt',
       generationLogs: 'id, jobId, assetId, modelTier, createdAt',
+    });
+
+    this.version(2).stores({
+      contacts: 'id, companyId, firstName, lastName, createdAt',
+      contactJobLinks: 'id, contactId, jobId, createdAt',
+    }).upgrade((tx) => {
+      return tx.table('contacts').toCollection().modify((contact: Record<string, unknown>) => {
+        const name = (contact.name as string) || '';
+        const parts = name.trim().split(/\s+/);
+        contact.firstName = parts[0] || '';
+        contact.lastName = parts.slice(1).join(' ') || '';
+      });
+    });
+
+    this.version(3).stores({
+      applicationAnswers: 'id, jobId, createdAt',
     });
   }
 }
