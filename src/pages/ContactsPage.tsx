@@ -12,6 +12,8 @@ import {
   Phone,
   Activity,
   Clock,
+  Building2,
+  Briefcase,
 } from 'lucide-react';
 import type { Contact, ContactRelationship } from '../types';
 
@@ -26,10 +28,22 @@ const RELATIONSHIP_COLORS: Record<ContactRelationship, string> = {
   Other: 'bg-neutral-50 text-neutral-600 border-neutral-200',
 };
 
+function contactDisplayName(c: Contact): string {
+  return `${c.firstName} ${c.lastName}`.trim() || 'Unnamed';
+}
+
+function contactInitials(c: Contact): string {
+  const first = c.firstName?.[0] || '';
+  const last = c.lastName?.[0] || '';
+  return (first + last).toUpperCase() || '?';
+}
+
 export function ContactsPage() {
   const contacts = useStore((s) => s.contacts);
   const companies = useStore((s) => s.companies);
   const activities = useStore((s) => s.activities);
+  const contactJobLinks = useStore((s) => s.contactJobLinks);
+  const jobs = useStore((s) => s.jobs);
   const addContact = useStore((s) => s.addContact);
 
   const [search, setSearch] = useState('');
@@ -37,20 +51,25 @@ export function ContactsPage() {
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [filterRelationship, setFilterRelationship] = useState<ContactRelationship | ''>('');
 
-  // Form state
-  const [formName, setFormName] = useState('');
+  // Form state — first/last name
+  const [formFirstName, setFormFirstName] = useState('');
+  const [formLastName, setFormLastName] = useState('');
   const [formRole, setFormRole] = useState('');
   const [formCompany, setFormCompany] = useState('');
   const [formEmail, setFormEmail] = useState('');
+  const [formPhone, setFormPhone] = useState('');
   const [formLinkedIn, setFormLinkedIn] = useState('');
   const [formRelationship, setFormRelationship] = useState<ContactRelationship>('Other');
 
   const filtered = useMemo(() => {
     return contacts.filter((c) => {
       const q = search.toLowerCase();
+      const displayName = contactDisplayName(c).toLowerCase();
       const matchesSearch =
         !q ||
-        c.name.toLowerCase().includes(q) ||
+        displayName.includes(q) ||
+        c.firstName.toLowerCase().includes(q) ||
+        c.lastName.toLowerCase().includes(q) ||
         (c.company || '').toLowerCase().includes(q) ||
         (c.role || '').toLowerCase().includes(q) ||
         (c.email || '').toLowerCase().includes(q);
@@ -62,10 +81,12 @@ export function ContactsPage() {
   }, [contacts, search, filterRelationship]);
 
   const resetForm = () => {
-    setFormName('');
+    setFormFirstName('');
+    setFormLastName('');
     setFormRole('');
     setFormCompany('');
     setFormEmail('');
+    setFormPhone('');
     setFormLinkedIn('');
     setFormRelationship('Other');
     setShowAdd(false);
@@ -73,14 +94,16 @@ export function ContactsPage() {
 
   const handleAdd = async (e: FormEvent) => {
     e.preventDefault();
-    if (!formName.trim()) return;
+    if (!formFirstName.trim()) return;
     const company = companies.find((c) => c.name.toLowerCase() === formCompany.toLowerCase());
     await addContact({
-      name: formName.trim(),
+      firstName: formFirstName.trim(),
+      lastName: formLastName.trim(),
       role: formRole.trim() || undefined,
       company: formCompany.trim() || undefined,
       companyId: company?.id,
       email: formEmail.trim() || undefined,
+      phone: formPhone.trim() || undefined,
       linkedIn: formLinkedIn.trim() || undefined,
       relationship: formRelationship,
     });
@@ -92,6 +115,12 @@ export function ContactsPage() {
     const contactActivities = activities
       .filter((a) => a.contactId === selectedContact.id)
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    // Jobs linked to this contact
+    const linkedJobIds = new Set(
+      contactJobLinks.filter((l) => l.contactId === selectedContact.id).map((l) => l.jobId)
+    );
+    const linkedJobs = jobs.filter((j) => linkedJobIds.has(j.id));
 
     return (
       <div className="space-y-4">
@@ -106,9 +135,19 @@ export function ContactsPage() {
         </div>
 
         <div className="bg-white rounded-lg border border-neutral-200 p-4 shadow-sm">
-          <div className="flex items-start justify-between mb-3">
-            <div>
-              <h3 className="text-lg font-semibold text-neutral-900">{selectedContact.name}</h3>
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-full bg-brand-50 flex items-center justify-center text-sm font-bold text-brand-700 shrink-0">
+              {contactInitials(selectedContact)}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between mb-1">
+                <h3 className="text-lg font-semibold text-neutral-900">
+                  {contactDisplayName(selectedContact)}
+                </h3>
+                <span className={`text-[11px] font-medium px-2 py-0.5 rounded-md border ${RELATIONSHIP_COLORS[selectedContact.relationship]}`}>
+                  {selectedContact.relationship}
+                </span>
+              </div>
               {selectedContact.role && (
                 <p className="text-sm text-neutral-500">
                   {selectedContact.role}{selectedContact.company ? ` at ${selectedContact.company}` : ''}
@@ -118,12 +157,9 @@ export function ContactsPage() {
                 <p className="text-sm text-neutral-500">{selectedContact.company}</p>
               )}
             </div>
-            <span className={`text-[11px] font-medium px-2 py-0.5 rounded-md border ${RELATIONSHIP_COLORS[selectedContact.relationship]}`}>
-              {selectedContact.relationship}
-            </span>
           </div>
 
-          <div className="space-y-2 pt-3 border-t border-neutral-100">
+          <div className="space-y-2 pt-3 mt-3 border-t border-neutral-100">
             {selectedContact.email && (
               <a href={`mailto:${selectedContact.email}`} className="flex items-center gap-2 text-sm text-brand-600 hover:underline">
                 <Mail size={14} className="text-neutral-400" />
@@ -144,6 +180,29 @@ export function ContactsPage() {
             )}
           </div>
         </div>
+
+        {/* Linked Jobs */}
+        {linkedJobs.length > 0 && (
+          <div>
+            <h4 className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+              <Briefcase size={14} />
+              Linked Jobs ({linkedJobs.length})
+            </h4>
+            <div className="space-y-2">
+              {linkedJobs.map((j) => (
+                <div key={j.id} className="bg-white rounded-lg border border-neutral-200 p-3 shadow-sm flex items-center justify-between">
+                  <div>
+                    <span className="text-sm font-medium text-neutral-800">{j.title}</span>
+                    <span className="text-xs text-neutral-400 ml-2">{j.company}</span>
+                  </div>
+                  <span className="text-[11px] font-medium text-neutral-500 bg-neutral-100 px-1.5 py-0.5 rounded-md">
+                    {j.stage}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Activity History */}
         <div>
@@ -238,14 +297,29 @@ export function ContactsPage() {
         <form onSubmit={handleAdd} className="bg-white rounded-lg border border-neutral-200 p-4 shadow-sm space-y-3">
           <h3 className="text-h3 text-neutral-900">Quick Add Contact</h3>
           <div className="grid grid-cols-2 gap-3">
-            <input
-              type="text"
-              value={formName}
-              onChange={(e) => setFormName(e.target.value)}
-              placeholder="Name *"
-              required
-              className="px-3 py-2 bg-white border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
-            />
+            <div>
+              <label className="text-[11px] font-medium text-neutral-600 mb-1 block">First Name *</label>
+              <input
+                type="text"
+                value={formFirstName}
+                onChange={(e) => setFormFirstName(e.target.value)}
+                placeholder="Jane"
+                required
+                className="w-full px-3 py-2 bg-white border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] font-medium text-neutral-600 mb-1 block">Last Name</label>
+              <input
+                type="text"
+                value={formLastName}
+                onChange={(e) => setFormLastName(e.target.value)}
+                placeholder="Smith"
+                className="w-full px-3 py-2 bg-white border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
             <input
               type="text"
               value={formRole}
@@ -253,20 +327,30 @@ export function ContactsPage() {
               placeholder="Role"
               className="px-3 py-2 bg-white border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
             />
+            <div className="relative">
+              <Building2 size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+              <input
+                type="text"
+                value={formCompany}
+                onChange={(e) => setFormCompany(e.target.value)}
+                placeholder="Company"
+                className="w-full pl-8 pr-3 py-2 bg-white border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+              />
+            </div>
           </div>
-          <input
-            type="text"
-            value={formCompany}
-            onChange={(e) => setFormCompany(e.target.value)}
-            placeholder="Company"
-            className="w-full px-3 py-2 bg-white border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
-          />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <input
               type="email"
               value={formEmail}
               onChange={(e) => setFormEmail(e.target.value)}
               placeholder="Email"
+              className="px-3 py-2 bg-white border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+            />
+            <input
+              type="tel"
+              value={formPhone}
+              onChange={(e) => setFormPhone(e.target.value)}
+              placeholder="Phone"
               className="px-3 py-2 bg-white border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
             />
             <input
@@ -289,7 +373,7 @@ export function ContactsPage() {
             </select>
             <button
               type="submit"
-              disabled={!formName.trim()}
+              disabled={!formFirstName.trim()}
               className="px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 disabled:opacity-50"
             >
               Add Contact
@@ -321,36 +405,45 @@ export function ContactsPage() {
               onClick={() => setSelectedContact(contact)}
               className="w-full text-left bg-white rounded-lg border border-neutral-200 p-3 shadow-sm hover:shadow-md hover:border-neutral-300 transition-shadow"
             >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <h4 className="text-sm font-semibold text-neutral-900 truncate">{contact.name}</h4>
-                  <p className="text-xs text-neutral-500 mt-0.5 truncate">
-                    {contact.role}{contact.role && contact.company ? ' at ' : ''}{contact.company}
-                  </p>
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-full bg-brand-50 flex items-center justify-center shrink-0 text-xs font-bold text-brand-700">
+                  {contactInitials(contact)}
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className={`text-[11px] font-medium px-2 py-0.5 rounded-md border ${RELATIONSHIP_COLORS[contact.relationship]}`}>
-                    {contact.relationship}
-                  </span>
-                  <ChevronRight size={16} className="text-neutral-300" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h4 className="text-sm font-semibold text-neutral-900 truncate">
+                        {contactDisplayName(contact)}
+                      </h4>
+                      <p className="text-xs text-neutral-500 mt-0.5 truncate">
+                        {contact.role}{contact.role && contact.company ? ' at ' : ''}{contact.company}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className={`text-[11px] font-medium px-2 py-0.5 rounded-md border ${RELATIONSHIP_COLORS[contact.relationship]}`}>
+                        {contact.relationship}
+                      </span>
+                      <ChevronRight size={16} className="text-neutral-300" />
+                    </div>
+                  </div>
+                  {(contact.email || contact.linkedIn) && (
+                    <div className="flex items-center gap-3 mt-1.5">
+                      {contact.email && (
+                        <span className="text-[11px] text-neutral-400 flex items-center gap-0.5 truncate">
+                          <Mail size={10} />
+                          {contact.email}
+                        </span>
+                      )}
+                      {contact.linkedIn && (
+                        <span className="text-[11px] text-brand-600 flex items-center gap-0.5">
+                          <Linkedin size={10} />
+                          LinkedIn
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
-              {(contact.email || contact.linkedIn) && (
-                <div className="flex items-center gap-3 mt-2">
-                  {contact.email && (
-                    <span className="text-[11px] text-neutral-400 flex items-center gap-0.5 truncate">
-                      <Mail size={10} />
-                      {contact.email}
-                    </span>
-                  )}
-                  {contact.linkedIn && (
-                    <span className="text-[11px] text-brand-600 flex items-center gap-0.5">
-                      <Linkedin size={10} />
-                      LinkedIn
-                    </span>
-                  )}
-                </div>
-              )}
             </button>
           ))}
         </div>

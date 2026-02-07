@@ -6,6 +6,7 @@ import type {
   Job,
   Company,
   Contact,
+  ContactJobLink,
   Activity,
   Asset,
   Template,
@@ -20,6 +21,7 @@ export class JobFilterDB extends Dexie {
   jobs!: Table<Job, string>;
   companies!: Table<Company, string>;
   contacts!: Table<Contact, string>;
+  contactJobLinks!: Table<ContactJobLink, string>;
   activities!: Table<Activity, string>;
   assets!: Table<Asset, string>;
   templates!: Table<Template, string>;
@@ -44,6 +46,19 @@ export class JobFilterDB extends Dexie {
       profiles: 'id',
       claims: 'id, company, createdAt',
       generationLogs: 'id, jobId, assetId, modelTier, createdAt',
+    });
+
+    this.version(2).stores({
+      contacts: 'id, companyId, firstName, lastName, createdAt',
+      contactJobLinks: 'id, contactId, jobId, createdAt',
+    }).upgrade((tx) => {
+      // Migrate existing contacts: split name into firstName/lastName
+      return tx.table('contacts').toCollection().modify((contact: Record<string, unknown>) => {
+        const name = (contact.name as string) || '';
+        const parts = name.trim().split(/\s+/);
+        contact.firstName = parts[0] || '';
+        contact.lastName = parts.slice(1).join(' ') || '';
+      });
     });
   }
 }

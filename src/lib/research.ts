@@ -1,78 +1,12 @@
 // Job Filter v2 — Perplexity Research Runner
-// Generates prompt packs for Perplexity Pro. No API cost.
+// Single master prompt with structured output. No API cost.
 // User runs in Perplexity with their subscription, pastes results back.
 
 import type { Job, ResearchBrief } from '../types';
 
 // ============================================================
-// Generate Research Prompt Pack
+// Types
 // ============================================================
-
-export function generateResearchPrompts(job: Job): ResearchPrompt[] {
-  const company = job.company;
-  const title = job.title;
-  const industry = extractIndustry(job.jobDescription);
-
-  return [
-    {
-      id: 'company-overview',
-      label: 'Company Overview & Business Model',
-      prompt: `Research ${company} thoroughly. I need:
-1. What does ${company} do? Core products/services and value proposition.
-2. Business model: How do they make money? Pricing, revenue streams, target market.
-3. Company stage: Funding history, revenue estimates, employee count, growth trajectory.
-4. Recent news: Any major announcements, product launches, pivots, or leadership changes in the last 12 months.
-5. Glassdoor/culture signals: What do employees say about working there?
-
-Focus on facts. Cite sources where possible.`,
-    },
-    {
-      id: 'gtm-channels',
-      label: 'GTM Strategy & Marketing Channels',
-      prompt: `Analyze ${company}'s go-to-market strategy and marketing approach:
-1. What marketing channels do they use? (paid, organic, content, events, partnerships, etc.)
-2. What does their website traffic look like? (estimate from SimilarWeb or similar)
-3. What is their content strategy? (blog, podcast, social media presence)
-4. Who is their ICP (ideal customer profile)? B2B, B2C, or both?
-5. What is their buying motion? (self-serve, sales-led, hybrid)
-6. Any observable marketing tech stack? (check job postings, case studies, integrations pages)
-
-I'm evaluating a ${title} role there, so focus on what a marketing/growth leader would need to know.`,
-    },
-    {
-      id: 'competitors',
-      label: 'Competitors & Market Position',
-      prompt: `Map ${company}'s competitive landscape:
-1. Who are their top 3-5 direct competitors?
-2. How does ${company} differentiate? (product, pricing, market position)
-3. What is their market share or position relative to competitors?
-4. Are they in a growing, mature, or declining market?
-5. What competitive threats should a new marketing/growth leader be aware of?
-${industry ? `6. Key trends in the ${industry} industry that affect their positioning.` : ''}`,
-    },
-    {
-      id: 'org-leadership',
-      label: 'Organization & Leadership',
-      prompt: `Research ${company}'s leadership and organizational structure:
-1. Who is the CEO? Background and leadership style signals.
-2. Who is the CMO/VP Marketing/Head of Growth? (or is this role being filled for the first time?)
-3. How big is the marketing/growth team? Any LinkedIn signals?
-4. Who would this ${title} role likely report to?
-5. Any recent leadership changes, departures, or reorgs?
-6. Board members or investors who might influence strategy.`,
-    },
-    {
-      id: 'comp-signals',
-      label: 'Compensation & Role Intelligence',
-      prompt: `Research compensation and role details for a ${title} at ${company}:
-1. What do similar roles at ${company} pay? Check Glassdoor, Levels.fyi, Blind, Payscale.
-2. What do comparable ${title} roles pay at similar companies in this space?
-3. What benefits does ${company} offer? (medical, dental, 401k, equity, bonus)
-4. Are there any other open roles that suggest team growth or organizational changes?
-5. What does the interview process typically look like for leadership roles at ${company}?`,
-    },
-  ];
-}
 
 export interface ResearchPrompt {
   id: string;
@@ -80,12 +14,205 @@ export interface ResearchPrompt {
   prompt: string;
 }
 
+export interface ResearchContext {
+  /** Optional company clarification (e.g. "Apple Inc., the tech company" vs "Apple Federal Credit Union") */
+  companyContext?: string;
+  /** Optional known industry */
+  industry?: string;
+  /** Optional headquarters location */
+  hqLocation?: string;
+}
+
 // ============================================================
-// Parse Research Results
+// Generate Single Master Research Prompt
 // ============================================================
 
+export function generateResearchPrompt(job: Job, context?: ResearchContext): ResearchPrompt {
+  const company = job.company;
+  const title = job.title;
+  const industry = context?.industry || extractIndustry(job.jobDescription);
+
+  // Build company identifier with disambiguation
+  let companyRef = company;
+  if (context?.companyContext) {
+    companyRef = `${company} (${context.companyContext})`;
+  }
+  if (context?.hqLocation) {
+    companyRef += `, headquartered in ${context.hqLocation}`;
+  }
+
+  const prompt = `I'm evaluating a **${title}** role at **${companyRef}**${industry ? ` in the ${industry} space` : ''}. I need a comprehensive research brief. Please organize your response using the EXACT section headers below.
+
+## COMPANY OVERVIEW
+What does ${company} do? Core products/services, value proposition, founding year, and current employee count estimate.
+
+## BUSINESS MODEL
+How do they make money? Revenue streams, pricing model, estimated revenue/ARR if available, and target market (B2B, B2C, or both).
+
+## IDEAL CUSTOMER PROFILE
+Who is their target buyer? Company size, industry verticals, buyer persona, and buying motion (self-serve, sales-led, hybrid).
+
+## COMPETITORS
+Top 3-5 direct competitors, how ${company} differentiates, market share/position, and whether the market is growing or mature.
+
+## GTM CHANNELS
+Observable marketing and growth channels: paid, organic, content, events, partnerships. Website traffic estimates. Notable martech stack signals from job postings or integration pages.
+
+## ORGANIZATION & LEADERSHIP
+CEO background. CMO/VP Marketing/Head of Growth (or is this a new function?). Marketing/growth team size estimate. Who this ${title} role likely reports to. Any recent leadership changes.
+
+## COMPENSATION SIGNALS
+Comparable ${title} pay ranges from Glassdoor, Levels.fyi, or similar. Benefits package signals. Other open roles suggesting team growth.
+
+## RISKS
+Any concerns: recent layoffs, negative press, leadership turnover, competitive threats, financial instability, culture red flags from Glassdoor reviews.
+
+## INTERVIEW HYPOTHESES
+Based on everything above, suggest 3-5 specific hypotheses I should validate in interviews. Format each as a brief statement of what might be true and what question to ask.
+
+Please use facts and cite sources where possible. Use the exact section headers above (## COMPANY OVERVIEW, etc.) so I can parse the output.`;
+
+  return {
+    id: 'master-research',
+    label: `Full Research Brief — ${company}`,
+    prompt,
+  };
+}
+
+// Keep the old API shape for backwards compat but delegate to master prompt
+export function generateResearchPrompts(job: Job): ResearchPrompt[] {
+  return [generateResearchPrompt(job)];
+}
+
+// ============================================================
+// Parse Research Results (structured section extraction)
+// ============================================================
+
+const SECTION_HEADERS: { key: keyof ResearchBrief; patterns: RegExp[] }[] = [
+  {
+    key: 'companyOverview',
+    patterns: [/^#{1,3}\s*COMPANY\s*OVERVIEW/i, /^#{1,3}\s*Overview/i, /^\*\*COMPANY\s*OVERVIEW\*\*/i],
+  },
+  {
+    key: 'businessModel',
+    patterns: [/^#{1,3}\s*BUSINESS\s*MODEL/i, /^\*\*BUSINESS\s*MODEL\*\*/i],
+  },
+  {
+    key: 'icp',
+    patterns: [/^#{1,3}\s*IDEAL\s*CUSTOMER/i, /^#{1,3}\s*ICP/i, /^\*\*IDEAL\s*CUSTOMER/i],
+  },
+  {
+    key: 'competitors',
+    patterns: [/^#{1,3}\s*COMPETITORS?/i, /^#{1,3}\s*COMPETITIVE/i, /^\*\*COMPETITORS?\*\*/i],
+  },
+  {
+    key: 'gtmChannels',
+    patterns: [/^#{1,3}\s*GTM/i, /^#{1,3}\s*GO.TO.MARKET/i, /^\*\*GTM/i],
+  },
+  {
+    key: 'orgLeadership',
+    patterns: [/^#{1,3}\s*ORGANIZATION/i, /^#{1,3}\s*LEADERSHIP/i, /^\*\*ORGANIZATION/i],
+  },
+  {
+    key: 'compSignals',
+    patterns: [/^#{1,3}\s*COMPENSATION/i, /^#{1,3}\s*COMP\s*SIGNALS/i, /^\*\*COMPENSATION/i],
+  },
+  {
+    key: 'risks',
+    patterns: [/^#{1,3}\s*RISKS?/i, /^\*\*RISKS?\*\*/i],
+  },
+];
+
 export function parseResearchPaste(rawText: string): ResearchBrief {
-  // Simple section detection from pasted Perplexity output
+  const lines = rawText.split('\n');
+  const sections: Partial<Record<keyof ResearchBrief, string[]>> = {};
+  let currentKey: keyof ResearchBrief | null = null;
+  let hypothesesLines: string[] = [];
+  let inHypotheses = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    // Check for interview hypotheses section
+    if (/^#{1,3}\s*INTERVIEW\s*HYPOTHES/i.test(trimmed) || /^\*\*INTERVIEW\s*HYPOTHES/i.test(trimmed)) {
+      inHypotheses = true;
+      currentKey = null;
+      continue;
+    }
+
+    // Check for section headers
+    let matched = false;
+    for (const { key, patterns } of SECTION_HEADERS) {
+      if (patterns.some((p) => p.test(trimmed))) {
+        currentKey = key;
+        inHypotheses = false;
+        if (!sections[key]) sections[key] = [];
+        matched = true;
+        break;
+      }
+    }
+
+    if (matched) continue;
+
+    // Accumulate content
+    if (inHypotheses) {
+      if (trimmed) hypothesesLines.push(trimmed);
+    } else if (currentKey) {
+      if (!sections[currentKey]) sections[currentKey] = [];
+      sections[currentKey]!.push(line);
+    }
+  }
+
+  // If no structured sections found, fall back to keyword-based parsing
+  const hasStructuredSections = Object.keys(sections).length >= 3;
+  if (!hasStructuredSections) {
+    return fallbackParse(rawText);
+  }
+
+  // Parse interview hypotheses
+  const hypotheses = parseHypotheses(hypothesesLines);
+
+  // Build brief
+  const brief: ResearchBrief = {
+    createdAt: new Date().toISOString(),
+    rawPasteContent: rawText,
+  };
+
+  for (const [key, lines] of Object.entries(sections)) {
+    const content = (lines as string[]).join('\n').trim();
+    if (content) {
+      (brief as Record<string, unknown>)[key] = content;
+    }
+  }
+
+  if (hypotheses.length > 0) {
+    brief.interviewHypotheses = hypotheses;
+  }
+
+  return brief;
+}
+
+function parseHypotheses(lines: string[]): string[] {
+  const hypotheses: string[] = [];
+  let current = '';
+
+  for (const line of lines) {
+    // Numbered items or bullet points
+    if (/^(\d+[\.\)]|\*|-|•)/.test(line)) {
+      if (current.trim()) hypotheses.push(current.trim());
+      current = line.replace(/^(\d+[\.\)]|\*|-|•)\s*/, '');
+    } else {
+      current += ' ' + line;
+    }
+  }
+
+  if (current.trim()) hypotheses.push(current.trim());
+
+  return hypotheses.filter((h) => h.length > 10);
+}
+
+// Fallback parser for unstructured pastes (original keyword approach)
+function fallbackParse(rawText: string): ResearchBrief {
   const sections: Record<string, string> = {};
   const lines = rawText.split('\n');
 
@@ -105,8 +232,6 @@ export function parseResearchPaste(rawText: string): ResearchBrief {
 
   for (const line of lines) {
     const lower = line.toLowerCase();
-
-    // Check if this line starts a new section
     let matched = false;
     for (const [section, keywords] of Object.entries(sectionKeywords)) {
       if (keywords.some((kw) => lower.includes(kw)) && (line.startsWith('#') || line.startsWith('**') || line.endsWith(':'))) {
@@ -119,18 +244,15 @@ export function parseResearchPaste(rawText: string): ResearchBrief {
         break;
       }
     }
-
     if (!matched) {
       buffer.push(line);
     }
   }
 
-  // Flush remaining buffer
   if (buffer.length > 0) {
     sections[currentSection] = (sections[currentSection] || '') + buffer.join('\n');
   }
 
-  // Extract interview hypotheses from the content
   const hypotheses = extractHypotheses(rawText);
 
   return {
@@ -152,7 +274,6 @@ function extractHypotheses(text: string): string[] {
   const hypotheses: string[] = [];
   const lower = text.toLowerCase();
 
-  // Generate hypotheses based on content signals
   if (lower.includes('growth') || lower.includes('scaling')) {
     hypotheses.push('Company is in growth mode. Likely values systematic scaling approaches over scrappy tactics.');
   }
@@ -164,9 +285,6 @@ function extractHypotheses(text: string): string[] {
   }
   if (lower.includes('pivot') || lower.includes('transition') || lower.includes('restructur')) {
     hypotheses.push('Company may be in transition. Probe for clarity on strategic direction and stability.');
-  }
-  if (lower.includes('competitor') && (lower.includes('behind') || lower.includes('catching up'))) {
-    hypotheses.push('Competitive pressure may create urgency. Validate that expectations are realistic.');
   }
 
   return hypotheses;

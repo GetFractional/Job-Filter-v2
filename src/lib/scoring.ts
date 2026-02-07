@@ -2,7 +2,7 @@
 // Client-side, no AI cost. Calibratable via weight adjustments.
 // See docs/MASTER_PLAN.md section 9 for spec.
 
-import type { Job, FitLabel, Profile, Requirement } from '../types';
+import type { Job, FitLabel, Profile, Requirement, Claim, RequirementPriority, RequirementMatch } from '../types';
 
 // ============================================================
 // Scoring Weights (calibratable)
@@ -67,7 +67,7 @@ export interface ScoreBreakdown {
   riskPenalty: number;
 }
 
-export function scoreJob(job: Partial<Job>, profile: Profile): ScoringResult {
+export function scoreJob(job: Partial<Job>, profile: Profile, claims?: Claim[]): ScoringResult {
   const jd = (job.jobDescription || '').toLowerCase();
   const title = (job.title || '').toLowerCase();
 
@@ -75,7 +75,6 @@ export function scoreJob(job: Partial<Job>, profile: Profile): ScoringResult {
   const reasonsToPursue: string[] = [];
   const reasonsToPass: string[] = [];
   const redFlags: string[] = [];
-  const requirements: Requirement[] = [];
 
   // ----------------------------------------------------------
   // Hard Disqualifiers
@@ -116,7 +115,7 @@ export function scoreJob(job: Partial<Job>, profile: Profile): ScoringResult {
       reasonsToPursue,
       reasonsToPass: [...disqualifiers],
       redFlags,
-      requirementsExtracted: requirements,
+      requirementsExtracted: [],
       breakdown: {
         roleScopeAuthority: 0,
         compensationBenefits: 0,
@@ -274,10 +273,10 @@ export function scoreJob(job: Partial<Job>, profile: Profile): ScoringResult {
   riskPenalty = Math.min(riskPenalty, DEFAULT_WEIGHTS.riskPenaltyMax);
 
   // ----------------------------------------------------------
-  // Extract requirements
+  // Extract requirements (with claim matching)
   // ----------------------------------------------------------
 
-  requirements.push(...extractRequirements(jd));
+  const requirements = extractRequirements(jd, claims);
 
   // ----------------------------------------------------------
   // Final Score
@@ -314,55 +313,282 @@ export function scoreJob(job: Partial<Job>, profile: Profile): ScoringResult {
 }
 
 // ============================================================
-// Requirement Extraction (simple keyword-based)
+// Requirement Extraction (structured, with claim matching)
 // ============================================================
 
-function extractRequirements(jd: string): Requirement[] {
+// Section headers that signal "must have" vs "nice to have"
+const MUST_PATTERNS = [
+  /\brequired\b/i,
+  /\bmust have\b/i,
+  /\bmust-have\b/i,
+  /\bminimum qualifications\b/i,
+  /\brequirements\b/i,
+  /\bwhat you('ll)? need\b/i,
+  /\bwhat we('re)? looking for\b/i,
+  /\bessential\b/i,
+];
+
+const PREFERRED_PATTERNS = [
+  /\bpreferred\b/i,
+  /\bnice to have\b/i,
+  /\bnice-to-have\b/i,
+  /\bbonus\b/i,
+  /\bdesirable\b/i,
+  /\bplus\b/i,
+  /\bpreferred qualifications\b/i,
+  /\badditional qualifications\b/i,
+  /\bwhat sets you apart\b/i,
+];
+
+const TOOL_PATTERNS = [
+  'salesforce', 'hubspot', 'marketo', 'pardot', 'segment', 'amplitude',
+  'mixpanel', 'google analytics', 'ga4', 'tableau', 'looker', 'dbt',
+  'snowflake', 'bigquery', 'braze', 'iterable', 'klaviyo', 'mailchimp',
+  'meta ads', 'google ads', 'linkedin ads', 'tiktok ads',
+  'figma', 'notion', 'jira', 'asana',
+  'optimizely', 'launchdarkly', 'vwo', 'hotjar', 'fullstory',
+  'semrush', 'ahrefs', 'moz',
+  'adobe analytics', 'adobe experience manager',
+  'intercom', 'zendesk', 'drift', 'gong', 'outreach', 'salesloft',
+  'clearbit', 'zoominfo', '6sense', 'demandbase',
+  'attentive', 'postscript', 'yotpo',
+  'power bi', 'excel', 'sql',
+  'shopify', 'magento', 'stripe',
+];
+
+function extractRequirements(jd: string, claims?: Claim[]): Requirement[] {
   const reqs: Requirement[] = [];
-  const lines = jd.split(/[.\n]/);
+  const lines = jd.split('\n');
 
   const yearsPattern = /(\d+)\+?\s*(?:years?|yrs?)\s+(?:of\s+)?(?:experience\s+(?:in|with)\s+)?(.+)/i;
-  const toolPatterns = [
-    'salesforce', 'hubspot', 'marketo', 'pardot', 'segment', 'amplitude',
-    'mixpanel', 'google analytics', 'ga4', 'tableau', 'looker', 'dbt',
-    'snowflake', 'bigquery', 'braze', 'iterable', 'klaviyo', 'mailchimp',
-    'meta ads', 'google ads', 'linkedin ads', 'tiktok ads',
-  ];
 
-  for (const line of lines) {
-    const trimmed = line.trim().toLowerCase();
-    if (!trimmed) continue;
+  // Track current section priority
+  let currentPriority: RequirementPriority = 'Must';
+  const addedTools = new Set<string>();
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    const lineLower = line.toLowerCase();
+
+    // Check if this line is a section header that changes priority
+    if (PREFERRED_PATTERNS.some((p) => p.test(line))) {
+      currentPriority = 'Preferred';
+      continue;
+    }
+    if (MUST_PATTERNS.some((p) => p.test(line))) {
+      currentPriority = 'Must';
+      continue;
+    }
+
+    // Inline priority detection (for single-line items)
+    let linePriority = currentPriority;
+    if (/\bpreferred\b|\bnice to have\b|\bbonus\b|\bplus\b|\bdesirable\b/i.test(lineLower)) {
+      linePriority = 'Preferred';
+    }
+    if (/\brequired\b|\bmust have\b|\bessential\b/i.test(lineLower)) {
+      linePriority = 'Must';
+    }
 
     // Years of experience
-    const yearsMatch = trimmed.match(yearsPattern);
+    const yearsMatch = lineLower.match(yearsPattern);
     if (yearsMatch) {
+      const years = parseInt(yearsMatch[1]);
+      const desc = yearsMatch[2].trim();
+      // Clean up trailing punctuation
+      const cleanDesc = desc.replace(/[,;.]$/, '').trim();
+
+      const match = matchExperienceClaim(years, cleanDesc, claims);
+
       reqs.push({
         type: 'experience',
-        description: yearsMatch[2].trim(),
-        yearsNeeded: parseInt(yearsMatch[1]),
+        description: cleanDesc.charAt(0).toUpperCase() + cleanDesc.slice(1),
+        yearsNeeded: years,
+        priority: linePriority,
+        match: match.status,
+        evidence: match.evidence,
       });
     }
 
     // Tools
-    for (const tool of toolPatterns) {
-      if (trimmed.includes(tool)) {
-        const exists = reqs.some((r) => r.type === 'tool' && r.description.toLowerCase() === tool);
-        if (!exists) {
-          reqs.push({ type: 'tool', description: tool.charAt(0).toUpperCase() + tool.slice(1) });
-        }
+    for (const tool of TOOL_PATTERNS) {
+      if (lineLower.includes(tool) && !addedTools.has(tool)) {
+        addedTools.add(tool);
+        const match = matchToolClaim(tool, claims);
+        reqs.push({
+          type: 'tool',
+          description: capitalizeFirst(tool),
+          priority: linePriority,
+          match: match.status,
+          evidence: match.evidence,
+        });
       }
     }
 
     // Education
-    if (trimmed.includes("bachelor") || trimmed.includes("master") || trimmed.includes("mba") || trimmed.includes("degree")) {
+    if (/\bbachelor['']?s?\b|\bmaster['']?s?\b|\bmba\b|\bdegree\b/i.test(lineLower)) {
       const exists = reqs.some((r) => r.type === 'education');
       if (!exists) {
-        reqs.push({ type: 'education', description: line.trim() });
+        reqs.push({
+          type: 'education',
+          description: line.replace(/^[-*•◦▪]\s*/, '').trim(),
+          priority: linePriority,
+          match: 'Missing', // User would need to verify manually
+        });
+      }
+    }
+
+    // Certifications
+    if (/\bcertified\b|\bcertification\b|\blicensed?\b/i.test(lineLower)) {
+      const exists = reqs.some((r) => r.type === 'certification');
+      if (!exists) {
+        reqs.push({
+          type: 'certification',
+          description: line.replace(/^[-*•◦▪]\s*/, '').trim(),
+          priority: linePriority,
+          match: 'Missing',
+        });
       }
     }
   }
 
+  // Sort: Must first, then by type
+  reqs.sort((a, b) => {
+    if (a.priority !== b.priority) return a.priority === 'Must' ? -1 : 1;
+    const typeOrder = ['experience', 'skill', 'tool', 'education', 'certification', 'other'];
+    return typeOrder.indexOf(a.type) - typeOrder.indexOf(b.type);
+  });
+
   return reqs;
+}
+
+// ============================================================
+// Claim Matching Helpers
+// ============================================================
+
+interface MatchResult {
+  status: RequirementMatch;
+  evidence?: string;
+}
+
+function matchExperienceClaim(yearsNeeded: number, description: string, claims?: Claim[]): MatchResult {
+  if (!claims || claims.length === 0) return { status: 'Missing' };
+
+  const descLower = description.toLowerCase();
+  const keywords = descLower.split(/\s+/).filter((w) => w.length > 3);
+
+  for (const claim of claims) {
+    // Calculate approximate years at this role
+    const years = estimateClaimYears(claim);
+
+    // Check if claim responsibilities/outcomes match the description
+    const allText = [
+      claim.role,
+      ...claim.responsibilities,
+      ...claim.outcomes.map((o) => o.description),
+    ].join(' ').toLowerCase();
+
+    const matchingKeywords = keywords.filter((kw) => allText.includes(kw));
+    const keywordMatchRatio = keywords.length > 0 ? matchingKeywords.length / keywords.length : 0;
+
+    if (keywordMatchRatio >= 0.3) {
+      if (years >= yearsNeeded) {
+        return {
+          status: 'Met',
+          evidence: `${claim.role} at ${claim.company} (${years}+ yrs)`,
+        };
+      } else if (years >= yearsNeeded * 0.6) {
+        return {
+          status: 'Partial',
+          evidence: `${claim.role} at ${claim.company} (${years} yrs, need ${yearsNeeded})`,
+        };
+      }
+    }
+  }
+
+  // Check across all claims for total years
+  const totalYears = claims.reduce((sum, c) => sum + estimateClaimYears(c), 0);
+  if (totalYears >= yearsNeeded) {
+    return {
+      status: 'Partial',
+      evidence: `${totalYears} total years across ${claims.length} role${claims.length !== 1 ? 's' : ''}`,
+    };
+  }
+
+  return { status: 'Missing' };
+}
+
+function matchToolClaim(tool: string, claims?: Claim[]): MatchResult {
+  if (!claims || claims.length === 0) return { status: 'Missing' };
+
+  const toolLower = tool.toLowerCase();
+
+  for (const claim of claims) {
+    // Check tools array
+    if (claim.tools.some((t) => t.toLowerCase() === toolLower)) {
+      return {
+        status: 'Met',
+        evidence: `Used at ${claim.company} (${claim.role})`,
+      };
+    }
+
+    // Check responsibilities/outcomes text
+    const allText = [
+      ...claim.responsibilities,
+      ...claim.outcomes.map((o) => o.description),
+    ].join(' ').toLowerCase();
+
+    if (allText.includes(toolLower)) {
+      return {
+        status: 'Met',
+        evidence: `Referenced in ${claim.role} at ${claim.company}`,
+      };
+    }
+  }
+
+  return { status: 'Missing' };
+}
+
+function estimateClaimYears(claim: Claim): number {
+  if (!claim.startDate) return 0;
+
+  const start = parseClaimDate(claim.startDate);
+  const end = claim.endDate ? parseClaimDate(claim.endDate) : new Date();
+
+  if (!start) return 0;
+  const endDate = end || new Date();
+
+  const diffMs = endDate.getTime() - start.getTime();
+  return Math.max(0, Math.round(diffMs / (365.25 * 24 * 60 * 60 * 1000)));
+}
+
+function parseClaimDate(dateStr: string): Date | null {
+  // Try "Month Year" format
+  const match = dateStr.match(/(\w+)\s+(\d{4})/);
+  if (match) {
+    const months: Record<string, number> = {
+      jan: 0, january: 0, feb: 1, february: 1, mar: 2, march: 2,
+      apr: 3, april: 3, may: 4, jun: 5, june: 5,
+      jul: 6, july: 6, aug: 7, august: 7, sep: 8, september: 8,
+      oct: 9, october: 9, nov: 10, november: 10, dec: 11, december: 11,
+    };
+    const monthNum = months[match[1].toLowerCase()];
+    if (monthNum !== undefined) {
+      return new Date(parseInt(match[2]), monthNum, 1);
+    }
+  }
+
+  // Try just year
+  const yearMatch = dateStr.match(/^(\d{4})$/);
+  if (yearMatch) {
+    return new Date(parseInt(yearMatch[1]), 0, 1);
+  }
+
+  return null;
+}
+
+function capitalizeFirst(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 // ============================================================

@@ -10,6 +10,7 @@ import type {
   Job,
   Company,
   Contact,
+  ContactJobLink,
   Activity,
   Asset,
   Profile,
@@ -23,6 +24,7 @@ interface AppState {
   jobs: Job[];
   companies: Company[];
   contacts: Contact[];
+  contactJobLinks: ContactJobLink[];
   activities: Activity[];
   assets: Asset[];
   profile: Profile | null;
@@ -45,6 +47,8 @@ interface AppState {
   updateCompany: (id: string, updates: Partial<Company>) => Promise<void>;
   addContact: (contact: Partial<Contact>) => Promise<Contact>;
   updateContact: (id: string, updates: Partial<Contact>) => Promise<void>;
+  linkContactToJob: (contactId: string, jobId: string) => Promise<void>;
+  unlinkContactFromJob: (contactId: string, jobId: string) => Promise<void>;
   addActivity: (activity: Partial<Activity>) => Promise<Activity>;
   addAsset: (asset: Partial<Asset>) => Promise<Asset>;
   updateAsset: (id: string, updates: Partial<Asset>) => Promise<void>;
@@ -61,6 +65,7 @@ export const useStore = create<AppState>((set, get) => ({
   jobs: [],
   companies: [],
   contacts: [],
+  contactJobLinks: [],
   activities: [],
   assets: [],
   profile: null,
@@ -76,10 +81,11 @@ export const useStore = create<AppState>((set, get) => ({
 
   initialize: async () => {
     await seedDefaultProfile();
-    const [jobs, companies, contacts, activities, assets, claims, generationLogs] = await Promise.all([
+    const [jobs, companies, contacts, contactJobLinks, activities, assets, claims, generationLogs] = await Promise.all([
       db.jobs.orderBy('updatedAt').reverse().toArray(),
       db.companies.toArray(),
       db.contacts.toArray(),
+      db.contactJobLinks.toArray(),
       db.activities.orderBy('createdAt').reverse().toArray(),
       db.assets.toArray(),
       db.claims.toArray(),
@@ -91,6 +97,7 @@ export const useStore = create<AppState>((set, get) => ({
       jobs,
       companies,
       contacts,
+      contactJobLinks,
       activities,
       assets,
       profile: profile || null,
@@ -101,17 +108,18 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   refreshData: async () => {
-    const [jobs, companies, contacts, activities, assets, claims, generationLogs] = await Promise.all([
+    const [jobs, companies, contacts, contactJobLinks, activities, assets, claims, generationLogs] = await Promise.all([
       db.jobs.orderBy('updatedAt').reverse().toArray(),
       db.companies.toArray(),
       db.contacts.toArray(),
+      db.contactJobLinks.toArray(),
       db.activities.orderBy('createdAt').reverse().toArray(),
       db.assets.toArray(),
       db.claims.toArray(),
       db.generationLogs.orderBy('createdAt').reverse().toArray(),
     ]);
     const profile = await db.profiles.get('default');
-    set({ jobs, companies, contacts, activities, assets, profile: profile || null, claims, generationLogs });
+    set({ jobs, companies, contacts, contactJobLinks, activities, assets, profile: profile || null, claims, generationLogs });
   },
 
   // --------------------------------------------------------
@@ -198,6 +206,7 @@ export const useStore = create<AppState>((set, get) => ({
     await db.activities.where('jobId').equals(id).delete();
     await db.assets.where('jobId').equals(id).delete();
     await db.outcomes.where('jobId').equals(id).delete();
+    await db.contactJobLinks.where('jobId').equals(id).delete();
     if (get().selectedJobId === id) {
       set({ selectedJobId: null });
     }
@@ -233,7 +242,8 @@ export const useStore = create<AppState>((set, get) => ({
     const profile = get().profile;
     if (!job || !profile) return;
 
-    const result = scoreJob(job, profile);
+    const claims = get().claims;
+    const result = scoreJob(job, profile, claims);
     const now = new Date().toISOString();
 
     const updates: Partial<Job> = {
@@ -244,6 +254,7 @@ export const useStore = create<AppState>((set, get) => ({
       reasonsToPass: result.reasonsToPass,
       redFlags: result.redFlags,
       requirementsExtracted: result.requirementsExtracted,
+      scoreBreakdown: result.breakdown,
       updatedAt: now,
     };
 
@@ -293,7 +304,8 @@ export const useStore = create<AppState>((set, get) => ({
     const now = new Date().toISOString();
     const contact: Contact = {
       id: generateId(),
-      name: contactData.name || '',
+      firstName: contactData.firstName || '',
+      lastName: contactData.lastName || '',
       role: contactData.role,
       companyId: contactData.companyId,
       company: contactData.company,
@@ -313,6 +325,31 @@ export const useStore = create<AppState>((set, get) => ({
   updateContact: async (id, updates) => {
     await db.contacts.update(id, { ...updates, updatedAt: new Date().toISOString() });
     await get().refreshData();
+  },
+
+  linkContactToJob: async (contactId, jobId) => {
+    // Check if link already exists
+    const existing = get().contactJobLinks.find(
+      (l) => l.contactId === contactId && l.jobId === jobId
+    );
+    if (existing) return;
+    await db.contactJobLinks.add({
+      id: generateId(),
+      contactId,
+      jobId,
+      createdAt: new Date().toISOString(),
+    });
+    await get().refreshData();
+  },
+
+  unlinkContactFromJob: async (contactId, jobId) => {
+    const link = get().contactJobLinks.find(
+      (l) => l.contactId === contactId && l.jobId === jobId
+    );
+    if (link) {
+      await db.contactJobLinks.delete(link.id);
+      await get().refreshData();
+    }
   },
 
   // --------------------------------------------------------

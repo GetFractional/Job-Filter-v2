@@ -96,6 +96,7 @@ export interface Job {
   reasonsToPass: string[];
   redFlags: string[];
   requirementsExtracted: Requirement[];
+  scoreBreakdown?: ScoreBreakdownStored;
   researchBrief?: ResearchBrief;
   notes?: string;
   source?: string;
@@ -103,11 +104,24 @@ export interface Job {
   updatedAt: string;
 }
 
+export type RequirementPriority = 'Must' | 'Preferred';
+export type RequirementMatch = 'Met' | 'Partial' | 'Missing';
+
 export interface Requirement {
   type: 'skill' | 'experience' | 'tool' | 'education' | 'certification' | 'other';
   description: string;
   yearsNeeded?: number;
-  met?: boolean;
+  priority: RequirementPriority;
+  match: RequirementMatch;
+  evidence?: string;
+}
+
+export interface ScoreBreakdownStored {
+  roleScopeAuthority: number;
+  compensationBenefits: number;
+  companyStageAbility: number;
+  domainFit: number;
+  riskPenalty: number;
 }
 
 export interface Company {
@@ -125,7 +139,8 @@ export interface Company {
 
 export interface Contact {
   id: string;
-  name: string;
+  firstName: string;
+  lastName: string;
   role?: string;
   companyId?: string;
   company?: string;
@@ -136,6 +151,13 @@ export interface Contact {
   notes?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ContactJobLink {
+  id: string;
+  contactId: string;
+  jobId: string;
+  createdAt: string;
 }
 
 export interface Activity {
