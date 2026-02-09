@@ -17,6 +17,8 @@ import {
   RefreshCw,
   MapPin,
   HelpCircle,
+  FileDown,
+  Link2,
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { generateResearchPrompt, parseResearchPaste } from '../../lib/research';
@@ -175,6 +177,58 @@ export function ResearchTab({ job }: ResearchTabProps) {
             </ul>
           </div>
         )}
+
+        {/* Sources */}
+        {brief.sources && brief.sources.length > 0 && (
+          <div className="bg-white rounded-lg border border-neutral-200 p-4 shadow-sm">
+            <h4 className="text-xs font-bold text-neutral-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+              <Link2 size={14} className="text-neutral-400" />
+              Sources
+            </h4>
+            <ul className="space-y-1.5">
+              {brief.sources.map((src, i) => (
+                <li key={i} className="text-xs text-neutral-600 flex items-start gap-2">
+                  <span className="w-4 h-4 rounded bg-neutral-100 text-neutral-500 flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">
+                    {i + 1}
+                  </span>
+                  <div>
+                    <span className="font-medium">{src.label}</span>
+                    {src.url && (
+                      <a href={src.url} target="_blank" rel="noopener noreferrer" className="text-brand-600 hover:underline ml-1 inline-flex items-center gap-0.5">
+                        <ExternalLink size={9} />
+                      </a>
+                    )}
+                    {src.excerpt && <p className="text-neutral-400 mt-0.5">{src.excerpt}</p>}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Export Strategic Memo */}
+        <button
+          onClick={() => {
+            const sections = BRIEF_SECTIONS
+              .map(({ key, label }) => {
+                const val = brief[key];
+                return val && typeof val === 'string' ? `## ${label}\n\n${val}` : null;
+              })
+              .filter(Boolean);
+            if (brief.interviewHypotheses?.length) {
+              sections.push('## Interview Hypotheses\n\n' + brief.interviewHypotheses.map((h, i) => `${i + 1}. ${h}`).join('\n'));
+            }
+            if (brief.sources?.length) {
+              sections.push('## Sources\n\n' + brief.sources.map((s, i) => `${i + 1}. ${s.label}${s.url ? ` — ${s.url}` : ''}`).join('\n'));
+            }
+            const memo = `# Research Brief: ${job.company}\n*${job.title}*\n*Generated ${new Date(brief.createdAt).toLocaleDateString()}*\n\n${sections.join('\n\n---\n\n')}`;
+            navigator.clipboard.writeText(memo);
+          }}
+          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-neutral-200 rounded-lg text-sm font-medium text-neutral-700 hover:bg-neutral-50 shadow-sm"
+        >
+          <FileDown size={14} />
+          Export Strategic Memo
+        </button>
 
         <p className="text-[11px] text-neutral-400 text-center">
           Research generated on {new Date(brief.createdAt).toLocaleDateString()}

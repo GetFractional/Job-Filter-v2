@@ -82,7 +82,7 @@ function isSectionHeader(line: string): boolean {
   // Strip leading numbering / decoration (e.g., "1. Experience" or "--- SKILLS ---")
   const cleaned = line
     .replace(/^[\d.)\-–—*#|:]+\s*/, '')
-    .replace(/[\-–—*#|:]+\s*$/, '')
+    .replace(/[-–—*#|:]+\s*$/, '')
     .trim()
     .toLowerCase();
   return SECTION_HEADERS.has(cleaned);
@@ -289,7 +289,7 @@ function matchRoleHeader(
   if (dateStr) {
     headerLine = headerLine.replace(dateStr, '').trim();
     // Clean trailing/leading separators left over after removing the date
-    headerLine = headerLine.replace(/^[,|–—\-]\s*|\s*[,|–—\-]$/g, '').trim();
+    headerLine = headerLine.replace(/^[,|–—-]\s*|\s*[,|–—-]$/g, '').trim();
   }
 
   if (headerLine.length < 3 || headerLine.length > 120) return null;
@@ -350,7 +350,7 @@ function classifyLines(lines: string[]): ClassifiedLine[] {
     if (dateInfo) {
       // Check whether the non-date portion looks like a role name
       const residual = trimmed.replace(dateInfo.matched, '').trim()
-        .replace(/^[,|–—\-]\s*|\s*[,|–—\-]$/g, '').trim();
+        .replace(/^[,|–—-]\s*|\s*[,|–—-]$/g, '').trim();
       if (residual.length >= 3 && /^[A-Z]/.test(residual)) {
         // Treat as a role header with unknown company
         return {
@@ -759,7 +759,7 @@ export function detectTools(text: string): string[] {
  * sits on word boundaries (not embedded inside a larger word).
  */
 function isWordBoundaryMatch(text: string, idx: number, len: number): boolean {
-  const BOUNDARY = /[\s,;()/\-.:|'"!?\[\]{}]/;
+  const BOUNDARY = /[\s,;()/\-.:|'"!?[\]{}]/;
   const before = idx > 0 ? text[idx - 1] : ' ';
   const after = idx + len < text.length ? text[idx + len] : ' ';
   return (BOUNDARY.test(before) || idx === 0) &&

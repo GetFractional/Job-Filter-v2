@@ -104,9 +104,10 @@ function ExecutiveTab({ funnel }: { funnel: FunnelMetrics }) {
   const navigate = useNavigate();
   const weekDelta = funnel.capturedThisWeek - funnel.capturedLastWeek;
 
+  // eslint-disable-next-line react-hooks/purity -- time reference is intentional
+  const now = Date.now();
   const recommendations = useMemo(() => {
     const recs: Recommendation[] = [];
-    const now = Date.now();
     const oneWeekAgo = now - 7 * 24 * 60 * 60 * 1000;
     const fiveDaysAgo = now - 5 * 24 * 60 * 60 * 1000;
     const terminalStages = new Set(['Closed Won', 'Closed Lost']);
@@ -196,7 +197,7 @@ function ExecutiveTab({ funnel }: { funnel: FunnelMetrics }) {
     return recs
       .sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority])
       .slice(0, 5);
-  }, [jobs, activities]);
+  }, [jobs, activities, now]);
 
   return (
     <div className="space-y-4">
@@ -339,6 +340,10 @@ function ExecutiveTab({ funnel }: { funnel: FunnelMetrics }) {
   );
 }
 
+function computeDaysSince(updatedAt: string): number {
+  return Math.floor((Date.now() - new Date(updatedAt).getTime()) / (1000 * 60 * 60 * 24));
+}
+
 function BottleneckTab({ bottleneck }: { bottleneck: BottleneckMetrics }) {
   const navigate = useNavigate();
 
@@ -423,7 +428,7 @@ function BottleneckTab({ bottleneck }: { bottleneck: BottleneckMetrics }) {
           <p className="text-[11px] text-neutral-500 mb-3">No activity in 5+ days</p>
           <div className="space-y-2">
             {bottleneck.stalledJobs.map((job) => {
-              const daysSince = Math.floor((Date.now() - new Date(job.updatedAt).getTime()) / (1000 * 60 * 60 * 24));
+              const daysSince = computeDaysSince(job.updatedAt);
               return (
                 <button
                   key={job.id}

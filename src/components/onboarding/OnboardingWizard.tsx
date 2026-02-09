@@ -12,20 +12,26 @@ import {
   MapPin,
   AlertTriangle,
   Sparkles,
+  Settings2,
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
-import { parseResumeStructured, parsedClaimToImport } from '../../lib/claimParser';
+import {
+  parseResumeStructured,
+  parsedClaimToImport,
+} from '../../lib/claimParser';
+import type { ParsedClaim } from '../../lib/claimParser';
 
 interface OnboardingWizardProps {
   onComplete: () => void;
 }
 
-type Step = 'welcome' | 'profile' | 'claims' | 'ready';
+type Step = 'welcome' | 'profile' | 'claims' | 'preferences' | 'ready';
 
 const STEPS: { id: Step; label: string }[] = [
   { id: 'welcome', label: 'Welcome' },
   { id: 'profile', label: 'Profile' },
   { id: 'claims', label: 'Resume' },
+  { id: 'preferences', label: 'Preferences' },
   { id: 'ready', label: 'Ready' },
 ];
 
@@ -37,15 +43,20 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const [step, setStep] = useState<Step>('welcome');
   const [saving, setSaving] = useState(false);
 
-  // Profile form state
+  // Profile form state (slimmed down: Name + Target Roles only)
   const [name, setName] = useState(profile?.name || '');
   const [targetRoles, setTargetRoles] = useState(profile?.targetRoles?.join(', ') || '');
+
+  // Preferences form state (moved from profile)
   const [compFloor, setCompFloor] = useState(profile?.compFloor?.toString() || '150000');
   const [compTarget, setCompTarget] = useState(profile?.compTarget?.toString() || '180000');
   const [locationPref, setLocationPref] = useState(profile?.locationPreference || '');
+  const [disqualifiers, setDisqualifiers] = useState(profile?.disqualifiers?.join('\n') || '');
 
   // Resume paste state
   const [resumeText, setResumeText] = useState('');
+  // Parsed claims for review (null = not yet parsed)
+  const [parsedClaims, setParsedClaims] = useState<ParsedClaim[] | null>(null);
   const [claimsImported, setClaimsImported] = useState(0);
 
   const stepIndex = STEPS.findIndex((s) => s.id === step);
@@ -56,23 +67,45 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
       await updateProfile({
         name: name.trim() || 'User',
         targetRoles: targetRoles.split(',').map((r) => r.trim()).filter(Boolean),
-        compFloor: parseInt(compFloor) || 150000,
-        compTarget: parseInt(compTarget) || 180000,
-        locationPreference: locationPref.trim(),
       });
     } finally {
       setSaving(false);
     }
-  }, [name, targetRoles, compFloor, compTarget, locationPref, updateProfile]);
+  }, [name, targetRoles, updateProfile]);
 
-  const handleImportResume = useCallback(async () => {
-    if (!resumeText.trim()) return;
+  const handleSavePreferences = useCallback(async () => {
     setSaving(true);
     try {
-      const parsed = parseResumeStructured(resumeText);
+      await updateProfile({
+        compFloor: parseInt(compFloor) || 150000,
+        compTarget: parseInt(compTarget) || 180000,
+        locationPreference: locationPref.trim(),
+        disqualifiers: disqualifiers.split('\n').map((d) => d.trim()).filter(Boolean),
+      });
+    } finally {
+      setSaving(false);
+    }
+  }, [compFloor, compTarget, locationPref, disqualifiers, updateProfile]);
+
+  const handleParseResume = useCallback(() => {
+    if (!resumeText.trim()) return;
+    const parsed = parseResumeStructured(resumeText);
+    setParsedClaims(parsed);
+  }, [resumeText]);
+
+  const handleToggleClaim = useCallback((key: string) => {
+    setParsedClaims((prev) =>
+      prev?.map((c) => (c._key === key ? { ...c, included: !c.included } : c)) ?? null
+    );
+  }, []);
+
+  const handleImportSelectedClaims = useCallback(async () => {
+    if (!parsedClaims) return;
+    setSaving(true);
+    try {
       let imported = 0;
-      for (const claim of parsed) {
-        if (claim.role || claim.company) {
+      for (const claim of parsedClaims) {
+        if (claim.included && (claim.role || claim.company)) {
           const data = parsedClaimToImport(claim);
           await addClaim(data);
           imported++;
@@ -82,14 +115,28 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     } finally {
       setSaving(false);
     }
-  }, [resumeText, addClaim]);
+  }, [parsedClaims, addClaim]);
+
+  const selectedClaimCount = parsedClaims?.filter((c) => c.included).length ?? 0;
+  const totalClaimCount = parsedClaims?.length ?? 0;
 
   const handleNext = async () => {
     if (step === 'profile') {
       await handleSaveProfile();
     }
-    if (step === 'claims' && resumeText.trim() && claimsImported === 0) {
-      await handleImportResume();
+    if (step === 'claims') {
+      // If user pasted text but hasn't parsed yet, parse first
+      if (resumeText.trim() && !parsedClaims) {
+        handleParseResume();
+        return; // Stay on claims step to show review UI
+      }
+      // If parsed but not yet imported, import selected
+      if (parsedClaims && claimsImported === 0) {
+        await handleImportSelectedClaims();
+      }
+    }
+    if (step === 'preferences') {
+      await handleSavePreferences();
     }
 
     const nextIndex = stepIndex + 1;
@@ -116,6 +163,9 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     }
   };
 
+  // Check whether required preferences are filled
+  const missingRequiredPrefs = !compFloor.trim() || !locationPref.trim();
+
   return (
     <div className="min-h-screen bg-neutral-50 flex flex-col">
       {/* Progress bar */}
@@ -137,7 +187,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                 </div>
                 {i < STEPS.length - 1 && (
                   <div
-                    className={`w-16 sm:w-24 h-0.5 mx-1 ${
+                    className={`w-12 sm:w-20 h-0.5 mx-1 ${
                       i < stepIndex ? 'bg-green-500' : 'bg-neutral-200'
                     }`}
                   />
@@ -163,6 +213,9 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
       {/* Step content */}
       <div className="flex-1 flex items-center justify-center p-6">
         <div className="max-w-lg w-full">
+          {/* ============================================ */}
+          {/* WELCOME STEP                                 */}
+          {/* ============================================ */}
           {step === 'welcome' && (
             <div className="text-center">
               <div className="w-20 h-20 bg-brand-50 rounded-2xl flex items-center justify-center mx-auto mb-6">
@@ -199,6 +252,9 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
             </div>
           )}
 
+          {/* ============================================ */}
+          {/* PROFILE STEP (Name + Target Roles only)      */}
+          {/* ============================================ */}
           {step === 'profile' && (
             <div>
               <div className="flex items-center gap-3 mb-6">
@@ -207,14 +263,15 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                 </div>
                 <div>
                   <h2 className="text-lg font-semibold text-neutral-900">Your Profile</h2>
-                  <p className="text-xs text-neutral-500">Set your preferences so we can score jobs against them.</p>
+                  <p className="text-xs text-neutral-500">Tell us who you are and what roles you're targeting.</p>
                 </div>
               </div>
 
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium text-neutral-700 mb-1.5 block">
+                  <label className="text-sm font-medium text-neutral-700 mb-1.5 block flex items-center gap-1.5">
                     Your Name
+                    <span className="text-[11px] text-red-500 font-semibold">Required</span>
                   </label>
                   <input
                     type="text"
@@ -229,6 +286,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                   <label className="text-sm font-medium text-neutral-700 mb-1.5 block flex items-center gap-1.5">
                     <Briefcase size={14} className="text-neutral-400" />
                     Target Roles
+                    <span className="text-[11px] text-red-500 font-semibold">Required</span>
                     <span className="text-[11px] text-neutral-400 font-normal">(comma-separated)</span>
                   </label>
                   <input
@@ -239,53 +297,13 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     className="w-full px-3.5 py-2.5 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
                   />
                 </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-neutral-700 mb-1.5 block flex items-center gap-1.5">
-                      <DollarSign size={14} className="text-neutral-400" />
-                      Comp Floor
-                    </label>
-                    <input
-                      type="number"
-                      value={compFloor}
-                      onChange={(e) => setCompFloor(e.target.value)}
-                      placeholder="150000"
-                      className="w-full px-3.5 py-2.5 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-neutral-700 mb-1.5 block flex items-center gap-1.5">
-                      <DollarSign size={14} className="text-neutral-400" />
-                      Comp Target
-                    </label>
-                    <input
-                      type="number"
-                      value={compTarget}
-                      onChange={(e) => setCompTarget(e.target.value)}
-                      placeholder="180000"
-                      className="w-full px-3.5 py-2.5 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-neutral-700 mb-1.5 block flex items-center gap-1.5">
-                    <MapPin size={14} className="text-neutral-400" />
-                    Location Preference
-                  </label>
-                  <input
-                    type="text"
-                    value={locationPref}
-                    onChange={(e) => setLocationPref(e.target.value)}
-                    placeholder="Remote preferred; hybrid/in-person OK around Nashville"
-                    className="w-full px-3.5 py-2.5 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
-                  />
-                </div>
               </div>
             </div>
           )}
 
+          {/* ============================================ */}
+          {/* CLAIMS STEP (with review/merge UI)           */}
+          {/* ============================================ */}
           {step === 'claims' && (
             <div>
               <div className="flex items-center gap-3 mb-6">
@@ -299,6 +317,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
               </div>
 
               {claimsImported > 0 ? (
+                /* ---- Import complete ---- */
                 <div className="bg-green-50 rounded-lg border border-green-200 p-6 text-center">
                   <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
                     <Check size={24} className="text-green-600" />
@@ -310,7 +329,73 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     You can review and edit them later in Settings &rarr; Claim Ledger.
                   </p>
                 </div>
+              ) : parsedClaims ? (
+                /* ---- Review / Merge UI ---- */
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold text-neutral-800">Review Parsed Claims</h3>
+                    <span className="text-[11px] font-medium text-neutral-500">
+                      {selectedClaimCount} of {totalClaimCount} claims selected
+                    </span>
+                  </div>
+
+                  <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
+                    {parsedClaims.map((claim) => {
+                      const bulletCount = claim.responsibilities.length + claim.outcomes.length;
+                      const dateRange = claim.startDate
+                        ? `${claim.startDate}${claim.endDate ? ` - ${claim.endDate}` : ' - Present'}`
+                        : '';
+                      return (
+                        <label
+                          key={claim._key}
+                          className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                            claim.included
+                              ? 'bg-white border-neutral-200 hover:border-brand-300'
+                              : 'bg-neutral-50 border-neutral-100 opacity-60'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={claim.included}
+                            onChange={() => handleToggleClaim(claim._key)}
+                            className="mt-1 h-4 w-4 rounded border-neutral-300 text-brand-600 focus:ring-brand-500/30"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {claim.role && (
+                                <span className="text-sm font-semibold text-neutral-900 truncate">{claim.role}</span>
+                              )}
+                              {claim.company && (
+                                <span className="text-xs text-neutral-500">at {claim.company}</span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3 mt-0.5">
+                              {dateRange && (
+                                <span className="text-[11px] text-neutral-400">{dateRange}</span>
+                              )}
+                              <span className="text-[11px] text-neutral-400">
+                                {bulletCount} bullet{bulletCount !== 1 ? 's' : ''}
+                              </span>
+                              {claim.tools.length > 0 && (
+                                <span className="text-[11px] text-neutral-400">
+                                  {claim.tools.length} tool{claim.tools.length !== 1 ? 's' : ''}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+
+                  {parsedClaims.length === 0 && (
+                    <div className="text-center py-6">
+                      <p className="text-sm text-neutral-500">No claims could be parsed. Try a different format or skip this step.</p>
+                    </div>
+                  )}
+                </div>
               ) : (
+                /* ---- Paste textarea ---- */
                 <>
                   <textarea
                     value={resumeText}
@@ -318,10 +403,10 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     placeholder="Paste your resume text here...
 
 Example:
-VP of Growth at Acme Corp, Jan 2021 - Present
-• Led GTM strategy for 3 product lines generating $12M ARR
-• Built and managed team of 8 across growth, content, and demand gen
-• Implemented Salesforce + HubSpot integration reducing lead response time by 40%"
+VP of Growth at Previous Company, Jan 2021 - Present
+- Led GTM strategy for 3 product lines generating $12M ARR
+- Built and managed team of 8 across growth, content, and demand gen
+- Implemented Salesforce + HubSpot integration reducing lead response time by 40%"
                     rows={12}
                     className="w-full px-3.5 py-2.5 bg-white border border-neutral-200 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 resize-none"
                   />
@@ -337,6 +422,101 @@ VP of Growth at Acme Corp, Jan 2021 - Present
             </div>
           )}
 
+          {/* ============================================ */}
+          {/* PREFERENCES STEP                             */}
+          {/* ============================================ */}
+          {step === 'preferences' && (
+            <div>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-brand-50 rounded-lg flex items-center justify-center">
+                  <Settings2 size={20} className="text-brand-600" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-neutral-900">Scoring Preferences</h2>
+                  <p className="text-xs text-neutral-500">Set your compensation and location preferences for job scoring.</p>
+                </div>
+              </div>
+
+              {/* Warning banner */}
+              {missingRequiredPrefs && (
+                <div className="flex items-start gap-2 mb-5 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                  <AlertTriangle size={14} className="text-amber-600 shrink-0 mt-0.5" />
+                  <p className="text-xs text-amber-700 leading-relaxed">
+                    Missing required preferences will reduce scoring quality.
+                  </p>
+                </div>
+              )}
+
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-neutral-700 mb-1.5 block flex items-center gap-1.5">
+                      <DollarSign size={14} className="text-neutral-400" />
+                      Comp Floor
+                      <span className="text-[11px] text-red-500 font-semibold">Required</span>
+                    </label>
+                    <input
+                      type="number"
+                      value={compFloor}
+                      onChange={(e) => setCompFloor(e.target.value)}
+                      placeholder="150000"
+                      className="w-full px-3.5 py-2.5 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-neutral-700 mb-1.5 block flex items-center gap-1.5">
+                      <DollarSign size={14} className="text-neutral-400" />
+                      Comp Target
+                      <span className="text-[11px] text-neutral-400 font-normal">Optional</span>
+                    </label>
+                    <input
+                      type="number"
+                      value={compTarget}
+                      onChange={(e) => setCompTarget(e.target.value)}
+                      placeholder="180000"
+                      className="w-full px-3.5 py-2.5 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-neutral-700 mb-1.5 block flex items-center gap-1.5">
+                    <MapPin size={14} className="text-neutral-400" />
+                    Location Preference
+                    <span className="text-[11px] text-red-500 font-semibold">Required</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={locationPref}
+                    onChange={(e) => setLocationPref(e.target.value)}
+                    placeholder="Remote preferred; hybrid/in-person OK around Nashville"
+                    className="w-full px-3.5 py-2.5 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-neutral-700 mb-1.5 block flex items-center gap-1.5">
+                    <AlertTriangle size={14} className="text-neutral-400" />
+                    Disqualifiers
+                    <span className="text-[11px] text-neutral-400 font-normal">Optional, one per line</span>
+                  </label>
+                  <textarea
+                    value={disqualifiers}
+                    onChange={(e) => setDisqualifiers(e.target.value)}
+                    placeholder="Requires security clearance
+Must relocate to SF Bay Area
+Contract-to-hire only"
+                    rows={4}
+                    className="w-full px-3.5 py-2.5 bg-white border border-neutral-200 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 resize-none"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ============================================ */}
+          {/* READY STEP                                   */}
+          {/* ============================================ */}
           {step === 'ready' && (
             <div className="text-center">
               <div className="w-20 h-20 bg-green-50 rounded-2xl flex items-center justify-center mx-auto mb-6">
@@ -407,6 +587,11 @@ VP of Growth at Acme Corp, Jan 2021 - Present
                 <>
                   Let's Go
                   <Rocket size={14} />
+                </>
+              ) : step === 'claims' && resumeText.trim() && !parsedClaims ? (
+                <>
+                  Parse & Review
+                  <ChevronRight size={14} />
                 </>
               ) : (
                 <>

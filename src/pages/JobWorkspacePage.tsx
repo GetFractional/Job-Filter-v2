@@ -53,6 +53,7 @@ const TYPE_STYLES: Record<string, string> = {
 
 const TABS = [
   { id: 'score' as const, label: 'Score', icon: Target },
+  { id: 'requirements' as const, label: 'Requirements', icon: ListChecks },
   { id: 'research' as const, label: 'Research', icon: Search },
   { id: 'assets' as const, label: 'Assets', icon: FileText },
   { id: 'crm' as const, label: 'CRM', icon: Users },
@@ -103,36 +104,71 @@ function BreakdownBar({ label, value, max, color }: { label: string; value: numb
   );
 }
 
-function RequirementsMatrix({ requirements }: { requirements: Requirement[] }) {
-  if (requirements.length === 0) return null;
+type GapSeverity = 'None' | 'Low' | 'Medium' | 'High';
 
-  const metCount = requirements.filter((r) => r.match === 'Met').length;
-  const partialCount = requirements.filter((r) => r.match === 'Partial').length;
-  const missingCount = requirements.filter((r) => r.match === 'Missing').length;
+const GAP_SEVERITY_STYLES: Record<GapSeverity, { bg: string; text: string }> = {
+  None: { bg: 'bg-green-50', text: 'text-green-700' },
+  Low: { bg: 'bg-amber-50', text: 'text-amber-700' },
+  Medium: { bg: 'bg-orange-50', text: 'text-orange-700' },
+  High: { bg: 'bg-red-50', text: 'text-red-700' },
+};
+
+function getGapSeverity(req: Requirement): GapSeverity {
+  if (req.match === 'Met') return 'None';
+  if (req.match === 'Partial') return 'Low';
+  // Missing
+  return req.priority === 'Must' ? 'High' : 'Medium';
+}
+
+function RequirementsMatrix({ requirements }: { requirements: Requirement[] }) {
+  if (requirements.length === 0) {
+    return (
+      <div className="bg-white rounded-lg border border-neutral-200 p-8 shadow-sm text-center">
+        <div className="w-14 h-14 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-3">
+          <ListChecks size={22} className="text-neutral-400" />
+        </div>
+        <p className="text-sm text-neutral-500">No requirements extracted yet. Score a job to see its requirements.</p>
+      </div>
+    );
+  }
+
+  // Compute gap severity counts
+  const gapCounts: Record<GapSeverity, number> = { None: 0, Low: 0, Medium: 0, High: 0 };
+  for (const req of requirements) {
+    gapCounts[getGapSeverity(req)]++;
+  }
+
   const mustRequirements = requirements.filter((r) => r.priority === 'Must');
   const mustMet = mustRequirements.filter((r) => r.match === 'Met').length;
 
   return (
     <div className="bg-white rounded-lg border border-neutral-200 shadow-sm overflow-hidden">
-      <div className="px-4 py-3 border-b border-neutral-100 flex items-center justify-between">
-        <h4 className="text-xs font-bold text-neutral-700 uppercase tracking-wider flex items-center gap-1.5">
-          <ListChecks size={14} />
-          Requirements Match
-        </h4>
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] text-green-700 bg-green-50 px-1.5 py-0.5 rounded-md font-medium">
-            {metCount} met
-          </span>
-          {partialCount > 0 && (
-            <span className="text-[11px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-md font-medium">
-              {partialCount} partial
-            </span>
-          )}
-          {missingCount > 0 && (
-            <span className="text-[11px] text-red-700 bg-red-50 px-1.5 py-0.5 rounded-md font-medium">
-              {missingCount} missing
-            </span>
-          )}
+      {/* Gap Summary Header */}
+      <div className="px-4 py-3 border-b border-neutral-100">
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="text-xs font-bold text-neutral-700 uppercase tracking-wider flex items-center gap-1.5">
+            <ListChecks size={14} />
+            Gap Analysis
+          </h4>
+          <span className="text-[11px] text-neutral-500">{requirements.length} requirements total</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-green-500" />
+            <span className="text-[11px] font-medium text-neutral-600">None: {gapCounts.None}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-amber-500" />
+            <span className="text-[11px] font-medium text-neutral-600">Low: {gapCounts.Low}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-orange-500" />
+            <span className="text-[11px] font-medium text-neutral-600">Medium: {gapCounts.Medium}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-red-500" />
+            <span className="text-[11px] font-medium text-neutral-600">High: {gapCounts.High}</span>
+          </div>
         </div>
       </div>
 
@@ -163,54 +199,65 @@ function RequirementsMatrix({ requirements }: { requirements: Requirement[] }) {
         <table className="w-full text-xs">
           <thead>
             <tr className="border-b border-neutral-100 bg-neutral-50/50">
-              <th className="text-left px-4 py-2 font-semibold text-neutral-500 uppercase tracking-wider w-20">Type</th>
               <th className="text-left px-4 py-2 font-semibold text-neutral-500 uppercase tracking-wider">Requirement</th>
-              <th className="text-center px-3 py-2 font-semibold text-neutral-500 uppercase tracking-wider w-14">Yrs</th>
-              <th className="text-center px-3 py-2 font-semibold text-neutral-500 uppercase tracking-wider w-20">Priority</th>
+              <th className="text-left px-3 py-2 font-semibold text-neutral-500 uppercase tracking-wider w-24">Category</th>
+              <th className="text-left px-3 py-2 font-semibold text-neutral-500 uppercase tracking-wider">JD Evidence</th>
+              <th className="text-left px-3 py-2 font-semibold text-neutral-500 uppercase tracking-wider">Your Evidence</th>
               <th className="text-center px-3 py-2 font-semibold text-neutral-500 uppercase tracking-wider w-20">Match</th>
-              <th className="text-left px-4 py-2 font-semibold text-neutral-500 uppercase tracking-wider">Evidence</th>
+              <th className="text-center px-3 py-2 font-semibold text-neutral-500 uppercase tracking-wider w-24">Gap Severity</th>
             </tr>
           </thead>
           <tbody>
             {requirements.map((req, i) => {
               const matchStyle = MATCH_STYLES[req.match];
               const typeStyle = TYPE_STYLES[req.type] || TYPE_STYLES.other;
+              const gapSev = getGapSeverity(req);
+              const gapStyle = GAP_SEVERITY_STYLES[gapSev];
               return (
                 <tr
                   key={i}
                   className={`border-b border-neutral-50 last:border-b-0 ${
-                    req.match === 'Missing' && req.priority === 'Must' ? 'bg-red-50/30' : ''
+                    gapSev === 'High' ? 'bg-red-50/30' : ''
                   }`}
                 >
-                  <td className="px-4 py-2">
+                  <td className="px-4 py-2.5">
+                    <span className="text-neutral-800 font-medium">{req.description}</span>
+                    {req.yearsNeeded ? (
+                      <span className="text-[10px] text-neutral-400 ml-1.5">({req.yearsNeeded}+ yrs)</span>
+                    ) : null}
+                  </td>
+                  <td className="px-3 py-2.5">
                     <span className={`text-[11px] font-medium px-1.5 py-0.5 rounded-md ${typeStyle}`}>
                       {req.type}
                     </span>
                   </td>
-                  <td className="px-4 py-2 text-neutral-800 font-medium">{req.description}</td>
-                  <td className="px-3 py-2 text-center text-neutral-500">
-                    {req.yearsNeeded ? `${req.yearsNeeded}+` : '-'}
+                  <td className="px-3 py-2.5 text-neutral-500 max-w-[180px]">
+                    {req.jdExcerpt ? (
+                      <span className="line-clamp-2 text-[11px] italic text-neutral-500" title={req.jdExcerpt}>
+                        &ldquo;{req.jdExcerpt}&rdquo;
+                      </span>
+                    ) : (
+                      <span className="text-neutral-300 italic text-[11px]">--</span>
+                    )}
                   </td>
-                  <td className="px-3 py-2 text-center">
-                    <span className={`text-[11px] font-medium px-1.5 py-0.5 rounded-md ${
-                      req.priority === 'Must'
-                        ? 'bg-neutral-900 text-white'
-                        : 'bg-neutral-100 text-neutral-600'
-                    }`}>
-                      {req.priority}
-                    </span>
+                  <td className="px-3 py-2.5 text-neutral-500 max-w-[180px]">
+                    {req.evidence ? (
+                      <span className="line-clamp-2 text-[11px]" title={req.evidence}>{req.evidence}</span>
+                    ) : (
+                      <span className="text-neutral-300 italic text-[11px]">
+                        {req.match === 'Missing' ? 'No matching claim' : '--'}
+                      </span>
+                    )}
                   </td>
-                  <td className="px-3 py-2 text-center">
+                  <td className="px-3 py-2.5 text-center">
                     <span className={`text-[11px] font-medium px-1.5 py-0.5 rounded-md ${matchStyle.bg} ${matchStyle.text}`}>
                       {matchStyle.label}
                     </span>
                   </td>
-                  <td className="px-4 py-2 text-neutral-500 max-w-[200px] truncate" title={req.evidence}>
-                    {req.evidence || (
-                      <span className="text-neutral-300 italic">
-                        {req.match === 'Missing' ? 'No matching claim' : '-'}
-                      </span>
-                    )}
+                  <td className="px-3 py-2.5 text-center">
+                    <span className={`text-[11px] font-medium px-1.5 py-0.5 rounded-md ${gapStyle.bg} ${gapStyle.text}`}>
+                      {gapSev}
+                    </span>
                   </td>
                 </tr>
               );
@@ -473,9 +520,6 @@ export function JobWorkspacePage() {
               </div>
             )}
 
-            {/* Requirements Match Matrix */}
-            <RequirementsMatrix requirements={job.requirementsExtracted} />
-
             {/* Score Breakdown */}
             {job.fitScore !== undefined && (
               <div className="bg-white rounded-lg border border-neutral-200 p-4 shadow-sm">
@@ -516,6 +560,12 @@ export function JobWorkspacePage() {
             )}
 
             {/* Actions are now in the header (above fold) */}
+          </div>
+        )}
+
+        {activeTab === 'requirements' && (
+          <div className="py-4">
+            <RequirementsMatrix requirements={job.requirementsExtracted} />
           </div>
         )}
 

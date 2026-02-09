@@ -5,6 +5,7 @@ import {
   Check,
   Pencil,
   ChevronDown,
+  ChevronRight,
   Mail,
   Linkedin,
   FileSignature,
@@ -16,7 +17,7 @@ import {
   RefreshCw,
   Sparkles,
   AlertCircle,
-  X,
+  Info,
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import {
@@ -25,6 +26,7 @@ import {
   generateCoverLetter,
   generateFollowUpEmail,
   generateGrowthMemo,
+  validateContext,
 } from '../../lib/assets';
 import type { Job, Asset, AssetType } from '../../types';
 
@@ -145,6 +147,8 @@ export function AssetsTab({ job }: AssetsTabProps) {
   const [currentAsset, setCurrentAsset] = useState<Asset | null>(null);
   const [editingContent, setEditingContent] = useState('');
   const [qualityChecked, setQualityChecked] = useState<Set<number>>(new Set());
+  const [contextError, setContextError] = useState<string | null>(null);
+  const [showWhyDraft, setShowWhyDraft] = useState(false);
 
   const jobAssets = useMemo(
     () => allAssets.filter((a) => a.jobId === job.id).sort((a, b) =>
@@ -173,8 +177,21 @@ export function AssetsTab({ job }: AssetsTabProps) {
   }, [job, userName, claims]);
 
   const handleGenerate = useCallback(async (type: AssetType) => {
-    setGenerating(type);
+    setContextError(null);
     setShowGenMenu(false);
+
+    // Pre-generation validation
+    const validation = validateContext({ job, userName, claims });
+    if (!validation.valid) {
+      setContextError(`Missing required context: ${validation.missing.join(', ')}`);
+      return;
+    }
+    if (validation.warnings.length > 0) {
+      // Show warnings but continue
+      console.warn('Asset generation warnings:', validation.warnings.join('; '));
+    }
+
+    setGenerating(type);
 
     try {
       const content = generateContent(type);
@@ -204,7 +221,7 @@ export function AssetsTab({ job }: AssetsTabProps) {
     } finally {
       setGenerating(null);
     }
-  }, [job, generateContent, addAsset, addGenerationLog]);
+  }, [job, userName, claims, generateContent, addAsset, addGenerationLog]);
 
   const handleRegenerate = useCallback(async () => {
     if (!currentAsset) return;
@@ -292,6 +309,27 @@ export function AssetsTab({ job }: AssetsTabProps) {
           <pre className="text-sm text-neutral-700 whitespace-pre-wrap leading-relaxed font-sans max-h-64 overflow-y-auto">
             {currentAsset.content}
           </pre>
+        </div>
+
+        {/* Why this draft — collapsible context summary */}
+        <div className="bg-neutral-50 rounded-lg border border-neutral-200 shadow-sm">
+          <button
+            onClick={() => setShowWhyDraft(!showWhyDraft)}
+            className="w-full flex items-center gap-2 px-4 py-3 text-left"
+          >
+            {showWhyDraft ? <ChevronDown size={14} className="text-neutral-400" /> : <ChevronRight size={14} className="text-neutral-400" />}
+            <Info size={14} className="text-neutral-400" />
+            <span className="text-xs font-semibold text-neutral-600">Why this draft</span>
+          </button>
+          {showWhyDraft && (
+            <div className="px-4 pb-3 space-y-1.5 text-xs text-neutral-600">
+              <p><span className="font-medium text-neutral-700">Job:</span> {job.title} at {job.company}</p>
+              <p><span className="font-medium text-neutral-700">Claims used:</span> {claims.length} claims bound</p>
+              <p><span className="font-medium text-neutral-700">Research:</span> {job.researchBrief ? 'Available' : 'Not available'}</p>
+              <p><span className="font-medium text-neutral-700">User name:</span> {userName}</p>
+              <p><span className="font-medium text-neutral-700">Generated:</span> template-fill (no API cost)</p>
+            </div>
+          )}
         </div>
 
         {/* Quality checklist */}
@@ -484,6 +522,19 @@ export function AssetsTab({ job }: AssetsTabProps) {
   // ============================================================
   return (
     <div className="py-4 space-y-4">
+      {/* Context Error Banner */}
+      {contextError && (
+        <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 flex items-start gap-2">
+          <AlertCircle size={14} className="text-red-500 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm text-red-700 font-medium">{contextError}</p>
+          </div>
+          <button onClick={() => setContextError(null)} className="text-red-400 hover:text-red-600 shrink-0">
+            <span className="sr-only">Dismiss</span>&times;
+          </button>
+        </div>
+      )}
+
       {/* Generate Button */}
       <div className="relative">
         <button
@@ -553,10 +604,13 @@ export function AssetsTab({ job }: AssetsTabProps) {
             const colorClass = ASSET_TYPE_COLORS[asset.type] || 'bg-neutral-50 text-neutral-700';
 
             return (
-              <button
+              <div
                 key={asset.id}
+                role="button"
+                tabIndex={0}
                 onClick={() => handleViewDetail(asset)}
-                className="w-full text-left bg-white rounded-lg border border-neutral-200 p-4 shadow-sm hover:shadow-md hover:border-neutral-300 transition-all"
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleViewDetail(asset); } }}
+                className="w-full text-left bg-white rounded-lg border border-neutral-200 p-4 shadow-sm hover:shadow-md hover:border-neutral-300 transition-all cursor-pointer"
               >
                 <div className="flex items-center gap-2 mb-2">
                   <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-md border ${colorClass}`}>
@@ -584,7 +638,7 @@ export function AssetsTab({ job }: AssetsTabProps) {
                 <p className="text-[11px] text-neutral-400 mt-2">
                   {new Date(asset.createdAt).toLocaleDateString()}
                 </p>
-              </button>
+              </div>
             );
           })}
         </div>

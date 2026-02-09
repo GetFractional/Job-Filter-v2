@@ -35,7 +35,7 @@ interface AppState {
 
   // UI state
   selectedJobId: string | null;
-  activeTab: 'score' | 'research' | 'assets' | 'crm' | 'qa';
+  activeTab: 'score' | 'requirements' | 'research' | 'assets' | 'crm' | 'qa';
   isLoading: boolean;
 
   // Actions
@@ -61,7 +61,7 @@ interface AppState {
   updateApplicationAnswer: (id: string, updates: Partial<ApplicationAnswer>) => Promise<void>;
   deleteApplicationAnswer: (id: string) => Promise<void>;
   setSelectedJob: (id: string | null) => void;
-  setActiveTab: (tab: 'score' | 'research' | 'assets' | 'crm' | 'qa') => void;
+  setActiveTab: (tab: 'score' | 'requirements' | 'research' | 'assets' | 'crm' | 'qa') => void;
   refreshData: () => Promise<void>;
 }
 

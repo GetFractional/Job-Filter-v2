@@ -131,6 +131,8 @@ describe('scoreJob', () => {
     // The JD has both "Requirements" and "Nice to have" sections
     expect(mustReqs.length).toBeGreaterThan(0);
     // Preferred may or may not be detected depending on parsing
+    expect(prefReqs).toBeDefined();
+    // Preferred may or may not be detected depending on parsing
   });
 
   it('detects risk flags', () => {

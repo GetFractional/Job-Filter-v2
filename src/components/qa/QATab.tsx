@@ -1,7 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import {
   MessageSquareText,
-  Plus,
   Check,
   Pencil,
   RotateCcw,
@@ -11,10 +10,9 @@ import {
   FileText,
   AlertCircle,
   Sparkles,
-  X,
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
-import type { Job, ApplicationAnswer, AnswerSource } from '../../types';
+import type { Job, AnswerSource } from '../../types';
 
 interface QATabProps {
   job: Job;
@@ -44,9 +42,6 @@ export function QATab({ job }: QATabProps) {
     const q = question.toLowerCase();
     const sources: AnswerSource[] = [];
     const parts: string[] = [];
-
-    // Use profile name
-    const userName = profile?.name || 'the candidate';
 
     // Find relevant claims
     const relevantClaims = claims.filter((claim) => {

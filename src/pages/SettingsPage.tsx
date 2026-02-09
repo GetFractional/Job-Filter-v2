@@ -242,7 +242,7 @@ function ClaimsSection({ claims, addClaim }: {
           <textarea
             value={resumeText}
             onChange={(e) => setResumeText(e.target.value)}
-            placeholder={"VP of Growth at Acme Corp\nJan 2021 - Present\n- Led lifecycle marketing strategy across 4 channels\n- Grew revenue 150% YoY through funnel optimization\n- Managed team of 8 using HubSpot, Segment, Amplitude\n\nDirector of Marketing - Widget Inc\nMar 2018 - Dec 2020\n- Built demand gen engine from 0 to $5M pipeline\n- Launched ABM program targeting enterprise accounts"}
+            placeholder={"VP of Growth at Previous Company\nJan 2021 - Present\n- Led lifecycle marketing strategy across 4 channels\n- Grew revenue 150% YoY through funnel optimization\n- Managed team of 8 using HubSpot, Segment, Amplitude\n\nDirector of Marketing - Widget Inc\nMar 2018 - Dec 2020\n- Built demand gen engine from 0 to $5M pipeline\n- Launched ABM program targeting enterprise accounts"}
             rows={10}
             className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm resize-y mb-3 focus:outline-none focus:ring-2 focus:ring-brand-500 font-mono"
           />
@@ -284,7 +284,7 @@ function ClaimsSection({ claims, addClaim }: {
               <AlertTriangle size={20} className="text-amber-500 mx-auto mb-2" />
               <p className="text-sm text-amber-700">No claims could be parsed from the text.</p>
               <p className="text-xs text-amber-600 mt-1">
-                Make sure your text has role headers (e.g. "VP of Growth at Acme Corp")
+                Make sure your text has role headers (e.g. "VP of Growth at Previous Company")
                 followed by bullet points.
               </p>
             </div>
