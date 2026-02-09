@@ -14,7 +14,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import { STAGE_CATEGORIES } from '../types';
+import { STAGE_CATEGORIES, PIPELINE_STAGES } from '../types';
 import type { Job, FitLabel, PipelineStage } from '../types';
 
 // ---------------------------------------------------------------------------
@@ -121,15 +121,18 @@ const CATEGORY_META: Record<string, { ring: string; badge: string; dot: string }
 // Job Card (dense)
 // ---------------------------------------------------------------------------
 
-function JobCard({ job, onClick }: { job: Job; onClick: () => void }) {
+function JobCard({ job, onClick, onMoveStage }: { job: Job; onClick: () => void; onMoveStage: (stage: PipelineStage) => void }) {
   const comp = formatComp(job);
   const loc = formatLocation(job);
   const action = NEXT_ACTION[job.stage];
 
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
-      className="w-full text-left bg-white rounded-md border border-neutral-200 px-3 py-2 hover:border-brand-300 hover:shadow-sm transition-all group"
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}
+      className="w-full text-left bg-white rounded-md border border-neutral-200 px-3 py-2 hover:border-brand-300 hover:shadow-sm transition-all group cursor-pointer"
     >
       {/* Row 1: Title + fit badge + chevron */}
       <div className="flex items-center justify-between gap-2">
@@ -183,14 +186,31 @@ function JobCard({ job, onClick }: { job: Job; onClick: () => void }) {
         </div>
       )}
 
-      {/* Row 4: Next action hint */}
-      {action && (
-        <div className="flex items-center gap-1 mt-1.5 text-[10px] font-medium text-brand-600 opacity-70 group-hover:opacity-100 transition-opacity">
-          <ArrowRight size={10} />
-          <span>{action}</span>
-        </div>
-      )}
-    </button>
+      {/* Row 4: Next action + stage move */}
+      <div className="flex items-center justify-between mt-1.5">
+        {action && (
+          <div className="flex items-center gap-1 text-[10px] font-medium text-brand-600 opacity-70 group-hover:opacity-100 transition-opacity">
+            <ArrowRight size={10} />
+            <span>{action}</span>
+          </div>
+        )}
+        <select
+          value={job.stage}
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+          onChange={(e) => {
+            e.stopPropagation();
+            onMoveStage(e.target.value as PipelineStage);
+          }}
+          className="text-[10px] text-neutral-400 bg-transparent border-none cursor-pointer hover:text-neutral-600 focus:outline-none appearance-none pr-3 py-0 pl-0 ml-auto"
+          title="Move to stage"
+        >
+          {PIPELINE_STAGES.map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+      </div>
+    </div>
   );
 }
 
@@ -201,6 +221,7 @@ function JobCard({ job, onClick }: { job: Job; onClick: () => void }) {
 export function PipelinePage() {
   const navigate = useNavigate();
   const jobs = useStore((s) => s.jobs);
+  const updateJob = useStore((s) => s.updateJob);
 
   // ---- Computed stats ----
   const stats = useMemo(() => {
@@ -383,6 +404,7 @@ export function PipelinePage() {
                             key={job.id}
                             job={job}
                             onClick={() => navigate(`/job/${job.id}`)}
+                            onMoveStage={(stage) => updateJob(job.id, { stage, stageTimestamps: { ...job.stageTimestamps, [stage]: new Date().toISOString() } })}
                           />
                         ))}
                       </div>

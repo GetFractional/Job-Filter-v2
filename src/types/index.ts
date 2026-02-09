@@ -115,6 +115,7 @@ export interface Requirement {
   priority: RequirementPriority;
   match: RequirementMatch;
   evidence?: string;
+  jdExcerpt?: string;
 }
 
 export interface ScoreBreakdownStored {
@@ -287,8 +288,15 @@ export interface ResearchBrief {
   risks?: string;
   interviewHypotheses?: string[];
   compSignals?: string;
+  sources?: ResearchSource[];
   rawPasteContent?: string;
   createdAt: string;
+}
+
+export interface ResearchSource {
+  label: string;
+  url?: string;
+  excerpt?: string;
 }
 
 // ============================================================

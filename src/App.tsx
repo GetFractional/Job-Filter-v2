@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useStore } from './store/useStore';
 import { AppShell } from './components/layout/AppShell';
@@ -17,30 +17,24 @@ export default function App() {
   const isLoading = useStore((s) => s.isLoading);
   const jobs = useStore((s) => s.jobs);
 
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  const [onboardingChecked, setOnboardingChecked] = useState(false);
-
   useEffect(() => {
     initialize();
   }, [initialize]);
 
-  // Check if onboarding should show (first run: no jobs + not dismissed)
-  useEffect(() => {
-    if (!isLoading) {
-      const dismissed = localStorage.getItem(ONBOARDING_KEY);
-      if (!dismissed && jobs.length === 0) {
-        setShowOnboarding(true);
-      }
-      setOnboardingChecked(true);
-    }
-  }, [isLoading, jobs.length]);
+  // Derive onboarding state synchronously from loading/jobs state
+  const dismissed = typeof window !== 'undefined' ? localStorage.getItem(ONBOARDING_KEY) : null;
+  const showOnboarding = useMemo(
+    () => !isLoading && !dismissed && jobs.length === 0,
+    [isLoading, dismissed, jobs.length],
+  );
 
   const handleOnboardingComplete = () => {
     localStorage.setItem(ONBOARDING_KEY, 'true');
-    setShowOnboarding(false);
+    // Force re-render: the useMemo will now see `dismissed` as truthy
+    window.location.reload();
   };
 
-  if (isLoading || !onboardingChecked) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-neutral-50">
         <div className="text-center">

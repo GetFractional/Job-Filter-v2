@@ -127,7 +127,7 @@ export function parseResearchPaste(rawText: string): ResearchBrief {
   const lines = rawText.split('\n');
   const sections: Partial<Record<keyof ResearchBrief, string[]>> = {};
   let currentKey: keyof ResearchBrief | null = null;
-  let hypothesesLines: string[] = [];
+  const hypothesesLines: string[] = [];
   let inHypotheses = false;
 
   for (const line of lines) {
@@ -198,9 +198,9 @@ function parseHypotheses(lines: string[]): string[] {
 
   for (const line of lines) {
     // Numbered items or bullet points
-    if (/^(\d+[\.\)]|\*|-|•)/.test(line)) {
+    if (/^(\d+[.)]|\*|-|•)/.test(line)) {
       if (current.trim()) hypotheses.push(current.trim());
-      current = line.replace(/^(\d+[\.\)]|\*|-|•)\s*/, '');
+      current = line.replace(/^(\d+[.)]|\*|-|•)\s*/, '');
     } else {
       current += ' ' + line;
     }

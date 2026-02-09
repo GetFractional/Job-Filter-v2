@@ -171,6 +171,7 @@ export function CRMTab({ job }: CRMTabProps) {
   const [contactLinkedIn, setContactLinkedIn] = useState('');
   const [contactPhone, setContactPhone] = useState('');
   const [contactRelationship, setContactRelationship] = useState<ContactRelationship>('Recruiter');
+  const [contactNotes, setContactNotes] = useState('');
 
   // Activity form state
   const [actChannel, setActChannel] = useState<ActivityChannel>('Email');
@@ -236,6 +237,7 @@ export function CRMTab({ job }: CRMTabProps) {
     setContactLinkedIn('');
     setContactPhone('');
     setContactRelationship('Recruiter');
+    setContactNotes('');
     setShowAddContact(false);
   }, []);
 
@@ -252,6 +254,7 @@ export function CRMTab({ job }: CRMTabProps) {
       linkedIn: contactLinkedIn.trim() || undefined,
       phone: contactPhone.trim() || undefined,
       relationship: contactRelationship,
+      notes: contactNotes.trim() || undefined,
     });
     // Auto-link to this job
     await linkContactToJob(contact.id, job.id);
@@ -441,6 +444,13 @@ export function CRMTab({ job }: CRMTabProps) {
               placeholder="LinkedIn URL"
               className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
             />
+            <textarea
+              value={contactNotes}
+              onChange={(e) => setContactNotes(e.target.value)}
+              placeholder="Notes (optional)"
+              rows={2}
+              className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 resize-none"
+            />
             <div className="flex items-center gap-3">
               <select
                 value={contactRelationship}
@@ -546,6 +556,45 @@ export function CRMTab({ job }: CRMTabProps) {
         {/* Add Activity Form */}
         {showAddActivity && (
           <form onSubmit={handleAddActivity} className="bg-white rounded-lg border border-neutral-200 p-4 shadow-sm mb-3 space-y-3">
+            {/* Quick-log templates */}
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              <span className="text-[11px] text-neutral-400 mr-1 self-center">Quick:</span>
+              <button
+                type="button"
+                onClick={() => { setActChannel('Email'); setActDirection('Outbound'); setActOutcome('Sent'); setActContent('Sent initial outreach email.'); }}
+                className="px-2 py-1 text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200 rounded-md hover:bg-blue-100"
+              >
+                Email Sent
+              </button>
+              <button
+                type="button"
+                onClick={() => { setActChannel('LinkedIn'); setActDirection('Outbound'); setActOutcome('Sent'); setActContent('Sent LinkedIn connection request with note.'); }}
+                className="px-2 py-1 text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200 rounded-md hover:bg-blue-100"
+              >
+                LinkedIn Sent
+              </button>
+              <button
+                type="button"
+                onClick={() => { setActChannel('Email'); setActDirection('Inbound'); setActOutcome('Reply Received'); setActContent('Received reply.'); }}
+                className="px-2 py-1 text-[11px] font-medium bg-green-50 text-green-700 border border-green-200 rounded-md hover:bg-green-100"
+              >
+                Got Reply
+              </button>
+              <button
+                type="button"
+                onClick={() => { setActChannel('Phone'); setActDirection('Inbound'); setActOutcome('Interview Scheduled'); setActContent('Interview scheduled.'); }}
+                className="px-2 py-1 text-[11px] font-medium bg-violet-50 text-violet-700 border border-violet-200 rounded-md hover:bg-violet-100"
+              >
+                Interview Set
+              </button>
+              <button
+                type="button"
+                onClick={() => { setActChannel('Email'); setActDirection('Outbound'); setActOutcome('No Response'); setActContent('No response after follow-up.'); setActFollowUpDate(new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0]); }}
+                className="px-2 py-1 text-[11px] font-medium bg-neutral-50 text-neutral-600 border border-neutral-200 rounded-md hover:bg-neutral-100"
+              >
+                No Response
+              </button>
+            </div>
             <div className="grid grid-cols-3 gap-3">
               <select
                 value={actChannel}
