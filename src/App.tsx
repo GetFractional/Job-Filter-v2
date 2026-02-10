@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useStore } from './store/useStore';
 import { AppShell } from './components/layout/AppShell';
+import { MatchesPage } from './pages/MatchesPage';
 import { PipelinePage } from './pages/PipelinePage';
 import { JobWorkspacePage } from './pages/JobWorkspacePage';
 import { DashboardPage } from './pages/DashboardPage';
@@ -17,30 +18,20 @@ export default function App() {
   const isLoading = useStore((s) => s.isLoading);
   const jobs = useStore((s) => s.jobs);
 
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  const [onboardingChecked, setOnboardingChecked] = useState(false);
+  const [onboardingComplete, setOnboardingComplete] = useState(
+    () => localStorage.getItem(ONBOARDING_KEY) === 'true'
+  );
 
   useEffect(() => {
     initialize();
   }, [initialize]);
 
-  // Check if onboarding should show (first run: no jobs + not dismissed)
-  useEffect(() => {
-    if (!isLoading) {
-      const dismissed = localStorage.getItem(ONBOARDING_KEY);
-      if (!dismissed && jobs.length === 0) {
-        setShowOnboarding(true);
-      }
-      setOnboardingChecked(true);
-    }
-  }, [isLoading, jobs.length]);
-
   const handleOnboardingComplete = () => {
     localStorage.setItem(ONBOARDING_KEY, 'true');
-    setShowOnboarding(false);
+    setOnboardingComplete(true);
   };
 
-  if (isLoading || !onboardingChecked) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-neutral-50">
         <div className="text-center">
@@ -51,17 +42,19 @@ export default function App() {
     );
   }
 
-  if (showOnboarding) {
+  if (!onboardingComplete && jobs.length === 0) {
     return <OnboardingWizard onComplete={handleOnboardingComplete} />;
   }
 
   return (
     <AppShell>
       <Routes>
-        <Route path="/" element={<Navigate to="/pipeline" replace />} />
+        <Route path="/" element={<Navigate to="/matches" replace />} />
+        <Route path="/matches" element={<MatchesPage />} />
         <Route path="/pipeline" element={<PipelinePage />} />
         <Route path="/job/:jobId" element={<JobWorkspacePage />} />
-        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/insights" element={<DashboardPage />} />
+        <Route path="/dashboard" element={<Navigate to="/insights" replace />} />
         <Route path="/contacts" element={<ContactsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
       </Routes>

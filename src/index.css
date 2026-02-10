@@ -1,64 +1,78 @@
 @import "tailwindcss";
 
-/* ============================================================
-   Job Filter v2 — Design System Tokens
-   Desktop-first. Dense, calm, professional.
-   Ref: Linear, Notion, Raycast aesthetic.
-   ============================================================ */
-
 @theme {
-  /* Brand palette (blue) */
-  --color-brand-50: #EFF6FF;
-  --color-brand-100: #DBEAFE;
-  --color-brand-200: #BFDBFE;
-  --color-brand-300: #93C5FD;
-  --color-brand-400: #60A5FA;
-  --color-brand-500: #3B82F6;
-  --color-brand-600: #2563EB;
-  --color-brand-700: #1D4ED8;
-  --color-brand-800: #1E40AF;
-  --color-brand-900: #1E3A8A;
+  --color-brand-50: #eef4ff;
+  --color-brand-100: #dbe8ff;
+  --color-brand-200: #bfd4ff;
+  --color-brand-300: #9bb8ff;
+  --color-brand-400: #6f92ff;
+  --color-brand-500: #4e73f8;
+  --color-brand-600: #3657dd;
+  --color-brand-700: #2a43b6;
+  --color-brand-800: #223a93;
+  --color-brand-900: #1e3277;
 
-  /* Neutral palette (gray) */
-  --color-neutral-50: #F9FAFB;
-  --color-neutral-100: #F3F4F6;
-  --color-neutral-200: #E5E7EB;
-  --color-neutral-300: #D1D5DB;
-  --color-neutral-400: #9CA3AF;
-  --color-neutral-500: #6B7280;
-  --color-neutral-600: #4B5563;
-  --color-neutral-700: #374151;
-  --color-neutral-800: #1F2937;
-  --color-neutral-900: #111827;
+  --color-neutral-50: #f8f9fc;
+  --color-neutral-100: #f2f4f8;
+  --color-neutral-200: #e4e8f0;
+  --color-neutral-300: #cdd4e1;
+  --color-neutral-400: #8a94a6;
+  --color-neutral-500: #657086;
+  --color-neutral-600: #475168;
+  --color-neutral-700: #2f384c;
+  --color-neutral-800: #1f2738;
+  --color-neutral-900: #121a29;
 
-  /* Status colors */
-  --color-pursue: #059669;
-  --color-maybe: #D97706;
-  --color-pass: #DC2626;
+  --color-surface-muted: #f3f6fb;
+  --color-surface-strong: #ffffff;
+  --color-success: #15803d;
+  --color-warning: #b45309;
+  --color-danger: #b91c1c;
 
-  /* Typography */
-  --font-sans: "Inter Variable", "Inter", system-ui, -apple-system, sans-serif;
+  --font-sans: "Manrope", "Avenir Next", "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 }
 
-/* Base styles */
 html {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }
 
 body {
-  background-color: #FAFAFA;
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 10% -20%, #d8e5ff 0%, transparent 38%),
+    radial-gradient(circle at 88% -14%, #e7ddff 0%, transparent 35%),
+    linear-gradient(180deg, #f8fafe 0%, #f4f6fb 52%, #eef2f8 100%);
   color: var(--color-neutral-900);
   font-size: 14px;
   line-height: 1.5;
 }
 
-/* Custom scrollbar */
+#root {
+  min-height: 100vh;
+}
+
+button,
+input,
+select,
+textarea {
+  transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease, color 150ms ease;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-brand-500) 24%, transparent);
+}
+
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 7px;
+  height: 7px;
 }
 
 ::-webkit-scrollbar-track {
@@ -66,15 +80,14 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--color-neutral-300);
-  border-radius: 3px;
+  background: color-mix(in oklab, var(--color-neutral-400) 65%, transparent);
+  border-radius: 999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-neutral-400);
 }
 
-/* PWA safe areas */
 .safe-area-inset {
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
@@ -82,59 +95,64 @@ body {
   padding-right: env(safe-area-inset-right);
 }
 
-/* Typography utility classes */
 .text-h1 {
-  font-size: 24px;
-  font-weight: 600;
+  font-size: clamp(1.35rem, 1vw + 1.05rem, 1.7rem);
+  font-weight: 700;
   letter-spacing: -0.025em;
-  line-height: 1.2;
+  line-height: 1.18;
 }
 
 .text-h2 {
-  font-size: 18px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.3;
+  font-size: clamp(1.06rem, 0.4vw + 0.96rem, 1.24rem);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
 }
 
 .text-h3 {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 0.92rem;
+  font-weight: 700;
   letter-spacing: -0.01em;
-  line-height: 1.4;
-}
-
-.text-body {
-  font-size: 14px;
-  font-weight: 400;
-  line-height: 1.5;
+  line-height: 1.35;
 }
 
 .text-small {
-  font-size: 12px;
-  font-weight: 400;
-  line-height: 1.4;
+  font-size: 0.78rem;
 }
 
-.text-micro {
+.surface-card {
+  background: color-mix(in oklab, var(--color-surface-strong) 92%, #edf1f9);
+  border: 1px solid color-mix(in oklab, var(--color-neutral-300) 58%, transparent);
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.02), 0 12px 30px -24px rgba(17, 24, 39, 0.45);
+}
+
+.surface-muted {
+  background: var(--color-surface-muted);
+  border: 1px solid color-mix(in oklab, var(--color-neutral-200) 70%, transparent);
+}
+
+.brand-glow {
+  box-shadow: 0 12px 34px -20px rgba(53, 87, 221, 0.9);
+}
+
+.metric-chip {
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklab, var(--color-neutral-300) 72%, transparent);
+  background: color-mix(in oklab, #fff 78%, var(--color-brand-50));
+  color: var(--color-neutral-600);
   font-size: 11px;
-  font-weight: 500;
-  line-height: 1.3;
+  font-weight: 600;
+  line-height: 1;
+  padding: 6px 10px;
 }
 
-/* Sidebar transition */
-.sidebar-transition {
-  transition: transform 200ms ease, opacity 200ms ease;
-}
-
-/* Modal animations */
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 
 @keyframes scaleIn {
-  from { transform: scale(0.95); opacity: 0; }
+  from { transform: scale(0.96); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
 }
 

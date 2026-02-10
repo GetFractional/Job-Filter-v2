@@ -3,6 +3,7 @@ import {
   FileText,
   Copy,
   Check,
+  Download,
   Pencil,
   ChevronDown,
   Mail,
@@ -16,7 +17,6 @@ import {
   RefreshCw,
   Sparkles,
   AlertCircle,
-  X,
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import {
@@ -26,6 +26,11 @@ import {
   generateFollowUpEmail,
   generateGrowthMemo,
 } from '../../lib/assets';
+import {
+  bindGenerationContext,
+  describeGenerationContext,
+  type BoundGenerationContext,
+} from '../../lib/generationContext';
 import type { Job, Asset, AssetType } from '../../types';
 
 interface AssetsTabProps {
@@ -61,6 +66,14 @@ const GENERATE_OPTIONS: { type: AssetType; label: string; icon: typeof Mail }[] 
 ];
 
 type WorkflowStep = 'list' | 'evaluate' | 'edit' | 'detail';
+
+function parseContextNotes(notes?: string): string[] {
+  if (!notes) return [];
+  return notes
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -130,6 +143,7 @@ const QUALITY_CHECKS: Record<string, string[]> = {
 export function AssetsTab({ job }: AssetsTabProps) {
   const allAssets = useStore((s) => s.assets);
   const claims = useStore((s) => s.claims);
+  const profileName = useStore((s) => s.profile?.name);
   const addAsset = useStore((s) => s.addAsset);
   const updateAsset = useStore((s) => s.updateAsset);
   const addGenerationLog = useStore((s) => s.addGenerationLog);
@@ -140,6 +154,7 @@ export function AssetsTab({ job }: AssetsTabProps) {
   const [currentAsset, setCurrentAsset] = useState<Asset | null>(null);
   const [editingContent, setEditingContent] = useState('');
   const [qualityChecked, setQualityChecked] = useState<Set<number>>(new Set());
+  const [generationErrors, setGenerationErrors] = useState<string[]>([]);
 
   const jobAssets = useMemo(
     () => allAssets.filter((a) => a.jobId === job.id).sort((a, b) =>
@@ -148,36 +163,74 @@ export function AssetsTab({ job }: AssetsTabProps) {
     [allAssets, job.id]
   );
 
-  const generateContent = useCallback((type: AssetType): string => {
-    const params = { job, claims, research: job.researchBrief };
+  const generateContent = useCallback((type: AssetType, context: BoundGenerationContext): string => {
+    const params = {
+      job,
+      claims: context.approvedClaims,
+      research: context.approvedResearchSnapshot,
+      signerName: profileName,
+    };
 
     switch (type) {
       case 'Outreach Email':
-        return generateOutreachEmail({ job, claims });
+        return generateOutreachEmail({
+          job,
+          claims: context.approvedClaims,
+          research: context.approvedResearchSnapshot,
+          signerName: profileName,
+        });
       case 'LinkedIn Connect':
-        return generateLinkedInConnect({ job, claims });
+        return generateLinkedInConnect({ job, claims: context.approvedClaims });
       case 'Cover Letter':
         return generateCoverLetter(params);
       case 'Follow-up Email':
-        return generateFollowUpEmail({ job });
+        return generateFollowUpEmail({ job, signerName: profileName });
       case 'Growth Memo':
         return generateGrowthMemo(params);
       default:
-        return `[${type} generation coming soon]`;
+        return `Template for ${type} is not configured yet. Add a template before generating this asset type.`;
     }
-  }, [job, claims]);
+  }, [job, profileName]);
+
+  const exportAsset = useCallback((asset: Asset) => {
+    const blob = new Blob([asset.content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    const safeType = asset.type.toLowerCase().replace(/\s+/g, '-');
+    anchor.href = url;
+    anchor.download = `${job.company}-${safeType}-v${asset.version}.txt`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }, [job.company]);
 
   const handleGenerate = useCallback(async (type: AssetType) => {
     setGenerating(type);
     setShowGenMenu(false);
+    setGenerationErrors([]);
+
+    const binding = bindGenerationContext({
+      flow: 'assets',
+      job,
+      claims,
+      requireApprovedClaims: true,
+      requireResearch: true,
+    });
+    if (!binding.ok) {
+      setGenerationErrors(binding.errors.map((error) => error.message));
+      setGenerating(null);
+      return;
+    }
 
     try {
-      const content = generateContent(type);
+      const context = binding.context;
+      const contextNotes = describeGenerationContext(context).join('\n');
+      const content = generateContent(type, context);
 
       const asset = await addAsset({
         jobId: job.id,
         type,
         content,
+        notes: contextNotes,
         modelUsed: 'template-fill',
         modelTier: 'tier-0-free',
       });
@@ -199,23 +252,39 @@ export function AssetsTab({ job }: AssetsTabProps) {
     } finally {
       setGenerating(null);
     }
-  }, [job, generateContent, addAsset, addGenerationLog]);
+  }, [job, claims, generateContent, addAsset, addGenerationLog]);
 
   const handleRegenerate = useCallback(async () => {
     if (!currentAsset) return;
     setGenerating(currentAsset.type);
+    setGenerationErrors([]);
+
+    const binding = bindGenerationContext({
+      flow: 'assets',
+      job,
+      claims,
+      requireApprovedClaims: true,
+      requireResearch: true,
+    });
+    if (!binding.ok) {
+      setGenerationErrors(binding.errors.map((error) => error.message));
+      setGenerating(null);
+      return;
+    }
 
     try {
-      const content = generateContent(currentAsset.type);
-      await updateAsset(currentAsset.id, { content });
-      setCurrentAsset({ ...currentAsset, content });
+      const context = binding.context;
+      const contextNotes = describeGenerationContext(context).join('\n');
+      const content = generateContent(currentAsset.type, context);
+      await updateAsset(currentAsset.id, { content, notes: contextNotes });
+      setCurrentAsset({ ...currentAsset, content, notes: contextNotes });
       setQualityChecked(new Set());
     } catch (err) {
       console.error('Failed to regenerate:', err);
     } finally {
       setGenerating(null);
     }
-  }, [currentAsset, generateContent, updateAsset]);
+  }, [currentAsset, job, claims, generateContent, updateAsset]);
 
   const handleStartEdit = useCallback(() => {
     if (!currentAsset) return;
@@ -252,6 +321,7 @@ export function AssetsTab({ job }: AssetsTabProps) {
 
   const checks = currentAsset ? (QUALITY_CHECKS[currentAsset.type] || []) : [];
   const allChecked = checks.length > 0 && qualityChecked.size === checks.length;
+  const contextLines = currentAsset ? parseContextNotes(currentAsset.notes) : [];
 
   // ============================================================
   // EVALUATE step — review generated content with quality gates
@@ -273,7 +343,7 @@ export function AssetsTab({ job }: AssetsTabProps) {
             </span>
             <span className="text-[11px] text-neutral-400">v{currentAsset.version}</span>
             <span className="text-[11px] text-neutral-500 bg-neutral-100 px-1.5 py-0.5 rounded-md font-medium">
-              Template Mode
+              Deterministic Draft
             </span>
           </div>
         </div>
@@ -288,6 +358,23 @@ export function AssetsTab({ job }: AssetsTabProps) {
             {currentAsset.content}
           </pre>
         </div>
+
+        {/* Why this draft */}
+        {contextLines.length > 0 && (
+          <div className="bg-white rounded-lg border border-neutral-200 p-4 shadow-sm">
+            <h4 className="text-xs font-bold text-neutral-700 uppercase tracking-wider mb-2">
+              Why This Draft
+            </h4>
+            <ul className="space-y-1">
+              {contextLines.map((line, index) => (
+                <li key={index} className="text-xs text-neutral-600 flex items-start gap-2">
+                  <span className="w-1 h-1 rounded-full bg-neutral-400 mt-1.5 shrink-0" />
+                  {line}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {/* Quality checklist */}
         {checks.length > 0 && (
@@ -329,6 +416,17 @@ export function AssetsTab({ job }: AssetsTabProps) {
           </div>
         )}
 
+        {generationErrors.length > 0 && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+            <p className="text-xs font-semibold text-red-700 mb-1">Generation blocked</p>
+            <ul className="space-y-0.5">
+              {generationErrors.map((error) => (
+                <li key={error} className="text-xs text-red-700">- {error}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {/* Actions */}
         <div className="space-y-2">
           <div className="flex gap-3">
@@ -350,6 +448,21 @@ export function AssetsTab({ job }: AssetsTabProps) {
             >
               <Pencil size={14} />
               Edit
+            </button>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={() => exportAsset(currentAsset)}
+              className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-white border border-neutral-200 rounded-lg text-sm font-medium text-neutral-600 hover:bg-neutral-50 shadow-sm"
+            >
+              <Download size={14} />
+              Export
+            </button>
+            <button
+              onClick={handleBackToList}
+              className="flex-1 px-4 py-2.5 bg-white border border-neutral-200 rounded-lg text-sm font-medium text-neutral-600 hover:bg-neutral-50 shadow-sm"
+            >
+              Skip For Now
             </button>
           </div>
           <button
@@ -429,7 +542,7 @@ export function AssetsTab({ job }: AssetsTabProps) {
               </span>
             )}
             <span className="text-[11px] text-neutral-500 bg-neutral-100 px-1.5 py-0.5 rounded-md font-medium">
-              Template Mode
+              Deterministic Draft
             </span>
           </div>
           <CopyButton text={currentAsset.content} />
@@ -440,6 +553,22 @@ export function AssetsTab({ job }: AssetsTabProps) {
             {currentAsset.content}
           </pre>
         </div>
+
+        {contextLines.length > 0 && (
+          <div className="bg-white rounded-lg border border-neutral-200 p-4 shadow-sm">
+            <h4 className="text-xs font-bold text-neutral-700 uppercase tracking-wider mb-2">
+              Why This Draft
+            </h4>
+            <ul className="space-y-1">
+              {contextLines.map((line, index) => (
+                <li key={index} className="text-xs text-neutral-600 flex items-start gap-2">
+                  <span className="w-1 h-1 rounded-full bg-neutral-400 mt-1.5 shrink-0" />
+                  {line}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <div className="space-y-2">
           {!currentAsset.approved && (
@@ -461,8 +590,15 @@ export function AssetsTab({ job }: AssetsTabProps) {
             }}
             className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-neutral-200 rounded-lg text-sm font-medium text-neutral-600 hover:bg-neutral-50 shadow-sm"
           >
-            <Pencil size={14} />
-            Edit Content
+              <Pencil size={14} />
+              Edit Content
+            </button>
+          <button
+            onClick={() => exportAsset(currentAsset)}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-neutral-200 rounded-lg text-sm font-medium text-neutral-600 hover:bg-neutral-50 shadow-sm"
+          >
+            <Download size={14} />
+            Export
           </button>
         </div>
 
@@ -505,7 +641,7 @@ export function AssetsTab({ job }: AssetsTabProps) {
             <div className="fixed inset-0 z-10" onClick={() => setShowGenMenu(false)} />
             <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg border border-neutral-200 shadow-lg z-20 overflow-hidden">
               <p className="text-[11px] text-neutral-400 px-4 py-2 border-b border-neutral-100 font-medium uppercase tracking-wider">
-                Template Mode — no AI cost
+                Deterministic Draft | requires approved claims + research
               </p>
               {GENERATE_OPTIONS.map((opt) => {
                 const Icon = opt.icon;
@@ -520,15 +656,21 @@ export function AssetsTab({ job }: AssetsTabProps) {
                   </button>
                 );
               })}
-              {claims.length === 0 && (
-                <p className="text-[11px] text-amber-600 px-4 py-2 border-t border-neutral-100">
-                  Add claims in Settings for personalized assets
-                </p>
-              )}
             </div>
           </>
         )}
       </div>
+
+      {generationErrors.length > 0 && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+          <p className="text-xs font-semibold text-red-700 mb-1">Generation blocked</p>
+          <ul className="space-y-0.5">
+            {generationErrors.map((error) => (
+              <li key={error} className="text-xs text-red-700">- {error}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Existing Assets */}
       {jobAssets.length === 0 ? (
@@ -548,9 +690,17 @@ export function AssetsTab({ job }: AssetsTabProps) {
             const colorClass = ASSET_TYPE_COLORS[asset.type] || 'bg-neutral-50 text-neutral-700';
 
             return (
-              <button
+              <div
                 key={asset.id}
                 onClick={() => handleViewDetail(asset)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    handleViewDetail(asset);
+                  }
+                }}
+                role="button"
+                tabIndex={0}
                 className="w-full text-left bg-white rounded-lg border border-neutral-200 p-4 shadow-sm hover:shadow-md hover:border-neutral-300 transition-all"
               >
                 <div className="flex items-center gap-2 mb-2">
@@ -579,7 +729,7 @@ export function AssetsTab({ job }: AssetsTabProps) {
                 <p className="text-[11px] text-neutral-400 mt-2">
                   {new Date(asset.createdAt).toLocaleDateString()}
                 </p>
-              </button>
+              </div>
             );
           })}
         </div>

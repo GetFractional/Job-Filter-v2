@@ -10,6 +10,10 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
+      workbox: {
+        // Prevent workbox's rollup/terser deadlock in this environment.
+        mode: 'development',
+      },
       manifest: {
         name: 'Job Filter',
         short_name: 'JobFilter',

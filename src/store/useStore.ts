@@ -6,12 +6,16 @@ import { create } from 'zustand';
 import { db, generateId, seedDefaultProfile } from '../db';
 import { scoreJob } from '../lib/scoring';
 import { parseCompFromText } from '../lib/scoring';
+import { normalizeClaimText } from '../lib/claimLedger';
+import { validateClaimContext } from '../lib/claimValidation';
+import { PIPELINE_STAGES } from '../types';
 import type {
   Job,
   Company,
   Contact,
   ContactJobLink,
   Activity,
+  ActivityOutcome,
   Asset,
   Profile,
   Claim,
@@ -33,7 +37,7 @@ interface AppState {
 
   // UI state
   selectedJobId: string | null;
-  activeTab: 'score' | 'research' | 'assets' | 'crm';
+  activeTab: 'score' | 'requirements' | 'research' | 'assets' | 'qa' | 'crm';
   isLoading: boolean;
 
   // Actions
@@ -43,6 +47,7 @@ interface AppState {
   deleteJob: (id: string) => Promise<void>;
   moveJobToStage: (id: string, stage: PipelineStage) => Promise<void>;
   scoreAndUpdateJob: (id: string) => Promise<void>;
+  scoreJobsBulk: (jobIds?: string[]) => Promise<number>;
   addCompany: (company: Partial<Company>) => Promise<Company>;
   updateCompany: (id: string, updates: Partial<Company>) => Promise<void>;
   addContact: (contact: Partial<Contact>) => Promise<Contact>;
@@ -53,11 +58,163 @@ interface AppState {
   addAsset: (asset: Partial<Asset>) => Promise<Asset>;
   updateAsset: (id: string, updates: Partial<Asset>) => Promise<void>;
   addClaim: (claim: Partial<Claim>) => Promise<Claim>;
+  updateClaim: (id: string, updates: Partial<Claim>) => Promise<void>;
+  deleteClaim: (id: string) => Promise<void>;
+  mergeClaims: (targetId: string, sourceId: string) => Promise<void>;
+  approveClaims: (ids?: string[]) => Promise<number>;
   updateProfile: (updates: Partial<Profile>) => Promise<void>;
   addGenerationLog: (log: Partial<GenerationLog>) => Promise<void>;
   setSelectedJob: (id: string | null) => void;
-  setActiveTab: (tab: 'score' | 'research' | 'assets' | 'crm') => void;
+  setActiveTab: (tab: 'score' | 'requirements' | 'research' | 'assets' | 'qa' | 'crm') => void;
   refreshData: () => Promise<void>;
+}
+
+const TOOL_HINTS = new Set([
+  'salesforce',
+  'hubspot',
+  'marketo',
+  'pardot',
+  'segment',
+  'amplitude',
+  'mixpanel',
+  'google analytics',
+  'ga4',
+  'tableau',
+  'looker',
+  'dbt',
+  'snowflake',
+  'bigquery',
+  'braze',
+  'iterable',
+  'klaviyo',
+  'mailchimp',
+  'meta ads',
+  'google ads',
+  'linkedin ads',
+  'tiktok ads',
+  'figma',
+  'notion',
+  'jira',
+  'asana',
+  'optimizely',
+  'launchdarkly',
+  'vwo',
+  'hotjar',
+  'fullstory',
+  'intercom',
+  'zendesk',
+  'drift',
+  'gong',
+  'outreach',
+  'salesloft',
+  'clearbit',
+  'zoominfo',
+  '6sense',
+  'demandbase',
+  'power bi',
+  'excel',
+  'sql',
+]);
+
+function looksLikeOutcome(text: string): boolean {
+  if (!text) return false;
+  const normalized = text.toLowerCase();
+  const hasAction = /\b(increased|grew|reduced|improved|generated|drove|boosted|scaled|saved|achieved|delivered|exceeded|surpassed|doubled|tripled|cut|lifted)\b/i.test(normalized);
+  const hasMetric = /(\d[\d,.]*\s*%|\$[\d,.]+[kKmMbB]?|\b\d+(\.\d+)?x\b|\b\d+\s*[kKmMbB]\b)/i.test(normalized);
+  return hasAction && hasMetric;
+}
+
+function looksLikeTool(text: string): boolean {
+  if (!text) return false;
+  const normalized = normalizeClaimText(text);
+  for (const hint of TOOL_HINTS) {
+    if (normalized === hint || normalized.includes(hint)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function inferClaimType(claim: Partial<Claim>): Claim['type'] {
+  if (claim.type) return claim.type;
+  if (claim.role || claim.company || claim.startDate || claim.endDate || (claim.responsibilities && claim.responsibilities.length > 0)) {
+    return 'Experience';
+  }
+  if (claim.metric || claim.isNumeric || looksLikeOutcome(claim.text || '')) return 'Outcome';
+  if (looksLikeTool(claim.text || '')) return 'Tool';
+  return 'Skill';
+}
+
+function sanitizeClaimForType(type: Claim['type'], claimData: Partial<Claim>): Partial<Claim> {
+  const sanitized: Partial<Claim> = { ...claimData };
+
+  if (type === 'Experience') {
+    sanitized.experienceId = undefined;
+    sanitized.metric = undefined;
+    sanitized.isNumeric = undefined;
+    sanitized.tools = undefined;
+    sanitized.outcomes = undefined;
+    return sanitized;
+  }
+
+  sanitized.role = undefined;
+  sanitized.company = undefined;
+  sanitized.startDate = undefined;
+  sanitized.endDate = undefined;
+  sanitized.location = undefined;
+  sanitized.responsibilities = undefined;
+  sanitized.tools = undefined;
+  sanitized.outcomes = undefined;
+
+  if (type !== 'Outcome') {
+    sanitized.metric = undefined;
+    sanitized.isNumeric = undefined;
+  }
+
+  return sanitized;
+}
+
+function normalizeDateToken(value?: string): string {
+  return (value || '').trim().toLowerCase();
+}
+
+const STAGE_INDEX: Record<PipelineStage, number> = PIPELINE_STAGES.reduce((acc, stage, index) => {
+  acc[stage] = index;
+  return acc;
+}, {} as Record<PipelineStage, number>);
+
+const AUTO_STAGE_FROM_ACTIVITY: Record<ActivityOutcome, PipelineStage | null> = {
+  Sent: 'Outreach Sent',
+  'Reply Received': 'Response/Screen',
+  'Call Scheduled': 'Response/Screen',
+  'Screen Scheduled': 'Response/Screen',
+  'Interview Scheduled': 'Interviewing',
+  'Referral Offered': 'Response/Screen',
+  Rejected: 'Closed Lost',
+  'No Response': null,
+  Other: null,
+};
+
+function shouldAdvanceStage(currentStage: PipelineStage, nextStage: PipelineStage): boolean {
+  return STAGE_INDEX[nextStage] > STAGE_INDEX[currentStage];
+}
+
+async function advanceJobStageIfNeeded(jobId: string, nextStage: PipelineStage, now: string): Promise<void> {
+  const job = await db.jobs.get(jobId);
+  if (!job) return;
+  if (!shouldAdvanceStage(job.stage, nextStage)) return;
+
+  await db.jobs.update(jobId, {
+    stage: nextStage,
+    stageTimestamps: { ...job.stageTimestamps, [nextStage]: now },
+    updatedAt: now,
+  });
+  await db.outcomes.add({
+    id: generateId(),
+    jobId,
+    stage: nextStage,
+    occurredAt: now,
+  });
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -196,7 +353,39 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   updateJob: async (id, updates) => {
-    await db.jobs.update(id, { ...updates, updatedAt: new Date().toISOString() });
+    const existing = await db.jobs.get(id);
+    if (!existing) return;
+
+    const now = new Date().toISOString();
+    const nextUpdates: Partial<Job> = { ...updates, updatedAt: now };
+    let stageTransition: PipelineStage | null = null;
+
+    if (updates.stage && shouldAdvanceStage(existing.stage, updates.stage)) {
+      stageTransition = updates.stage;
+      nextUpdates.stageTimestamps = {
+        ...existing.stageTimestamps,
+        [updates.stage]: now,
+      };
+    } else if (updates.researchBrief && !existing.researchBrief && shouldAdvanceStage(existing.stage, 'Researched')) {
+      stageTransition = 'Researched';
+      nextUpdates.stage = 'Researched';
+      nextUpdates.stageTimestamps = {
+        ...existing.stageTimestamps,
+        Researched: now,
+      };
+    }
+
+    await db.jobs.update(id, nextUpdates);
+
+    if (stageTransition) {
+      await db.outcomes.add({
+        id: generateId(),
+        jobId: id,
+        stage: stageTransition,
+        occurredAt: now,
+      });
+    }
+
     await get().refreshData();
   },
 
@@ -216,6 +405,10 @@ export const useStore = create<AppState>((set, get) => ({
   moveJobToStage: async (id, stage) => {
     const job = await db.jobs.get(id);
     if (!job) return;
+
+    if (!shouldAdvanceStage(job.stage, stage)) {
+      return;
+    }
 
     const now = new Date().toISOString();
     const timestamps = { ...job.stageTimestamps, [stage]: now };
@@ -259,13 +452,57 @@ export const useStore = create<AppState>((set, get) => ({
     };
 
     // Auto-advance to Scored if currently Captured
-    if (job.stage === 'Captured') {
+    if (shouldAdvanceStage(job.stage, 'Scored')) {
       updates.stage = 'Scored';
       updates.stageTimestamps = { ...job.stageTimestamps, Scored: now };
     }
 
     await db.jobs.update(id, updates);
     await get().refreshData();
+  },
+
+  scoreJobsBulk: async (jobIds) => {
+    const profile = get().profile;
+    if (!profile) return 0;
+
+    const scopedIds = new Set(jobIds || []);
+    const targetJobs = get().jobs.filter((job) => {
+      if (!job.jobDescription?.trim()) return false;
+      if (scopedIds.size === 0) return true;
+      return scopedIds.has(job.id);
+    });
+
+    if (targetJobs.length === 0) return 0;
+
+    const now = new Date().toISOString();
+    const claims = get().claims;
+
+    await db.transaction('rw', db.jobs, async () => {
+      for (const job of targetJobs) {
+        const result = scoreJob(job, profile, claims);
+        const updates: Partial<Job> = {
+          fitScore: result.fitScore,
+          fitLabel: result.fitLabel,
+          disqualifiers: result.disqualifiers,
+          reasonsToPursue: result.reasonsToPursue,
+          reasonsToPass: result.reasonsToPass,
+          redFlags: result.redFlags,
+          requirementsExtracted: result.requirementsExtracted,
+          scoreBreakdown: result.breakdown,
+          updatedAt: now,
+        };
+
+        if (shouldAdvanceStage(job.stage, 'Scored')) {
+          updates.stage = 'Scored';
+          updates.stageTimestamps = { ...job.stageTimestamps, Scored: now };
+        }
+
+        await db.jobs.update(job.id, updates);
+      }
+    });
+
+    await get().refreshData();
+    return targetJobs.length;
   },
 
   // --------------------------------------------------------
@@ -302,13 +539,26 @@ export const useStore = create<AppState>((set, get) => ({
 
   addContact: async (contactData) => {
     const now = new Date().toISOString();
+    let resolvedCompanyId = contactData.companyId;
+    let resolvedCompany = contactData.company;
+
+    if (!resolvedCompanyId && contactData.company?.trim()) {
+      const existingCompany = get().companies.find(
+        (company) => company.name.toLowerCase() === contactData.company!.trim().toLowerCase()
+      );
+      if (existingCompany) {
+        resolvedCompanyId = existingCompany.id;
+        resolvedCompany = existingCompany.name;
+      }
+    }
+
     const contact: Contact = {
       id: generateId(),
       firstName: contactData.firstName || '',
       lastName: contactData.lastName || '',
       role: contactData.role,
-      companyId: contactData.companyId,
-      company: contactData.company,
+      companyId: resolvedCompanyId,
+      company: resolvedCompany,
       email: contactData.email,
       linkedIn: contactData.linkedIn,
       phone: contactData.phone,
@@ -373,6 +623,16 @@ export const useStore = create<AppState>((set, get) => ({
       createdAt: now,
     };
     await db.activities.add(activity);
+
+    if (activity.jobId) {
+      const stageFromOutcome = activity.outcome ? AUTO_STAGE_FROM_ACTIVITY[activity.outcome] : null;
+      if (stageFromOutcome) {
+        await advanceJobStageIfNeeded(activity.jobId, stageFromOutcome, now);
+      } else if (activity.direction === 'Outbound') {
+        await advanceJobStageIfNeeded(activity.jobId, 'Outreach Sent', now);
+      }
+    }
+
     await get().refreshData();
     return activity;
   },
@@ -411,7 +671,16 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   updateAsset: async (id, updates) => {
-    await db.assets.update(id, { ...updates, updatedAt: new Date().toISOString() });
+    const existing = await db.assets.get(id);
+    if (!existing) return;
+
+    const now = new Date().toISOString();
+    await db.assets.update(id, { ...updates, updatedAt: now });
+
+    if (!existing.approved && updates.approved && existing.jobId) {
+      await advanceJobStageIfNeeded(existing.jobId, 'Assets Ready', now);
+    }
+
     await get().refreshData();
   },
 
@@ -421,20 +690,173 @@ export const useStore = create<AppState>((set, get) => ({
 
   addClaim: async (claimData) => {
     const now = new Date().toISOString();
+    const type = inferClaimType(claimData);
+    const sanitizedClaimData = sanitizeClaimForType(type, claimData);
+    const textFromExperience =
+      sanitizedClaimData.role && sanitizedClaimData.company
+        ? `${sanitizedClaimData.role} at ${sanitizedClaimData.company}`
+        : sanitizedClaimData.role || sanitizedClaimData.company || '';
+    const text = (sanitizedClaimData.text || textFromExperience || '').trim();
+    validateClaimContext({
+      type,
+      claims: get().claims,
+      text,
+      role: sanitizedClaimData.role,
+      company: sanitizedClaimData.company,
+      metric: sanitizedClaimData.metric,
+      verificationStatus: sanitizedClaimData.verificationStatus,
+      experienceId: sanitizedClaimData.experienceId,
+    });
+    const normalizedText = normalizeClaimText(text || `Imported ${type.toLowerCase()}`);
+    const normalizedRole = (sanitizedClaimData.role || '').trim().toLowerCase();
+    const normalizedCompany = (sanitizedClaimData.company || '').trim().toLowerCase();
+    const normalizedStartDate = normalizeDateToken(sanitizedClaimData.startDate);
+    const normalizedEndDate = normalizeDateToken(sanitizedClaimData.endDate);
+
+    const duplicate = get().claims.find((existingClaim) => {
+      if (existingClaim.type !== type) return false;
+      if (existingClaim.normalizedText !== normalizedText) return false;
+
+      if (type === 'Experience') {
+        const existingRole = (existingClaim.role || '').trim().toLowerCase();
+        const existingCompany = (existingClaim.company || '').trim().toLowerCase();
+        const existingStartDate = normalizeDateToken(existingClaim.startDate);
+        const existingEndDate = normalizeDateToken(existingClaim.endDate);
+        return (
+          existingRole === normalizedRole &&
+          existingCompany === normalizedCompany &&
+          existingStartDate === normalizedStartDate &&
+          existingEndDate === normalizedEndDate
+        );
+      }
+
+      return (existingClaim.experienceId || '') === (sanitizedClaimData.experienceId || '');
+    });
+
+    if (duplicate) {
+      const shouldApproveDuplicate =
+        duplicate.verificationStatus === 'Approved' ||
+        (sanitizedClaimData.verificationStatus === 'Approved' && (sanitizedClaimData.confidence ?? 0) >= 0.9);
+      const duplicateUpdates: Partial<Claim> = {
+        confidence: Math.max(duplicate.confidence ?? 0, sanitizedClaimData.confidence ?? 0),
+        verificationStatus: shouldApproveDuplicate ? 'Approved' : duplicate.verificationStatus,
+        updatedAt: now,
+      };
+      await db.claims.update(duplicate.id, duplicateUpdates);
+      await get().refreshData();
+      return { ...duplicate, ...duplicateUpdates } as Claim;
+    }
+
     const claim: Claim = {
       id: generateId(),
-      company: claimData.company || '',
-      role: claimData.role || '',
-      startDate: claimData.startDate || '',
-      endDate: claimData.endDate,
-      responsibilities: claimData.responsibilities || [],
-      tools: claimData.tools || [],
-      outcomes: claimData.outcomes || [],
+      type,
+      text: text || `Imported ${type.toLowerCase()}`,
+      normalizedText,
+      source: sanitizedClaimData.source || 'Manual',
+      evidenceSnippet: sanitizedClaimData.evidenceSnippet,
+      confidence: sanitizedClaimData.confidence ?? 0.75,
+      verificationStatus:
+        sanitizedClaimData.verificationStatus === 'Approved' && (sanitizedClaimData.confidence ?? 0) >= 0.9
+          ? 'Approved'
+          : 'Review Needed',
+      experienceId: sanitizedClaimData.experienceId,
+      company: sanitizedClaimData.company,
+      role: sanitizedClaimData.role,
+      startDate: sanitizedClaimData.startDate,
+      endDate: sanitizedClaimData.endDate,
+      location: sanitizedClaimData.location,
+      responsibilities: sanitizedClaimData.responsibilities,
+      tools: sanitizedClaimData.tools,
+      outcomes: sanitizedClaimData.outcomes,
+      metric: sanitizedClaimData.metric,
+      isNumeric: sanitizedClaimData.isNumeric,
       createdAt: now,
+      updatedAt: now,
     };
     await db.claims.add(claim);
     await get().refreshData();
     return claim;
+  },
+
+  updateClaim: async (id, updates) => {
+    const existing = await db.claims.get(id);
+    if (!existing) return;
+
+    const nextType = updates.type || existing.type;
+    const sanitizedUpdates = sanitizeClaimForType(nextType, updates);
+    const nextRole = sanitizedUpdates.role ?? existing.role;
+    const nextCompany = sanitizedUpdates.company ?? existing.company;
+    const nextMetric = sanitizedUpdates.metric ?? existing.metric;
+    const nextVerificationStatus = sanitizedUpdates.verificationStatus ?? existing.verificationStatus;
+    const nextText = (sanitizedUpdates.text ?? existing.text ?? '').trim();
+    const nextExperienceId = sanitizedUpdates.experienceId ?? existing.experienceId;
+    validateClaimContext({
+      type: nextType,
+      claims: get().claims,
+      text: nextText,
+      role: nextRole,
+      company: nextCompany,
+      metric: nextMetric,
+      verificationStatus: nextVerificationStatus,
+      experienceId: nextExperienceId,
+      currentClaimId: id,
+    });
+    const nextUpdates: Partial<Claim> = { ...sanitizedUpdates, updatedAt: new Date().toISOString() };
+    if (sanitizedUpdates.text) {
+      nextUpdates.normalizedText = normalizeClaimText(sanitizedUpdates.text);
+    }
+    await db.claims.update(id, nextUpdates);
+    await get().refreshData();
+  },
+
+  deleteClaim: async (id) => {
+    await db.claims.delete(id);
+    const linkedClaims = await db.claims.where('experienceId').equals(id).toArray();
+    if (linkedClaims.length > 0) {
+      await db.claims.bulkDelete(linkedClaims.map((claim) => claim.id));
+    }
+    await get().refreshData();
+  },
+
+  mergeClaims: async (targetId, sourceId) => {
+    if (targetId === sourceId) return;
+    const target = await db.claims.get(targetId);
+    const source = await db.claims.get(sourceId);
+    if (!target || !source) return;
+
+    await db.claims.where('experienceId').equals(sourceId).modify({ experienceId: targetId });
+    await db.claims.delete(sourceId);
+    await db.claims.update(targetId, {
+      confidence: Math.max(target.confidence ?? 0, source.confidence ?? 0),
+      updatedAt: new Date().toISOString(),
+    });
+    await get().refreshData();
+  },
+
+  approveClaims: async (ids) => {
+    const now = new Date().toISOString();
+    const targetIds =
+      ids && ids.length > 0
+        ? ids
+        : get()
+            .claims.filter((claim) => claim.verificationStatus === 'Review Needed')
+            .map((claim) => claim.id);
+
+    if (targetIds.length === 0) return 0;
+
+    await db.transaction('rw', db.claims, async () => {
+      const claims = await db.claims.where('id').anyOf(targetIds).toArray();
+      for (const claim of claims) {
+        if (claim.verificationStatus === 'Approved') continue;
+        await db.claims.update(claim.id, {
+          verificationStatus: 'Approved',
+          updatedAt: now,
+        });
+      }
+    });
+
+    await get().refreshData();
+    return targetIds.length;
   },
 
   updateProfile: async (updates) => {

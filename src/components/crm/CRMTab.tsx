@@ -22,7 +22,7 @@ import {
   ChevronUp,
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
-import { generateOutreachEmail } from '../../lib/assets';
+import { generateOutreachEmail, generateFollowUpEmail } from '../../lib/assets';
 import type {
   Job,
   Contact,
@@ -44,6 +44,15 @@ const OUTCOMES: ActivityOutcome[] = [
   'Sent', 'Reply Received', 'Call Scheduled', 'Screen Scheduled',
   'Interview Scheduled', 'Referral Offered', 'Rejected', 'No Response', 'Other',
 ];
+
+const MESSAGE_TEMPLATE_OPTIONS = [
+  { value: 'intro', label: 'Intro Outreach' },
+  { value: 'followup', label: 'Follow-up' },
+  { value: 'referral', label: 'Referral Ask' },
+  { value: 'thankyou', label: 'Interview Thank You' },
+] as const;
+
+type MessageTemplateType = (typeof MESSAGE_TEMPLATE_OPTIONS)[number]['value'];
 
 const RELATIONSHIP_COLORS: Record<ContactRelationship, string> = {
   Recruiter: 'bg-blue-50 text-blue-700 border-blue-200',
@@ -83,6 +92,15 @@ function contactInitials(c: Contact): string {
   const first = c.firstName?.[0] || '';
   const last = c.lastName?.[0] || '';
   return (first + last).toUpperCase() || '?';
+}
+
+function addDaysIso(daysToAdd: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() + daysToAdd);
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 function CompanyCard({ company }: { company: Company }) {
@@ -154,6 +172,7 @@ export function CRMTab({ job }: CRMTabProps) {
   const contactJobLinks = useStore((s) => s.contactJobLinks);
   const companies = useStore((s) => s.companies);
   const claims = useStore((s) => s.claims);
+  const profileName = useStore((s) => s.profile?.name);
   const addContact = useStore((s) => s.addContact);
   const addActivity = useStore((s) => s.addActivity);
   const linkContactToJob = useStore((s) => s.linkContactToJob);
@@ -170,6 +189,7 @@ export function CRMTab({ job }: CRMTabProps) {
   const [contactEmail, setContactEmail] = useState('');
   const [contactLinkedIn, setContactLinkedIn] = useState('');
   const [contactPhone, setContactPhone] = useState('');
+  const [contactNotes, setContactNotes] = useState('');
   const [contactRelationship, setContactRelationship] = useState<ContactRelationship>('Recruiter');
 
   // Activity form state
@@ -179,6 +199,8 @@ export function CRMTab({ job }: CRMTabProps) {
   const [actOutcome, setActOutcome] = useState<ActivityOutcome>('Sent');
   const [actContactId, setActContactId] = useState('');
   const [actFollowUpDate, setActFollowUpDate] = useState('');
+  const [followUpEnabled, setFollowUpEnabled] = useState(false);
+  const [messageTemplate, setMessageTemplate] = useState<MessageTemplateType>('intro');
 
   // Company entity for this job
   const jobCompany = useMemo(
@@ -228,6 +250,27 @@ export function CRMTab({ job }: CRMTabProps) {
     });
   }, [jobActivities]);
 
+  const toggleAddActivity = useCallback(() => {
+    setShowAddActivity((prev) => {
+      const next = !prev;
+      if (next) {
+        const mode = localStorage.getItem('jf2-followup-mode') || 'manual';
+        const days = parseInt(localStorage.getItem('jf2-followup-days') || '5', 10) || 5;
+        if (mode === 'auto') {
+          setFollowUpEnabled(true);
+          setActFollowUpDate(addDaysIso(days));
+        } else {
+          setFollowUpEnabled(false);
+          setActFollowUpDate('');
+        }
+      } else {
+        setFollowUpEnabled(false);
+        setActFollowUpDate('');
+      }
+      return next;
+    });
+  }, []);
+
   const resetContactForm = useCallback(() => {
     setContactFirstName('');
     setContactLastName('');
@@ -235,6 +278,7 @@ export function CRMTab({ job }: CRMTabProps) {
     setContactEmail('');
     setContactLinkedIn('');
     setContactPhone('');
+    setContactNotes('');
     setContactRelationship('Recruiter');
     setShowAddContact(false);
   }, []);
@@ -251,6 +295,7 @@ export function CRMTab({ job }: CRMTabProps) {
       email: contactEmail.trim() || undefined,
       linkedIn: contactLinkedIn.trim() || undefined,
       phone: contactPhone.trim() || undefined,
+      notes: contactNotes.trim() || undefined,
       relationship: contactRelationship,
     });
     // Auto-link to this job
@@ -278,24 +323,61 @@ export function CRMTab({ job }: CRMTabProps) {
       direction: actDirection,
       content: actContent.trim(),
       outcome: actOutcome,
-      followUpDate: actFollowUpDate || undefined,
+      followUpDate: followUpEnabled ? (actFollowUpDate || undefined) : undefined,
     });
     setActContent('');
     setActFollowUpDate('');
+    setFollowUpEnabled(false);
     setShowAddActivity(false);
   };
 
   const handleGenerateMessage = useCallback(() => {
     const selectedContact = jobContacts.find((c) => c.id === actContactId);
-    const content = generateOutreachEmail({
-      job,
-      contactName: selectedContact ? contactDisplayName(selectedContact) : undefined,
-      contactRole: selectedContact?.role,
-      claims,
-      research: job.researchBrief,
-    });
+    const contactName = selectedContact ? contactDisplayName(selectedContact) : undefined;
+    let content = '';
+
+    if (messageTemplate === 'followup') {
+      content = generateFollowUpEmail({
+        job,
+        contactName,
+        signerName: profileName,
+      });
+    } else if (messageTemplate === 'referral') {
+      const recipient = contactName || 'there';
+      const signer = profileName || 'Candidate';
+      content = `Hi ${recipient},
+
+I hope you're doing well. I'm applying for the ${job.title} role at ${job.company} and would value your perspective on the team and hiring process.
+
+If you're open to it, I would appreciate a referral or guidance on the best way to position my background for this role.
+
+Thanks in advance,
+${signer}`;
+    } else if (messageTemplate === 'thankyou') {
+      const recipient = contactName || 'there';
+      const signer = profileName || 'Candidate';
+      content = `Hi ${recipient},
+
+Thank you for taking the time to speak with me about the ${job.title} role at ${job.company}.
+
+I enjoyed learning more about the team and priorities, and I am excited about the opportunity to contribute.
+
+Please let me know if there is anything else I can provide.
+
+Best,
+${signer}`;
+    } else {
+      content = generateOutreachEmail({
+        job,
+        contactName,
+        contactRole: selectedContact?.role,
+        claims,
+        research: job.researchBrief,
+        signerName: profileName,
+      });
+    }
     setActContent(content);
-  }, [job, claims, actContactId, jobContacts]);
+  }, [job, claims, actContactId, jobContacts, profileName, messageTemplate]);
 
   return (
     <div className="py-4 space-y-6">
@@ -441,16 +523,29 @@ export function CRMTab({ job }: CRMTabProps) {
               placeholder="LinkedIn URL"
               className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
             />
-            <div className="flex items-center gap-3">
-              <select
-                value={contactRelationship}
-                onChange={(e) => setContactRelationship(e.target.value as ContactRelationship)}
-                className="flex-1 px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 appearance-none"
-              >
-                {RELATIONSHIP_TYPES.map((r) => (
-                  <option key={r} value={r}>{r}</option>
-                ))}
-              </select>
+            <textarea
+              value={contactNotes}
+              onChange={(e) => setContactNotes(e.target.value)}
+              placeholder="Notes (context, referral strength, preferred outreach angle)"
+              rows={2}
+              className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 resize-none"
+            />
+            <div className="flex items-end gap-3">
+              <div className="flex-1">
+                <label className="text-[11px] font-medium text-neutral-600 mb-1 block">Relationship</label>
+                <div className="relative">
+                  <select
+                    value={contactRelationship}
+                    onChange={(e) => setContactRelationship(e.target.value as ContactRelationship)}
+                    className="w-full appearance-none px-3 py-2 pr-8 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                  >
+                    {RELATIONSHIP_TYPES.map((r) => (
+                      <option key={r} value={r}>{r}</option>
+                    ))}
+                  </select>
+                  <ChevronDown size={14} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400" />
+                </div>
+              </div>
               <button
                 type="submit"
                 disabled={!contactFirstName.trim()}
@@ -489,6 +584,11 @@ export function CRMTab({ job }: CRMTabProps) {
                         </span>
                       </div>
                       {contact.role && <p className="text-xs text-neutral-500 mt-0.5">{contact.role}</p>}
+                      {contact.notes && (
+                        <p className="text-[11px] text-neutral-600 mt-1.5 bg-neutral-50 border border-neutral-100 rounded-md px-2 py-1">
+                          {contact.notes}
+                        </p>
+                      )}
                       <div className="flex items-center gap-3 mt-1.5">
                         {contact.email && (
                           <a href={`mailto:${contact.email}`} className="text-[11px] text-brand-600 flex items-center gap-0.5 hover:underline truncate">
@@ -535,7 +635,7 @@ export function CRMTab({ job }: CRMTabProps) {
             Activity Log ({jobActivities.length})
           </h3>
           <button
-            onClick={() => setShowAddActivity(!showAddActivity)}
+            onClick={toggleAddActivity}
             className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-brand-600 bg-brand-50 border border-brand-200 rounded-lg hover:bg-brand-100"
           >
             {showAddActivity ? <X size={10} /> : <Plus size={10} />}
@@ -547,52 +647,94 @@ export function CRMTab({ job }: CRMTabProps) {
         {showAddActivity && (
           <form onSubmit={handleAddActivity} className="bg-white rounded-lg border border-neutral-200 p-4 shadow-sm mb-3 space-y-3">
             <div className="grid grid-cols-3 gap-3">
-              <select
-                value={actChannel}
-                onChange={(e) => setActChannel(e.target.value as ActivityChannel)}
-                className="px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 appearance-none"
-              >
-                {CHANNELS.map((ch) => (
-                  <option key={ch} value={ch}>{ch}</option>
-                ))}
-              </select>
-              <select
-                value={actDirection}
-                onChange={(e) => setActDirection(e.target.value as 'Outbound' | 'Inbound')}
-                className="px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 appearance-none"
-              >
-                <option value="Outbound">Outbound</option>
-                <option value="Inbound">Inbound</option>
-              </select>
-              <select
-                value={actOutcome}
-                onChange={(e) => setActOutcome(e.target.value as ActivityOutcome)}
-                className="px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 appearance-none"
-              >
-                {OUTCOMES.map((o) => (
-                  <option key={o} value={o}>{o}</option>
-                ))}
-              </select>
+              <div className="relative">
+                <select
+                  value={actChannel}
+                  onChange={(e) => setActChannel(e.target.value as ActivityChannel)}
+                  className="w-full appearance-none px-3 py-2 pr-8 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                >
+                  {CHANNELS.map((ch) => (
+                    <option key={ch} value={ch}>{ch}</option>
+                  ))}
+                </select>
+                <ChevronDown size={14} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400" />
+              </div>
+              <div className="relative">
+                <select
+                  value={actDirection}
+                  onChange={(e) => setActDirection(e.target.value as 'Outbound' | 'Inbound')}
+                  className="w-full appearance-none px-3 py-2 pr-8 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                >
+                  <option value="Outbound">Outbound</option>
+                  <option value="Inbound">Inbound</option>
+                </select>
+                <ChevronDown size={14} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400" />
+              </div>
+              <div className="relative">
+                <select
+                  value={actOutcome}
+                  onChange={(e) => setActOutcome(e.target.value as ActivityOutcome)}
+                  className="w-full appearance-none px-3 py-2 pr-8 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                >
+                  {OUTCOMES.map((o) => (
+                    <option key={o} value={o}>{o}</option>
+                  ))}
+                </select>
+                <ChevronDown size={14} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400" />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[11px] font-medium text-neutral-600 mb-1 block">Message Template</label>
+              <div className="relative">
+                <select
+                  value={messageTemplate}
+                  onChange={(e) => setMessageTemplate(e.target.value as MessageTemplateType)}
+                  className="w-full appearance-none px-3 py-2 pr-8 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                >
+                  {MESSAGE_TEMPLATE_OPTIONS.map((template) => (
+                    <option key={template.value} value={template.value}>
+                      {template.label}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown size={14} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400" />
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <select
-                value={actContactId}
-                onChange={(e) => setActContactId(e.target.value)}
-                className="px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 appearance-none"
-              >
-                <option value="">Select contact...</option>
-                {jobContacts.map((c) => (
-                  <option key={c.id} value={c.id}>{contactDisplayName(c)}</option>
-                ))}
-              </select>
-              <input
-                type="date"
-                value={actFollowUpDate}
-                onChange={(e) => setActFollowUpDate(e.target.value)}
-                className="px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
-                placeholder="Follow-up date"
-              />
+              <div className="relative">
+                <select
+                  value={actContactId}
+                  onChange={(e) => setActContactId(e.target.value)}
+                  className="w-full appearance-none px-3 py-2 pr-8 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                >
+                  <option value="">Select contact...</option>
+                  {jobContacts.map((c) => (
+                    <option key={c.id} value={c.id}>{contactDisplayName(c)}</option>
+                  ))}
+                </select>
+                <ChevronDown size={14} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400" />
+              </div>
+              <div className="space-y-1">
+                <label className="inline-flex items-center gap-2 text-xs text-neutral-600">
+                  <input
+                    type="checkbox"
+                    checked={followUpEnabled}
+                    onChange={(event) => setFollowUpEnabled(event.target.checked)}
+                    className="rounded border-neutral-300 text-brand-600 focus:ring-brand-500"
+                  />
+                  Set follow-up reminder
+                </label>
+                <input
+                  type="date"
+                  value={actFollowUpDate}
+                  onChange={(e) => setActFollowUpDate(e.target.value)}
+                  disabled={!followUpEnabled}
+                  className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 disabled:opacity-50"
+                  placeholder="Follow-up date"
+                />
+              </div>
             </div>
 
             <textarea

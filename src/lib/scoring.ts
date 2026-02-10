@@ -3,6 +3,7 @@
 // See docs/MASTER_PLAN.md section 9 for spec.
 
 import type { Job, FitLabel, Profile, Requirement, Claim, RequirementPriority, RequirementMatch } from '../types';
+import { buildExperienceBundles, type ExperienceBundle } from './claimLedger.ts';
 
 // ============================================================
 // Scoring Weights (calibratable)
@@ -356,30 +357,85 @@ const TOOL_PATTERNS = [
   'shopify', 'magento', 'stripe',
 ];
 
+const SKILL_KEYWORDS: Record<string, string[]> = {
+  'Lifecycle Marketing': ['lifecycle marketing', 'retention marketing', 'crm strategy'],
+  'Demand Generation': ['demand generation', 'demand gen', 'pipeline generation', 'lead generation'],
+  'GTM Strategy': ['go-to-market', 'gtm strategy', 'launch strategy'],
+  'Product Marketing': ['product marketing', 'positioning', 'messaging'],
+  'Conversion Optimization': ['conversion optimization', 'cro', 'funnel optimization'],
+  'A/B Testing': ['a/b testing', 'split testing', 'experimentation'],
+  'Marketing Analytics': ['marketing analytics', 'attribution', 'measurement framework'],
+  'Revenue Operations': ['revenue operations', 'revops', 'marketing operations', 'sales operations'],
+  'Paid Acquisition': ['paid acquisition', 'performance marketing', 'paid media'],
+  'SEO': ['seo', 'search engine optimization'],
+};
+
+const REQUIREMENT_LINE_SIGNALS = /\b(required|requirements?|qualification|qualifications|must|preferred|nice to have|experience|expertise|proficient|familiarity|knowledge|degree|certification|hands-on|ability to)\b/i;
+const REQUIREMENT_SECTION_EXIT_PATTERNS = [
+  /\bresponsibilit(y|ies)\b/i,
+  /\bwhat you('ll)? do\b/i,
+  /\babout the role\b/i,
+  /\bbenefits\b/i,
+  /\babout us\b/i,
+  /\bcompensation\b/i,
+];
+
+function escapeRegExp(input: string): string {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function containsPhrase(line: string, phrase: string): boolean {
+  const normalizedLine = line.toLowerCase();
+  const normalizedPhrase = phrase.toLowerCase().trim();
+  if (!normalizedPhrase) return false;
+  const pattern = escapeRegExp(normalizedPhrase).replace(/\s+/g, '\\s+');
+  const regex = new RegExp(`(?:^|[^a-z0-9])${pattern}(?:$|[^a-z0-9])`, 'i');
+  return regex.test(normalizedLine);
+}
+
 function extractRequirements(jd: string, claims?: Claim[]): Requirement[] {
   const reqs: Requirement[] = [];
   const lines = jd.split('\n');
+  const experienceBundles = buildExperienceBundles(claims || []);
 
   const yearsPattern = /(\d+)\+?\s*(?:years?|yrs?)\s+(?:of\s+)?(?:experience\s+(?:in|with)\s+)?(.+)/i;
 
   // Track current section priority
   let currentPriority: RequirementPriority = 'Must';
   const addedTools = new Set<string>();
+  const addedSkills = new Set<string>();
+  let inRequirementsSection = false;
 
   for (const rawLine of lines) {
     const line = rawLine.trim();
     if (!line) continue;
     const lineLower = line.toLowerCase();
+    const cleanLineForEvidence = line.replace(/^[-*•◦▪]\s*/, '').trim();
+    const isBulletLine = /^[-*•◦▪]/.test(line);
+    const isSectionHeaderCandidate = !isBulletLine && line.split(/\s+/).length <= 4;
 
     // Check if this line is a section header that changes priority
-    if (PREFERRED_PATTERNS.some((p) => p.test(line))) {
+    if (isSectionHeaderCandidate && PREFERRED_PATTERNS.some((p) => p.test(line))) {
       currentPriority = 'Preferred';
+      inRequirementsSection = true;
       continue;
     }
-    if (MUST_PATTERNS.some((p) => p.test(line))) {
+    if (isSectionHeaderCandidate && MUST_PATTERNS.some((p) => p.test(line))) {
       currentPriority = 'Must';
+      inRequirementsSection = true;
       continue;
     }
+    if (isSectionHeaderCandidate && REQUIREMENT_SECTION_EXIT_PATTERNS.some((p) => p.test(line))) {
+      inRequirementsSection = false;
+      continue;
+    }
+
+    const looksLikeRequirementLine =
+      inRequirementsSection ||
+      REQUIREMENT_LINE_SIGNALS.test(lineLower) ||
+      (isBulletLine && /\d+\+?\s*(years?|yrs?)/i.test(lineLower));
+
+    if (!looksLikeRequirementLine) continue;
 
     // Inline priority detection (for single-line items)
     let linePriority = currentPriority;
@@ -396,9 +452,9 @@ function extractRequirements(jd: string, claims?: Claim[]): Requirement[] {
       const years = parseInt(yearsMatch[1]);
       const desc = yearsMatch[2].trim();
       // Clean up trailing punctuation
-      const cleanDesc = desc.replace(/[,;.]$/, '').trim();
+      const cleanDesc = cleanExperienceDescription(desc);
 
-      const match = matchExperienceClaim(years, cleanDesc, claims);
+      const match = matchExperienceClaim(years, cleanDesc, experienceBundles);
 
       reqs.push({
         type: 'experience',
@@ -406,23 +462,49 @@ function extractRequirements(jd: string, claims?: Claim[]): Requirement[] {
         yearsNeeded: years,
         priority: linePriority,
         match: match.status,
+        jdEvidence: cleanLineForEvidence,
+        userEvidence: match.evidence,
+        gapSeverity: deriveGapSeverity(match.status, linePriority),
         evidence: match.evidence,
       });
     }
 
     // Tools
     for (const tool of TOOL_PATTERNS) {
-      if (lineLower.includes(tool) && !addedTools.has(tool)) {
+      if (containsPhrase(lineLower, tool) && !addedTools.has(tool)) {
         addedTools.add(tool);
-        const match = matchToolClaim(tool, claims);
+        const match = matchToolClaim(tool, experienceBundles);
         reqs.push({
           type: 'tool',
           description: capitalizeFirst(tool),
           priority: linePriority,
           match: match.status,
+          jdEvidence: cleanLineForEvidence,
+          userEvidence: match.evidence,
+          gapSeverity: deriveGapSeverity(match.status, linePriority),
           evidence: match.evidence,
         });
       }
+    }
+
+    // Skills
+    for (const [skill, keywords] of Object.entries(SKILL_KEYWORDS)) {
+      const skillKey = skill.toLowerCase();
+      if (addedSkills.has(skillKey)) continue;
+      if (!keywords.some((keyword) => containsPhrase(lineLower, keyword))) continue;
+      addedSkills.add(skillKey);
+
+      const match = matchSkillClaim(skill, experienceBundles);
+      reqs.push({
+        type: 'skill',
+        description: skill,
+        priority: linePriority,
+        match: match.status,
+        jdEvidence: cleanLineForEvidence,
+        userEvidence: match.evidence,
+        gapSeverity: deriveGapSeverity(match.status, linePriority),
+        evidence: match.evidence,
+      });
     }
 
     // Education
@@ -431,8 +513,10 @@ function extractRequirements(jd: string, claims?: Claim[]): Requirement[] {
       if (!exists) {
         reqs.push({
           type: 'education',
-          description: line.replace(/^[-*•◦▪]\s*/, '').trim(),
+          description: cleanLineForEvidence,
           priority: linePriority,
+          jdEvidence: cleanLineForEvidence,
+          gapSeverity: deriveGapSeverity('Missing', linePriority),
           match: 'Missing', // User would need to verify manually
         });
       }
@@ -444,8 +528,10 @@ function extractRequirements(jd: string, claims?: Claim[]): Requirement[] {
       if (!exists) {
         reqs.push({
           type: 'certification',
-          description: line.replace(/^[-*•◦▪]\s*/, '').trim(),
+          description: cleanLineForEvidence,
           priority: linePriority,
+          jdEvidence: cleanLineForEvidence,
+          gapSeverity: deriveGapSeverity('Missing', linePriority),
           match: 'Missing',
         });
       }
@@ -471,21 +557,31 @@ interface MatchResult {
   evidence?: string;
 }
 
-function matchExperienceClaim(yearsNeeded: number, description: string, claims?: Claim[]): MatchResult {
-  if (!claims || claims.length === 0) return { status: 'Missing' };
+function deriveGapSeverity(match: RequirementMatch, priority: RequirementPriority): 'None' | 'Low' | 'Medium' | 'High' {
+  if (match === 'Met') return 'None';
+  if (match === 'Partial') {
+    return priority === 'Must' ? 'Medium' : 'Low';
+  }
+  return priority === 'Must' ? 'High' : 'Medium';
+}
+
+function matchExperienceClaim(yearsNeeded: number, description: string, bundles: ExperienceBundle[]): MatchResult {
+  if (bundles.length === 0) return { status: 'Missing' };
 
   const descLower = description.toLowerCase();
   const keywords = descLower.split(/\s+/).filter((w) => w.length > 3);
 
-  for (const claim of claims) {
+  for (const bundle of bundles) {
     // Calculate approximate years at this role
-    const years = estimateClaimYears(claim);
+    const years = estimateClaimYears(bundle);
 
-    // Check if claim responsibilities/outcomes match the description
+    // Check whether claim evidence text matches the description
     const allText = [
-      claim.role,
-      ...claim.responsibilities,
-      ...claim.outcomes.map((o) => o.description),
+      bundle.role,
+      ...bundle.responsibilities,
+      ...bundle.skills,
+      ...bundle.tools,
+      ...bundle.outcomes.map((o) => o.description),
     ].join(' ').toLowerCase();
 
     const matchingKeywords = keywords.filter((kw) => allText.includes(kw));
@@ -495,53 +591,54 @@ function matchExperienceClaim(yearsNeeded: number, description: string, claims?:
       if (years >= yearsNeeded) {
         return {
           status: 'Met',
-          evidence: `${claim.role} at ${claim.company} (${years}+ yrs)`,
+          evidence: `${bundle.role} at ${bundle.company} (${years}+ yrs)`,
         };
       } else if (years >= yearsNeeded * 0.6) {
         return {
           status: 'Partial',
-          evidence: `${claim.role} at ${claim.company} (${years} yrs, need ${yearsNeeded})`,
+          evidence: `${bundle.role} at ${bundle.company} (${years} yrs, need ${yearsNeeded})`,
         };
       }
     }
   }
 
-  // Check across all claims for total years
-  const totalYears = claims.reduce((sum, c) => sum + estimateClaimYears(c), 0);
+  // Check across all experiences for total years
+  const totalYears = bundles.reduce((sum, bundle) => sum + estimateClaimYears(bundle), 0);
   if (totalYears >= yearsNeeded) {
     return {
       status: 'Partial',
-      evidence: `${totalYears} total years across ${claims.length} role${claims.length !== 1 ? 's' : ''}`,
+      evidence: `${totalYears} total years across ${bundles.length} role${bundles.length !== 1 ? 's' : ''}`,
     };
   }
 
   return { status: 'Missing' };
 }
 
-function matchToolClaim(tool: string, claims?: Claim[]): MatchResult {
-  if (!claims || claims.length === 0) return { status: 'Missing' };
+function matchToolClaim(tool: string, bundles: ExperienceBundle[]): MatchResult {
+  if (bundles.length === 0) return { status: 'Missing' };
 
   const toolLower = tool.toLowerCase();
 
-  for (const claim of claims) {
+  for (const bundle of bundles) {
     // Check tools array
-    if (claim.tools.some((t) => t.toLowerCase() === toolLower)) {
+    if (bundle.tools.some((t) => t.toLowerCase() === toolLower)) {
       return {
         status: 'Met',
-        evidence: `Used at ${claim.company} (${claim.role})`,
+        evidence: `Used at ${bundle.company} (${bundle.role})`,
       };
     }
 
     // Check responsibilities/outcomes text
     const allText = [
-      ...claim.responsibilities,
-      ...claim.outcomes.map((o) => o.description),
+      ...bundle.responsibilities,
+      ...bundle.skills,
+      ...bundle.outcomes.map((o) => o.description),
     ].join(' ').toLowerCase();
 
     if (allText.includes(toolLower)) {
       return {
         status: 'Met',
-        evidence: `Referenced in ${claim.role} at ${claim.company}`,
+        evidence: `Referenced in ${bundle.role} at ${bundle.company}`,
       };
     }
   }
@@ -549,11 +646,65 @@ function matchToolClaim(tool: string, claims?: Claim[]): MatchResult {
   return { status: 'Missing' };
 }
 
-function estimateClaimYears(claim: Claim): number {
-  if (!claim.startDate) return 0;
+function matchSkillClaim(skill: string, bundles: ExperienceBundle[]): MatchResult {
+  if (bundles.length === 0) return { status: 'Missing' };
+  const skillLower = skill.toLowerCase();
+  const skillTokens = skillLower.split(/\s+/).filter((token) => token.length > 3);
 
-  const start = parseClaimDate(claim.startDate);
-  const end = claim.endDate ? parseClaimDate(claim.endDate) : new Date();
+  for (const bundle of bundles) {
+    if (bundle.skills.some((candidate) => candidate.toLowerCase() === skillLower)) {
+      return {
+        status: 'Met',
+        evidence: `Skill logged in ${bundle.role} at ${bundle.company}`,
+      };
+    }
+
+    const evidenceText = [
+      bundle.role,
+      ...bundle.responsibilities,
+      ...bundle.skills,
+      ...bundle.tools,
+      ...bundle.outcomes.map((outcome) => outcome.description),
+    ].join(' ').toLowerCase();
+
+    if (evidenceText.includes(skillLower)) {
+      return {
+        status: 'Met',
+        evidence: `Referenced in ${bundle.role} at ${bundle.company}`,
+      };
+    }
+
+    if (skillTokens.length > 0) {
+      const matchingTokens = skillTokens.filter((token) => evidenceText.includes(token));
+      if (matchingTokens.length === skillTokens.length) {
+        return {
+          status: 'Partial',
+          evidence: `Partial signal in ${bundle.role} at ${bundle.company}`,
+        };
+      }
+    }
+  }
+
+  return { status: 'Missing' };
+}
+
+function cleanExperienceDescription(raw: string): string {
+  return raw
+    .replace(/\b(required|preferred|must have|nice to have)\b/gi, '')
+    .replace(/\bexperience\b/gi, '')
+    .replace(/[,;.]$/, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/^with\s+/i, '')
+    .replace(/^in\s+/i, '')
+    .replace(/^of\s+/i, '');
+}
+
+function estimateClaimYears(bundle: ExperienceBundle): number {
+  if (!bundle.startDate) return 0;
+
+  const start = parseClaimDate(bundle.startDate);
+  const end = bundle.endDate ? parseClaimDate(bundle.endDate) : new Date();
 
   if (!start) return 0;
   const endDate = end || new Date();

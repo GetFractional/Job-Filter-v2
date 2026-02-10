@@ -23,6 +23,12 @@ export interface ResearchContext {
   hqLocation?: string;
 }
 
+export interface ResearchCompanyMatch {
+  isMatch: boolean;
+  confidence: number;
+  reason: string;
+}
+
 // ============================================================
 // Generate Single Master Research Prompt
 // ============================================================
@@ -42,6 +48,9 @@ export function generateResearchPrompt(job: Job, context?: ResearchContext): Res
   }
 
   const prompt = `I'm evaluating a **${title}** role at **${companyRef}**${industry ? ` in the ${industry} space` : ''}. I need a comprehensive research brief. Please organize your response using the EXACT section headers below.
+
+## COMPANY IDENTITY CONFIRMATION
+Confirm we have the right company entity. Include legal/company name, primary website, headquarters location, and one-sentence disambiguation note if multiple companies share this name.
 
 ## COMPANY OVERVIEW
 What does ${company} do? Core products/services, value proposition, founding year, and current employee count estimate.
@@ -84,11 +93,61 @@ export function generateResearchPrompts(job: Job): ResearchPrompt[] {
   return [generateResearchPrompt(job)];
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+export function validateResearchCompanyMatch(rawText: string, company: string): ResearchCompanyMatch {
+  const normalizedCompany = company.trim().toLowerCase();
+  const normalizedText = rawText.trim().toLowerCase();
+
+  if (!normalizedCompany || !normalizedText) {
+    return {
+      isMatch: false,
+      confidence: 0,
+      reason: 'Missing company name or research content.',
+    };
+  }
+
+  const fullPattern = new RegExp(`\\b${escapeRegExp(normalizedCompany)}\\b`, 'g');
+  const fullMatches = normalizedText.match(fullPattern) || [];
+  if (fullMatches.length > 0) {
+    const confidence = Math.min(0.98, 0.55 + fullMatches.length * 0.12);
+    return {
+      isMatch: true,
+      confidence,
+      reason: `Found "${company}" ${fullMatches.length} time${fullMatches.length === 1 ? '' : 's'} in research text.`,
+    };
+  }
+
+  const companyTokens = normalizedCompany.split(/\s+/).filter((token) => token.length > 2);
+  const tokenHits = companyTokens.filter((token) => normalizedText.includes(token));
+  const tokenRatio = companyTokens.length > 0 ? tokenHits.length / companyTokens.length : 0;
+
+  if (tokenRatio >= 0.75 && companyTokens.length > 1) {
+    return {
+      isMatch: true,
+      confidence: Math.min(0.74, 0.45 + tokenRatio * 0.35),
+      reason: `Most company name tokens were found (${tokenHits.join(', ')}).`,
+    };
+  }
+
+  return {
+    isMatch: false,
+    confidence: tokenRatio * 0.35,
+    reason: `The pasted research does not clearly reference "${company}".`,
+  };
+}
+
 // ============================================================
 // Parse Research Results (structured section extraction)
 // ============================================================
 
 const SECTION_HEADERS: { key: keyof ResearchBrief; patterns: RegExp[] }[] = [
+  {
+    key: 'companyIdentity',
+    patterns: [/^#{1,3}\s*COMPANY\s*IDENTITY/i, /^#{1,3}\s*IDENTITY\s*CONFIRMATION/i, /^\*\*COMPANY\s*IDENTITY/i],
+  },
   {
     key: 'companyOverview',
     patterns: [/^#{1,3}\s*COMPANY\s*OVERVIEW/i, /^#{1,3}\s*Overview/i, /^\*\*COMPANY\s*OVERVIEW\*\*/i],
@@ -124,10 +183,15 @@ const SECTION_HEADERS: { key: keyof ResearchBrief; patterns: RegExp[] }[] = [
 ];
 
 export function parseResearchPaste(rawText: string): ResearchBrief {
+  const jsonBrief = parseResearchJson(rawText);
+  if (jsonBrief) {
+    return jsonBrief;
+  }
+
   const lines = rawText.split('\n');
   const sections: Partial<Record<keyof ResearchBrief, string[]>> = {};
   let currentKey: keyof ResearchBrief | null = null;
-  let hypothesesLines: string[] = [];
+  const hypothesesLines: string[] = [];
   let inHypotheses = false;
 
   for (const line of lines) {
@@ -181,7 +245,7 @@ export function parseResearchPaste(rawText: string): ResearchBrief {
   for (const [key, lines] of Object.entries(sections)) {
     const content = (lines as string[]).join('\n').trim();
     if (content) {
-      (brief as Record<string, unknown>)[key] = content;
+      assignSectionContent(brief, key as keyof ResearchBrief, content);
     }
   }
 
@@ -192,15 +256,211 @@ export function parseResearchPaste(rawText: string): ResearchBrief {
   return brief;
 }
 
+function parseResearchJson(rawText: string): ResearchBrief | null {
+  const candidates: string[] = [];
+  const trimmed = rawText.trim();
+  if (!trimmed) return null;
+
+  if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+    candidates.push(trimmed);
+  }
+
+  const fencedMatches = [...rawText.matchAll(/```(?:json)?\s*([\s\S]*?)```/gi)];
+  for (const match of fencedMatches) {
+    const body = (match[1] || '').trim();
+    if (body) candidates.push(body);
+  }
+
+  const firstBrace = rawText.indexOf('{');
+  const lastBrace = rawText.lastIndexOf('}');
+  if (firstBrace >= 0 && lastBrace > firstBrace) {
+    candidates.push(rawText.slice(firstBrace, lastBrace + 1).trim());
+  }
+
+  for (const candidate of candidates) {
+    const normalizedCandidate = normalizeJsonCandidate(candidate);
+    const parseAttempts = [candidate, normalizedCandidate].filter(
+      (value, index, arr) => value && arr.indexOf(value) === index
+    );
+    for (const attempt of parseAttempts) {
+      try {
+        const parsed = JSON.parse(attempt);
+        const mapped = mapJsonResearchPayload(parsed, rawText);
+        if (mapped) return mapped;
+      } catch {
+        continue;
+      }
+    }
+  }
+
+  return null;
+}
+
+function normalizeJsonCandidate(candidate: string): string {
+  return candidate
+    .trim()
+    .replace(/^\uFEFF/, '')
+    .replace(/^json\s*/i, '')
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    // tolerate trailing commas in object/array literals
+    .replace(/,\s*([}\]])/g, '$1');
+}
+
+function pickJsonField(payload: Record<string, unknown>, aliases: string[]): unknown {
+  for (const alias of aliases) {
+    if (payload[alias] !== undefined && payload[alias] !== null) {
+      return payload[alias];
+    }
+  }
+  return undefined;
+}
+
+function coerceText(value: unknown): string | undefined {
+  if (typeof value === 'string') {
+    const cleaned = value.trim();
+    return cleaned || undefined;
+  }
+  if (Array.isArray(value)) {
+    const joined = value
+      .map((item) => (typeof item === 'string' ? item.trim() : ''))
+      .filter(Boolean)
+      .join('\n');
+    return joined || undefined;
+  }
+  if (value && typeof value === 'object') {
+    const nested = Object.entries(value as Record<string, unknown>)
+      .map(([key, nestedValue]) => {
+        if (typeof nestedValue === 'string') {
+          const cleaned = nestedValue.trim();
+          return cleaned ? `${key}: ${cleaned}` : '';
+        }
+        return '';
+      })
+      .filter(Boolean)
+      .join('\n');
+    return nested || undefined;
+  }
+  return undefined;
+}
+
+function coerceHypotheses(value: unknown): string[] | undefined {
+  if (Array.isArray(value)) {
+    const normalized = value
+      .map((item) => (typeof item === 'string' ? item.trim() : ''))
+      .filter((item) => item.length > 0);
+    return normalized.length > 0 ? normalized : undefined;
+  }
+  if (typeof value === 'string') {
+    const normalized = value
+      .split(/\r?\n|[;]+/)
+      .map((line) => line.replace(/^[-*•\d.)\s]+/, '').trim())
+      .filter((line) => line.length > 0);
+    return normalized.length > 0 ? normalized : undefined;
+  }
+  return undefined;
+}
+
+function mapJsonResearchPayload(payload: unknown, rawText: string): ResearchBrief | null {
+  const root = unwrapResearchRoot(payload);
+  if (!root || typeof root !== 'object') return null;
+
+  const record = root as Record<string, unknown>;
+  const sectionsValue = pickJsonField(record, ['sections', 'section_map', 'sectionMap']);
+  const sections = sectionsValue && typeof sectionsValue === 'object'
+    ? (sectionsValue as Record<string, unknown>)
+    : null;
+
+  const getField = (aliases: string[]): unknown => {
+    const direct = pickJsonField(record, aliases);
+    if (direct !== undefined) return direct;
+    if (!sections) return undefined;
+    return pickJsonField(sections, aliases);
+  };
+
+  const brief: ResearchBrief = {
+    createdAt: new Date().toISOString(),
+    rawPasteContent: rawText,
+  };
+
+  brief.companyIdentity = coerceText(getField([
+    'companyIdentity',
+    'company_identity',
+    'companyIdentityConfirmation',
+    'company_identity_confirmation',
+    'identityConfirmation',
+  ]));
+  brief.companyOverview = coerceText(getField(['companyOverview', 'company_overview', 'overview']));
+  brief.businessModel = coerceText(getField(['businessModel', 'business_model']));
+  brief.icp = coerceText(getField(['icp', 'idealCustomerProfile', 'ideal_customer_profile']));
+  brief.competitors = coerceText(getField(['competitors', 'competition', 'competitiveLandscape']));
+  brief.gtmChannels = coerceText(getField(['gtmChannels', 'gtm_channels', 'goToMarketChannels']));
+  brief.orgLeadership = coerceText(getField(['orgLeadership', 'organizationLeadership', 'leadership']));
+  brief.compSignals = coerceText(getField(['compSignals', 'compensationSignals', 'compensation_signals']));
+  brief.risks = coerceText(getField(['risks', 'riskMap', 'risk_map']));
+  brief.interviewHypotheses = coerceHypotheses(
+    getField(['interviewHypotheses', 'interview_hypotheses', 'hypotheses'])
+  );
+
+  const hasSectionData = Boolean(
+    brief.companyIdentity ||
+      brief.companyOverview ||
+      brief.businessModel ||
+      brief.icp ||
+      brief.competitors ||
+      brief.gtmChannels ||
+      brief.orgLeadership ||
+      brief.compSignals ||
+      brief.risks ||
+      (brief.interviewHypotheses && brief.interviewHypotheses.length > 0)
+  );
+
+  return hasSectionData ? brief : null;
+}
+
+function unwrapResearchRoot(payload: unknown): unknown {
+  if (Array.isArray(payload)) {
+    return payload.find((entry) => entry && typeof entry === 'object');
+  }
+
+  if (!payload || typeof payload !== 'object') {
+    return payload;
+  }
+
+  const direct = payload as Record<string, unknown>;
+  const nestedCandidates = [
+    direct.data,
+    direct.result,
+    direct.output,
+    direct.payload,
+    direct.research,
+    direct.response,
+  ];
+
+  for (const candidate of nestedCandidates) {
+    if (candidate && typeof candidate === 'object') {
+      if (Array.isArray(candidate)) {
+        const arrayRoot = candidate.find((entry) => entry && typeof entry === 'object');
+        if (arrayRoot) return arrayRoot;
+      } else {
+        return candidate;
+      }
+    }
+  }
+
+  return payload;
+}
+
 function parseHypotheses(lines: string[]): string[] {
   const hypotheses: string[] = [];
   let current = '';
+  const itemPattern = /^(\d+[.)]|\*|-|•)/;
 
   for (const line of lines) {
     // Numbered items or bullet points
-    if (/^(\d+[\.\)]|\*|-|•)/.test(line)) {
+    if (itemPattern.test(line)) {
       if (current.trim()) hypotheses.push(current.trim());
-      current = line.replace(/^(\d+[\.\)]|\*|-|•)\s*/, '');
+      current = line.replace(itemPattern, '').trim();
     } else {
       current += ' ' + line;
     }
@@ -209,6 +469,48 @@ function parseHypotheses(lines: string[]): string[] {
   if (current.trim()) hypotheses.push(current.trim());
 
   return hypotheses.filter((h) => h.length > 10);
+}
+
+function assignSectionContent(brief: ResearchBrief, key: keyof ResearchBrief, content: string): void {
+  switch (key) {
+    case 'companyIdentity':
+      brief.companyIdentity = content;
+      break;
+    case 'companyOverview':
+      brief.companyOverview = content;
+      break;
+    case 'businessModel':
+      brief.businessModel = content;
+      break;
+    case 'icp':
+      brief.icp = content;
+      break;
+    case 'competitors':
+      brief.competitors = content;
+      break;
+    case 'gtmChannels':
+      brief.gtmChannels = content;
+      break;
+    case 'orgLeadership':
+      brief.orgLeadership = content;
+      break;
+    case 'compSignals':
+      brief.compSignals = content;
+      break;
+    case 'risks':
+      brief.risks = content;
+      break;
+    case 'rawPasteContent':
+      brief.rawPasteContent = content;
+      break;
+    case 'createdAt':
+      brief.createdAt = content;
+      break;
+    case 'interviewHypotheses':
+      break;
+    default:
+      break;
+  }
 }
 
 // Fallback parser for unstructured pastes (original keyword approach)
@@ -220,6 +522,7 @@ function fallbackParse(rawText: string): ResearchBrief {
   let buffer: string[] = [];
 
   const sectionKeywords: Record<string, string[]> = {
+    companyIdentity: ['identity', 'legal name', 'headquarters', 'hq', 'website', 'disambiguation'],
     companyOverview: ['overview', 'about', 'company', 'what does', 'business model', 'core product'],
     businessModel: ['revenue', 'pricing', 'business model', 'monetization', 'how they make money'],
     icp: ['icp', 'ideal customer', 'target market', 'target audience', 'customer profile'],
@@ -256,6 +559,7 @@ function fallbackParse(rawText: string): ResearchBrief {
   const hypotheses = extractHypotheses(rawText);
 
   return {
+    companyIdentity: sections.companyIdentity?.trim(),
     companyOverview: sections.companyOverview?.trim() || sections.general?.trim(),
     businessModel: sections.businessModel?.trim(),
     icp: sections.icp?.trim(),

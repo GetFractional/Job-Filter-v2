@@ -113,6 +113,9 @@ export interface Requirement {
   yearsNeeded?: number;
   priority: RequirementPriority;
   match: RequirementMatch;
+  jdEvidence?: string;
+  userEvidence?: string;
+  gapSeverity?: 'None' | 'Low' | 'Medium' | 'High';
   evidence?: string;
 }
 
@@ -253,16 +256,34 @@ export interface Profile {
   updatedAt: string;
 }
 
+export type ClaimType = 'Skill' | 'Tool' | 'Experience' | 'Outcome';
+
+export type ClaimSource = 'Resume' | 'LinkedIn' | 'Manual' | 'Interview';
+
+export type ClaimVerificationStatus = 'Approved' | 'Review Needed' | 'Rejected';
+
 export interface Claim {
   id: string;
-  company: string;
-  role: string;
-  startDate: string;
+  type: ClaimType;
+  text: string;
+  normalizedText: string;
+  source: ClaimSource;
+  evidenceSnippet?: string;
+  confidence: number; // 0..1
+  verificationStatus: ClaimVerificationStatus;
+  experienceId?: string;
+  company?: string;
+  role?: string;
+  startDate?: string;
   endDate?: string;
-  responsibilities: string[];
-  tools: string[];
-  outcomes: ClaimOutcome[];
+  location?: string;
+  responsibilities?: string[];
+  tools?: string[];
+  outcomes?: ClaimOutcome[];
+  metric?: string;
+  isNumeric?: boolean;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface ClaimOutcome {
@@ -277,6 +298,7 @@ export interface ClaimOutcome {
 // ============================================================
 
 export interface ResearchBrief {
+  companyIdentity?: string;
   companyOverview?: string;
   businessModel?: string;
   icp?: string;

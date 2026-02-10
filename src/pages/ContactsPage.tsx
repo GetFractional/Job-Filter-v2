@@ -1,4 +1,5 @@
 import { useState, useMemo, type FormEvent } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import {
   UserPlus,
@@ -39,6 +40,7 @@ function contactInitials(c: Contact): string {
 }
 
 export function ContactsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const contacts = useStore((s) => s.contacts);
   const companies = useStore((s) => s.companies);
   const activities = useStore((s) => s.activities);
@@ -46,9 +48,7 @@ export function ContactsPage() {
   const jobs = useStore((s) => s.jobs);
   const addContact = useStore((s) => s.addContact);
 
-  const [search, setSearch] = useState('');
   const [showAdd, setShowAdd] = useState(false);
-  const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [filterRelationship, setFilterRelationship] = useState<ContactRelationship | ''>('');
 
   // Form state — first/last name
@@ -61,9 +61,25 @@ export function ContactsPage() {
   const [formLinkedIn, setFormLinkedIn] = useState('');
   const [formRelationship, setFormRelationship] = useState<ContactRelationship>('Other');
 
+  const selectedContact = useMemo(() => {
+    const requestedContactId = searchParams.get('contact');
+    if (!requestedContactId) return null;
+    return contacts.find((contact) => contact.id === requestedContactId) || null;
+  }, [searchParams, contacts]);
+
+  const searchQuery = searchParams.get('q') || '';
+
+  const updateSearchQuery = (value: string) => {
+    const next = new URLSearchParams(searchParams);
+    const trimmed = value.trim();
+    if (trimmed) next.set('q', trimmed);
+    else next.delete('q');
+    setSearchParams(next, { replace: true });
+  };
+
   const filtered = useMemo(() => {
     return contacts.filter((c) => {
-      const q = search.toLowerCase();
+      const q = searchQuery.toLowerCase();
       const displayName = contactDisplayName(c).toLowerCase();
       const matchesSearch =
         !q ||
@@ -78,7 +94,7 @@ export function ContactsPage() {
 
       return matchesSearch && matchesFilter;
     });
-  }, [contacts, search, filterRelationship]);
+  }, [contacts, searchQuery, filterRelationship]);
 
   const resetForm = () => {
     setFormFirstName('');
@@ -126,7 +142,13 @@ export function ContactsPage() {
       <div className="space-y-4">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => setSelectedContact(null)}
+            onClick={() => {
+              if (searchParams.has('contact')) {
+                const next = new URLSearchParams(searchParams);
+                next.delete('contact');
+                setSearchParams(next, { replace: true });
+              }
+            }}
             className="p-1 rounded-lg text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100"
           >
             <ArrowLeft size={18} />
@@ -274,8 +296,8 @@ export function ContactsPage() {
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
           <input
             type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            value={searchQuery}
+            onChange={(e) => updateSearchQuery(e.target.value)}
             placeholder="Search contacts..."
             className="w-full pl-8 pr-3 py-2 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
           />
@@ -283,7 +305,7 @@ export function ContactsPage() {
         <select
           value={filterRelationship}
           onChange={(e) => setFilterRelationship(e.target.value as ContactRelationship | '')}
-          className="px-3 py-2 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 appearance-none"
+          className="px-3 py-2 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
         >
           <option value="">All</option>
           {RELATIONSHIP_TYPES.map((r) => (
@@ -365,7 +387,7 @@ export function ContactsPage() {
             <select
               value={formRelationship}
               onChange={(e) => setFormRelationship(e.target.value as ContactRelationship)}
-              className="flex-1 px-3 py-2 bg-white border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 appearance-none"
+              className="flex-1 px-3 py-2 bg-white border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
             >
               {RELATIONSHIP_TYPES.map((r) => (
                 <option key={r} value={r}>{r}</option>
@@ -402,7 +424,11 @@ export function ContactsPage() {
           {filtered.map((contact) => (
             <button
               key={contact.id}
-              onClick={() => setSelectedContact(contact)}
+              onClick={() => {
+                const next = new URLSearchParams(searchParams);
+                next.set('contact', contact.id);
+                setSearchParams(next, { replace: true });
+              }}
               className="w-full text-left bg-white rounded-lg border border-neutral-200 p-3 shadow-sm hover:shadow-md hover:border-neutral-300 transition-shadow"
             >
               <div className="flex items-start gap-3">

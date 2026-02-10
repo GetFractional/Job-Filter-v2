@@ -3,6 +3,7 @@
 // Logs every generation for experimentation tracking.
 
 import type { Job, Claim, ResearchBrief } from '../types';
+import { buildExperienceBundles } from './claimLedger.ts';
 
 // ============================================================
 // Outreach Email Generator
@@ -14,8 +15,10 @@ export function generateOutreachEmail(params: {
   contactRole?: string;
   claims: Claim[];
   research?: ResearchBrief;
+  signerName?: string;
 }): string {
-  const { job, contactName, claims, research } = params;
+  const { job, contactName, claims, research, signerName } = params;
+  const signoffName = signerName?.trim() || 'Candidate';
   const topClaims = getTopClaims(claims, 2);
   const companyInsight = research?.companyOverview
     ? extractInsightSentence(research.companyOverview)
@@ -36,7 +39,7 @@ I put together a brief growth plan outlining how I would approach the first year
 Would it be worth 20 minutes to walk through it? Happy to share the plan in advance.
 
 Best,
-Matt`;
+${signoffName}`;
 }
 
 // ============================================================
@@ -75,8 +78,10 @@ export function generateCoverLetter(params: {
   job: Job;
   claims: Claim[];
   research?: ResearchBrief;
+  signerName?: string;
 }): string {
-  const { job, claims, research } = params;
+  const { job, claims, research, signerName } = params;
+  const signoffName = signerName?.trim() || 'Candidate';
   const topClaims = getTopClaims(claims, 3);
   const companyInsight = research?.companyOverview
     ? extractInsightSentence(research.companyOverview)
@@ -102,7 +107,7 @@ What excites me about this role is the chance to apply these systems at ${job.co
 I would welcome the chance to walk through this plan with your team. It is designed to show how I think, not just what I have done.
 
 Best regards,
-Matt`;
+${signoffName}`;
 }
 
 // ============================================================
@@ -114,8 +119,10 @@ export function generateFollowUpEmail(params: {
   contactName?: string;
   originalDate?: string;
   newInsight?: string;
+  signerName?: string;
 }): string {
-  const { job, contactName, originalDate, newInsight } = params;
+  const { job, contactName, originalDate, newInsight, signerName } = params;
+  const signoffName = signerName?.trim() || 'Candidate';
   const greeting = contactName ? `Hi ${contactName},` : `Hi there,`;
   const dateRef = originalDate ? ` on ${originalDate}` : ' recently';
 
@@ -123,14 +130,14 @@ export function generateFollowUpEmail(params: {
 
 I reached out${dateRef} about the ${job.title} role at ${job.company}. I wanted to follow up with something that might be useful.
 
-${newInsight || `I noticed ${job.company} recently ${job.company}'s market is evolving, and I mapped out a few specific growth hypotheses based on my research. One angle in particular could unlock meaningful upside in the first 90 days.`}
+${newInsight || `I noticed ${job.company}'s market is evolving, and I mapped out a few specific growth hypotheses based on my research. One angle in particular could unlock meaningful upside in the first 90 days.`}
 
 The growth plan I mentioned is still available. It is specific to ${job.company}'s situation, not a generic template.
 
 Worth a quick conversation?
 
 Best,
-Matt`;
+${signoffName}`;
 }
 
 // ============================================================
@@ -141,19 +148,30 @@ export function generateGrowthMemo(params: {
   job: Job;
   claims: Claim[];
   research?: ResearchBrief;
+  signerName?: string;
 }): string {
-  const { job, claims, research } = params;
+  const { job, claims, research, signerName } = params;
+  const memoOwner = signerName?.trim() || 'Candidate';
   const topClaims = getTopClaims(claims, 4);
-  const companyOverview = research?.companyOverview || `[Research ${job.company} to fill this section]`;
-  const competitors = research?.competitors || '[Competitor analysis needed]';
-  const gtm = research?.gtmChannels || '[GTM channel analysis needed]';
+  const companyIdentity = research?.companyIdentity
+    ? `Identity confirmation: ${research.companyIdentity}`
+    : `Identity confirmation pending. Validate legal entity, website, and HQ for ${job.company} before external use.`;
+  const companyOverview =
+    research?.companyOverview ||
+    `No approved research snapshot is attached yet. Run Research for ${job.company} and attach the brief before finalizing this memo.`;
+  const competitors =
+    research?.competitors ||
+    `Competitor and market-position analysis is pending an approved research snapshot for ${job.company}.`;
+  const gtm =
+    research?.gtmChannels ||
+    `GTM channel signals are pending approved research for ${job.company}.`;
 
   const claimEvidence = topClaims
     .map((c) => `- **${c.company}** (${c.role}): ${c.summary}`)
     .join('\n');
 
   return `# Annual Growth Plan: ${job.company}
-## ${job.title} | Prepared by Matt
+## ${job.title} | Prepared by ${memoOwner}
 
 ---
 
@@ -165,6 +183,9 @@ This plan outlines a systematic approach to building growth infrastructure at ${
 
 ## 1. Company Context
 
+${companyIdentity}
+
+### Business Snapshot
 ${companyOverview}
 
 ### Market Position
@@ -250,7 +271,7 @@ ${gtm}
 
 My approach is built on evidence, not theory. Here is what I have delivered in similar situations:
 
-${claimEvidence || '[Upload resume or LinkedIn experience to populate claim ledger]'}
+${claimEvidence || '- No approved claims are linked yet. Add and approve claims in Settings before approving this memo.'}
 
 Every system I have built follows the same pattern: diagnose before prescribing, measure before scaling, and compound before expanding. This plan reflects that discipline applied to ${job.company}'s specific situation.
 
@@ -271,16 +292,17 @@ interface ClaimSummary {
 }
 
 function getTopClaims(claims: Claim[], count: number): ClaimSummary[] {
-  return claims.slice(0, count).map((claim) => {
-    const topOutcome = claim.outcomes[0];
+  const bundles = buildExperienceBundles(claims);
+  return bundles.slice(0, count).map((bundle) => {
+    const topOutcome = bundle.outcomes[0];
     const summary = topOutcome
       ? topOutcome.description
-      : claim.responsibilities[0] || 'led growth initiatives';
+      : bundle.responsibilities[0] || bundle.skills[0] || 'led growth initiatives';
     const shortSummary = summary.length > 60 ? summary.substring(0, 57) + '...' : summary;
 
     return {
-      company: claim.company,
-      role: claim.role,
+      company: bundle.company,
+      role: bundle.role,
       summary,
       shortSummary,
     };

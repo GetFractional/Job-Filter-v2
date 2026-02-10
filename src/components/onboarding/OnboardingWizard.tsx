@@ -12,20 +12,25 @@ import {
   MapPin,
   AlertTriangle,
   Sparkles,
+  HelpCircle,
+  KeyRound,
+  ShieldCheck,
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { parseResumeStructured, parsedClaimToImport } from '../../lib/claimParser';
+import type { ParsedClaim } from '../../lib/claimParser';
 
 interface OnboardingWizardProps {
   onComplete: () => void;
 }
 
-type Step = 'welcome' | 'profile' | 'claims' | 'ready';
+type Step = 'welcome' | 'profile' | 'claims' | 'provider' | 'ready';
 
 const STEPS: { id: Step; label: string }[] = [
   { id: 'welcome', label: 'Welcome' },
   { id: 'profile', label: 'Profile' },
-  { id: 'claims', label: 'Resume' },
+  { id: 'claims', label: 'Claims' },
+  { id: 'provider', label: 'Provider' },
   { id: 'ready', label: 'Ready' },
 ];
 
@@ -46,18 +51,31 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
   // Resume paste state
   const [resumeText, setResumeText] = useState('');
+  const [parsedClaims, setParsedClaims] = useState<ParsedClaim[]>([]);
   const [claimsImported, setClaimsImported] = useState(0);
+  const [providerName, setProviderName] = useState('OpenAI');
+  const [providerApiKey, setProviderApiKey] = useState('');
+  const [providerConfigured, setProviderConfigured] = useState(false);
 
   const stepIndex = STEPS.findIndex((s) => s.id === step);
+  const parsedCompFloor = parseInt(compFloor) || 0;
+  const parsedCompTarget = parseInt(compTarget) || 0;
+  const hasTargetRoles = targetRoles.split(',').map((role) => role.trim()).filter(Boolean).length > 0;
+  const missingRequiredProfile: string[] = [];
+  if (!name.trim()) missingRequiredProfile.push('Name');
+  if (!hasTargetRoles) missingRequiredProfile.push('Target roles');
+  if (!parsedCompFloor) missingRequiredProfile.push('Comp floor');
+  if (!parsedCompTarget) missingRequiredProfile.push('Comp target');
+  const reducedQualityMode = missingRequiredProfile.length > 0;
 
   const handleSaveProfile = useCallback(async () => {
     setSaving(true);
     try {
       await updateProfile({
-        name: name.trim() || 'User',
+        name: name.trim(),
         targetRoles: targetRoles.split(',').map((r) => r.trim()).filter(Boolean),
-        compFloor: parseInt(compFloor) || 150000,
-        compTarget: parseInt(compTarget) || 180000,
+        compFloor: parseInt(compFloor) || 0,
+        compTarget: parseInt(compTarget) || 0,
         locationPreference: locationPref.trim(),
       });
     } finally {
@@ -66,30 +84,77 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   }, [name, targetRoles, compFloor, compTarget, locationPref, updateProfile]);
 
   const handleImportResume = useCallback(async () => {
-    if (!resumeText.trim()) return;
+    const stagedClaims =
+      parsedClaims.length > 0
+        ? parsedClaims.filter((claim) => claim.included)
+        : parseResumeStructured(resumeText).filter((claim) => claim.included);
+    if (stagedClaims.length === 0) return;
     setSaving(true);
     try {
-      const parsed = parseResumeStructured(resumeText);
       let imported = 0;
-      for (const claim of parsed) {
+      for (const claim of stagedClaims) {
         if (claim.role || claim.company) {
-          const data = parsedClaimToImport(claim);
-          await addClaim(data);
+          const importedData = parsedClaimToImport(claim);
+          const experience = await addClaim(importedData.experience);
+
+          for (const skill of importedData.skillClaims) {
+            await addClaim({ ...skill, experienceId: experience.id });
+          }
+          for (const tool of importedData.toolClaims) {
+            await addClaim({ ...tool, experienceId: experience.id });
+          }
+          for (const outcome of importedData.outcomeClaims) {
+            await addClaim({ ...outcome, experienceId: experience.id });
+          }
+
           imported++;
         }
       }
       setClaimsImported(imported);
+      setParsedClaims([]);
+      setResumeText('');
     } finally {
       setSaving(false);
     }
-  }, [resumeText, addClaim]);
+  }, [resumeText, parsedClaims, addClaim]);
+
+  const handleParseResume = useCallback(() => {
+    if (!resumeText.trim()) return;
+    const parsed = parseResumeStructured(resumeText);
+    setParsedClaims(parsed);
+  }, [resumeText]);
+
+  const toggleParsedClaim = useCallback((key: string) => {
+    setParsedClaims((current) =>
+      current.map((claim) =>
+        claim._key === key
+          ? { ...claim, included: !claim.included }
+          : claim
+      )
+    );
+  }, []);
+
+  const handleProviderSetup = useCallback(() => {
+    const hasKey = providerApiKey.trim().length >= 20;
+    const configured = hasKey;
+    localStorage.setItem('jf2-provider-configured', configured ? 'true' : 'false');
+    localStorage.setItem('jf2-provider-name', providerName);
+    setProviderConfigured(configured);
+  }, [providerApiKey, providerName]);
 
   const handleNext = async () => {
     if (step === 'profile') {
       await handleSaveProfile();
     }
     if (step === 'claims' && resumeText.trim() && claimsImported === 0) {
+      if (parsedClaims.length === 0) {
+        handleParseResume();
+        return;
+      }
       await handleImportResume();
+    }
+    if (step === 'provider') {
+      handleProviderSetup();
     }
 
     const nextIndex = stepIndex + 1;
@@ -108,6 +173,11 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   };
 
   const handleSkip = () => {
+    if (step === 'provider') {
+      localStorage.setItem('jf2-provider-configured', 'false');
+      localStorage.setItem('jf2-provider-name', 'Template Mode');
+      setProviderConfigured(false);
+    }
     const nextIndex = stepIndex + 1;
     if (nextIndex < STEPS.length) {
       setStep(STEPS[nextIndex].id);
@@ -115,6 +185,8 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
       onComplete();
     }
   };
+
+  const selectedParsedClaims = parsedClaims.filter((claim) => claim.included);
 
   return (
     <div className="min-h-screen bg-neutral-50 flex flex-col">
@@ -211,10 +283,22 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                 </div>
               </div>
 
+              {reducedQualityMode && (
+                <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
+                  <p className="text-xs font-semibold text-amber-700 mb-1">Reduced Quality Mode</p>
+                  <p className="text-xs text-amber-700">
+                    Missing required inputs: {missingRequiredProfile.join(', ')}. You can continue, but scoring and generated drafts will be lower quality.
+                  </p>
+                </div>
+              )}
+
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium text-neutral-700 mb-1.5 block">
-                    Your Name
+                  <label className="text-sm font-medium text-neutral-700 mb-1.5 flex items-center gap-1.5">
+                    Your Name <span className="text-red-500">*</span>
+                    <span title="Used in personalized assets and communication drafts.">
+                      <HelpCircle size={12} className="text-neutral-400" />
+                    </span>
                   </label>
                   <input
                     type="text"
@@ -226,10 +310,13 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium text-neutral-700 mb-1.5 block flex items-center gap-1.5">
+                  <label className="text-sm font-medium text-neutral-700 mb-1.5 flex items-center gap-1.5">
                     <Briefcase size={14} className="text-neutral-400" />
-                    Target Roles
+                    Target Roles <span className="text-red-500">*</span>
                     <span className="text-[11px] text-neutral-400 font-normal">(comma-separated)</span>
+                    <span title="Used for fit scoring and role-match recommendations.">
+                      <HelpCircle size={12} className="text-neutral-400" />
+                    </span>
                   </label>
                   <input
                     type="text"
@@ -242,9 +329,12 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-medium text-neutral-700 mb-1.5 block flex items-center gap-1.5">
+                    <label className="text-sm font-medium text-neutral-700 mb-1.5 flex items-center gap-1.5">
                       <DollarSign size={14} className="text-neutral-400" />
-                      Comp Floor
+                      Comp Floor <span className="text-red-500">*</span>
+                      <span title="Jobs below this threshold are auto-flagged.">
+                        <HelpCircle size={12} className="text-neutral-400" />
+                      </span>
                     </label>
                     <input
                       type="number"
@@ -255,9 +345,12 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     />
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-neutral-700 mb-1.5 block flex items-center gap-1.5">
+                    <label className="text-sm font-medium text-neutral-700 mb-1.5 flex items-center gap-1.5">
                       <DollarSign size={14} className="text-neutral-400" />
-                      Comp Target
+                      Comp Target <span className="text-red-500">*</span>
+                      <span title="Preferred upside range used in scoring breakdown.">
+                        <HelpCircle size={12} className="text-neutral-400" />
+                      </span>
                     </label>
                     <input
                       type="number"
@@ -270,9 +363,13 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium text-neutral-700 mb-1.5 block flex items-center gap-1.5">
+                  <label className="text-sm font-medium text-neutral-700 mb-1.5 flex items-center gap-1.5">
                     <MapPin size={14} className="text-neutral-400" />
                     Location Preference
+                    <span className="text-[11px] text-neutral-400 font-normal">(optional)</span>
+                    <span title="Optional, used for role filtering only.">
+                      <HelpCircle size={12} className="text-neutral-400" />
+                    </span>
                   </label>
                   <input
                     type="text"
@@ -293,8 +390,8 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                   <FileText size={20} className="text-brand-600" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-semibold text-neutral-900">Import Your Resume</h2>
-                  <p className="text-xs text-neutral-500">Paste your resume to populate the claim ledger for truthful scoring.</p>
+                  <h2 className="text-lg font-semibold text-neutral-900">Claims Import and Review</h2>
+                  <p className="text-xs text-neutral-500">Parse your resume, review claims, then import into Skills, Tools, Experience, and Outcomes.</p>
                 </div>
               </div>
 
@@ -314,26 +411,149 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                 <>
                   <textarea
                     value={resumeText}
-                    onChange={(e) => setResumeText(e.target.value)}
+                    onChange={(e) => {
+                      setResumeText(e.target.value);
+                      setParsedClaims([]);
+                      setClaimsImported(0);
+                    }}
                     placeholder="Paste your resume text here...
 
 Example:
-VP of Growth at Acme Corp, Jan 2021 - Present
+VP of Growth at Pepper, Jan 2021 - Present
 • Led GTM strategy for 3 product lines generating $12M ARR
 • Built and managed team of 8 across growth, content, and demand gen
 • Implemented Salesforce + HubSpot integration reducing lead response time by 40%"
                     rows={12}
                     className="w-full px-3.5 py-2.5 bg-white border border-neutral-200 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 resize-none"
                   />
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={handleParseResume}
+                      disabled={!resumeText.trim()}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+                    >
+                      Parse Resume
+                    </button>
+                    {parsedClaims.length > 0 && (
+                      <span className="text-xs text-neutral-500">
+                        {selectedParsedClaims.length}/{parsedClaims.length} selected for import
+                      </span>
+                    )}
+                  </div>
+                  {parsedClaims.length > 0 && (
+                    <div className="mt-3 rounded-lg border border-neutral-200 bg-white p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs font-semibold text-neutral-700 uppercase tracking-wider">
+                          Parser Review
+                        </p>
+                        <button
+                          onClick={handleImportResume}
+                          disabled={selectedParsedClaims.length === 0 || saving}
+                          className="inline-flex items-center gap-1 rounded-lg bg-brand-600 px-2.5 py-1.5 text-[11px] font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
+                        >
+                          {saving ? 'Importing...' : `Import ${selectedParsedClaims.length} Claim${selectedParsedClaims.length === 1 ? '' : 's'}`}
+                        </button>
+                      </div>
+                      <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+                        {parsedClaims.map((claim) => (
+                          <label
+                            key={claim._key}
+                            className={`flex items-start gap-2 rounded-md border px-2.5 py-2 cursor-pointer ${
+                              claim.included ? 'border-brand-200 bg-brand-50/40' : 'border-neutral-200 bg-neutral-50'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={claim.included}
+                              onChange={() => toggleParsedClaim(claim._key)}
+                              className="mt-0.5 h-3.5 w-3.5 rounded border-neutral-300 text-brand-600 focus:ring-brand-500"
+                            />
+                            <div className="min-w-0">
+                              <p className="text-xs font-semibold text-neutral-800 truncate">
+                                {claim.role || 'Unknown Role'} {claim.company ? `@ ${claim.company}` : ''}
+                              </p>
+                              <p className="text-[11px] text-neutral-500">
+                                {claim.startDate || 'Date missing'} {claim.endDate ? `- ${claim.endDate}` : claim.startDate ? '- Present' : ''}
+                                {` | confidence ${Math.round(claim.confidence * 100)}%`}
+                              </p>
+                              <p className="text-[11px] text-neutral-500 mt-0.5 line-clamp-1">
+                                {claim.evidenceSnippet || claim.responsibilities[0] || 'No evidence snippet'}
+                              </p>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <div className="flex items-start gap-2 mt-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
                     <AlertTriangle size={14} className="text-amber-600 shrink-0 mt-0.5" />
                     <p className="text-xs text-amber-700 leading-relaxed">
                       The parser auto-detects roles, dates, tools, and metrics.
-                      You can skip this and import later from Settings.
+                      Review before import to avoid fragmented claims. You can skip this and import later from Settings.
                     </p>
                   </div>
                 </>
               )}
+            </div>
+          )}
+
+          {step === 'provider' && (
+            <div>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center">
+                  <KeyRound size={20} className="text-blue-600" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-neutral-900">Provider Setup (Optional)</h2>
+                  <p className="text-xs text-neutral-500">Connect your provider key or stay in deterministic Template Mode.</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-neutral-700 mb-1.5 block">
+                    Provider <span className="text-neutral-400 text-xs font-normal">(optional)</span>
+                  </label>
+                  <select
+                    value={providerName}
+                    onChange={(event) => setProviderName(event.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                  >
+                    <option value="OpenAI">OpenAI</option>
+                    <option value="Anthropic">Anthropic</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-neutral-700 mb-1.5 block">
+                    API Key <span className="text-neutral-400 text-xs font-normal">(optional)</span>
+                  </label>
+                  <input
+                    type="password"
+                    value={providerApiKey}
+                    onChange={(event) => setProviderApiKey(event.target.value)}
+                    placeholder="Paste key if you want future AI provider support"
+                    className="w-full px-3.5 py-2.5 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                  />
+                  <p className="mt-1 text-[11px] text-neutral-500">
+                    Keys are not sent anywhere in this setup step. We only store whether a provider was configured.
+                  </p>
+                </div>
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
+                  <p className="text-xs font-semibold text-amber-700 mb-1">Template Mode remains active in this build</p>
+                  <p className="text-xs text-amber-700">
+                    Generation stays deterministic even if a key is provided, this prevents misleading AI claims until live provider integration is enabled.
+                  </p>
+                </div>
+                {providerConfigured && (
+                  <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-2.5 flex items-start gap-2">
+                    <ShieldCheck size={14} className="text-green-600 mt-0.5 shrink-0" />
+                    <p className="text-xs text-green-700">
+                      Provider preference saved for {providerName}. Template Mode is still active.
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -364,6 +584,22 @@ VP of Growth at Acme Corp, Jan 2021 - Present
                   </li>
                 </ol>
               </div>
+              <div className="mt-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 max-w-sm mx-auto text-left">
+                <p className="text-xs font-semibold text-amber-700 mb-1">Template Mode Active</p>
+                <p className="text-xs text-amber-700">
+                  {providerConfigured
+                    ? `Provider preference saved for ${providerName}. Drafts are still deterministic templates in this build.`
+                    : 'No provider key configured. Drafts run in deterministic template mode.'}
+                </p>
+              </div>
+              {reducedQualityMode && (
+                <div className="mt-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 max-w-sm mx-auto text-left">
+                  <p className="text-xs font-semibold text-amber-700 mb-1">Reduced Quality Mode</p>
+                  <p className="text-xs text-amber-700">
+                    You skipped required profile fields ({missingRequiredProfile.join(', ')}). You can update them later in Settings to improve scoring precision.
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>
