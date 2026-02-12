@@ -1,0 +1,33 @@
+name: Comment on ClickUp when PR merged
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  comment:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Extract ClickUp task ID from PR body
+        id: extract
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.pull_request.body || "";
+            const m = body.match(/https:\/\/app\.clickup\.com\/t\/([a-zA-Z0-9-]+)/);
+            if (!m) core.setFailed("No ClickUp URL found in PR body.");
+            core.setOutput("taskId", m[1]);
+
+      - name: Post comment to ClickUp
+        env:
+          CLICKUP_API_TOKEN: ${{ secrets.CLICKUP_API_TOKEN }}
+          CLICKUP_TEAM_ID: ${{ secrets.CLICKUP_TEAM_ID }}
+          TASK_ID: ${{ steps.extract.outputs.taskId }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        run: |
+          curl -sS -X POST "https://api.clickup.com/api/v2/task/${TASK_ID}/comment?team_id=${CLICKUP_TEAM_ID}" \
+            -H "Authorization: ${CLICKUP_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "{\"comment_text\":\"Merged PR: ${PR_URL}\nMerge SHA: ${MERGE_SHA}\"}"
