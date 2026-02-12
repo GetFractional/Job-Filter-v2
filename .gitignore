@@ -27,3 +27,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Codex local environment files may contain machine-specific or secret data
+.codex/environments/environment.toml
