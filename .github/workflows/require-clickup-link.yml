@@ -1,0 +1,17 @@
+name: Require ClickUp link in PR
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  require-clickup-link:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR body for ClickUp URL
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.pull_request.body || "";
+            const ok = /https:\/\/app\.clickup\.com\/t\/\S+/i.test(body);
+            if (!ok) core.setFailed("PR must include a ClickUp task URL (https://app.clickup.com/t/...).");
