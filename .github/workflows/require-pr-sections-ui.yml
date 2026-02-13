@@ -1,0 +1,47 @@
+name: Require PR sections for UI changes
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  require-ui-pr-sections:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check required PR sections when UI files changed
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const pull_number = context.payload.pull_request.number;
+
+            const files = await github.paginate(
+              github.rest.pulls.listFiles,
+              { owner, repo, pull_number, per_page: 100 }
+            );
+
+            const touchesUi = files.some((f) =>
+              f.filename.startsWith("src/pages/") || f.filename.startsWith("src/components/")
+            );
+
+            if (!touchesUi) {
+              core.info("No UI files changed, skipping UI PR section enforcement.");
+              return;
+            }
+
+            const body = context.payload.pull_request.body || "";
+            const requiredHeaders = [
+              "## Risk Checklist (required)",
+              "## QA Charter (required)",
+              "## UX Audit Evidence (required if UI touched)",
+            ];
+
+            const missing = requiredHeaders.filter((h) => !body.includes(h));
+            if (missing.length > 0) {
+              core.setFailed(
+                `UI changes detected in src/pages or src/components. Missing PR body sections: ${missing.join(", ")}`
+              );
+            } else {
+              core.info("UI changes detected and required PR sections are present.");
+            }
