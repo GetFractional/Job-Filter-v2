@@ -4,6 +4,8 @@
 
 import type { Job, ResearchBrief } from '../types';
 
+type ResearchSectionKey = Exclude<keyof ResearchBrief, 'createdAt' | 'rawPasteContent' | 'interviewHypotheses' | 'sources'>;
+
 // ============================================================
 // Types
 // ============================================================
@@ -88,7 +90,7 @@ export function generateResearchPrompts(job: Job): ResearchPrompt[] {
 // Parse Research Results (structured section extraction)
 // ============================================================
 
-const SECTION_HEADERS: { key: keyof ResearchBrief; patterns: RegExp[] }[] = [
+const SECTION_HEADERS: { key: ResearchSectionKey; patterns: RegExp[] }[] = [
   {
     key: 'companyOverview',
     patterns: [/^#{1,3}\s*COMPANY\s*OVERVIEW/i, /^#{1,3}\s*Overview/i, /^\*\*COMPANY\s*OVERVIEW\*\*/i],
@@ -125,8 +127,8 @@ const SECTION_HEADERS: { key: keyof ResearchBrief; patterns: RegExp[] }[] = [
 
 export function parseResearchPaste(rawText: string): ResearchBrief {
   const lines = rawText.split('\n');
-  const sections: Partial<Record<keyof ResearchBrief, string[]>> = {};
-  let currentKey: keyof ResearchBrief | null = null;
+  const sections: Partial<Record<ResearchSectionKey, string[]>> = {};
+  let currentKey: ResearchSectionKey | null = null;
   const hypothesesLines: string[] = [];
   let inHypotheses = false;
 
@@ -178,10 +180,10 @@ export function parseResearchPaste(rawText: string): ResearchBrief {
     rawPasteContent: rawText,
   };
 
-  for (const [key, lines] of Object.entries(sections)) {
-    const content = (lines as string[]).join('\n').trim();
+  for (const key of Object.keys(sections) as ResearchSectionKey[]) {
+    const content = sections[key]!.join('\n').trim();
     if (content) {
-      (brief as Record<string, unknown>)[key] = content;
+      brief[key] = content;
     }
   }
 

@@ -153,6 +153,7 @@ export function CRMTab({ job }: CRMTabProps) {
   const allActivities = useStore((s) => s.activities);
   const contactJobLinks = useStore((s) => s.contactJobLinks);
   const companies = useStore((s) => s.companies);
+  const profile = useStore((s) => s.profile);
   const claims = useStore((s) => s.claims);
   const addContact = useStore((s) => s.addContact);
   const addActivity = useStore((s) => s.addActivity);
@@ -290,15 +291,17 @@ export function CRMTab({ job }: CRMTabProps) {
 
   const handleGenerateMessage = useCallback(() => {
     const selectedContact = jobContacts.find((c) => c.id === actContactId);
+    const userName = profile?.name?.trim() || 'Candidate';
     const content = generateOutreachEmail({
       job,
+      userName,
       contactName: selectedContact ? contactDisplayName(selectedContact) : undefined,
       contactRole: selectedContact?.role,
       claims,
       research: job.researchBrief,
     });
     setActContent(content);
-  }, [job, claims, actContactId, jobContacts]);
+  }, [job, profile, claims, actContactId, jobContacts]);
 
   return (
     <div className="py-4 space-y-6">

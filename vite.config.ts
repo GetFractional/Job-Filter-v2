@@ -1,5 +1,4 @@
-/// <reference types="vitest" />
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
@@ -17,6 +16,9 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
+      workbox: {
+        mode: 'development',
+      },
       manifest: {
         name: 'Job Filter',
         short_name: 'JobFilter',
