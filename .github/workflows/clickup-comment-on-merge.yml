@@ -28,14 +28,22 @@ jobs:
           MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
         run: |
           set -euo pipefail
-          payload="{\"comment_text\":\"Merged PR: ${PR_URL}\nMerge SHA: ${MERGE_SHA}\"}"
-          if ! response="$(curl --fail-with-body -sS -X POST \"https://api.clickup.com/api/v2/task/${TASK_ID}/comment?team_id=${CLICKUP_TEAM_ID}\" \
-            -H \"Authorization: ${CLICKUP_API_TOKEN}\" \
-            -H \"Content-Type: application/json\" \
-            -d \"$payload\")"; then
+          payload_file="$(mktemp)"
+          response_file="$(mktemp)"
+          cat > "$payload_file" <<EOF
+          {
+            "comment_text": "Merged PR: ${PR_URL}\nMerge SHA: ${MERGE_SHA}"
+          }
+          EOF
+          if ! curl --fail-with-body --silent --show-error --globoff \
+            -X POST "https://api.clickup.com/api/v2/task/${TASK_ID}/comment?team_id=${CLICKUP_TEAM_ID}" \
+            -H "Authorization: ${CLICKUP_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data-binary @"$payload_file" \
+            --output "$response_file"; then
             echo "ClickUp API request failed. Response body:"
-            echo "$response"
+            cat "$response_file"
             exit 1
           fi
           echo "ClickUp API response:"
-          echo "$response"
+          cat "$response_file"
