@@ -6,6 +6,7 @@ import { create } from 'zustand';
 import { db, generateId, seedDefaultProfile } from '../db';
 import { scoreJob } from '../lib/scoring';
 import { parseCompFromText } from '../lib/scoring';
+import { isClosedWonDemotionBlocked } from '../lib/stageTransitions';
 import type {
   Job,
   Company,
@@ -226,6 +227,7 @@ export const useStore = create<AppState>((set, get) => ({
   moveJobToStage: async (id, stage) => {
     const job = await db.jobs.get(id);
     if (!job) return;
+    if (isClosedWonDemotionBlocked(job.stage, stage)) return;
 
     const now = new Date().toISOString();
     const timestamps = { ...job.stageTimestamps, [stage]: now };
