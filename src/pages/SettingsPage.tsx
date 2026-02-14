@@ -5,6 +5,7 @@ import {
   Trash2,
   Download,
   FileText,
+  Upload,
   Check,
   X,
   ChevronDown,
@@ -17,7 +18,13 @@ import {
   Briefcase,
 } from 'lucide-react';
 import { db } from '../db';
-import { parseResumeStructured, parsedClaimToImport } from '../lib/claimParser';
+import {
+  extractTextFromPdfFile,
+  isLikelyDuplicateClaim,
+  parseClaimsForImport,
+  prepareClaimsFromParsedClaims,
+  summarizeClaimsHealth,
+} from '../lib/claimsImporter';
 import type { ParsedClaim } from '../lib/claimParser';
 import type { Claim } from '../types';
 
@@ -184,17 +191,55 @@ function ClaimsSection({ claims, addClaim }: {
   addClaim: (claim: Partial<Claim>) => Promise<Claim>;
 }) {
   const [resumeText, setResumeText] = useState('');
+  const [importSource, setImportSource] = useState('resume_paste');
   const [step, setStep] = useState<ClaimStep>('input');
   const [parsedClaims, setParsedClaims] = useState<ParsedClaim[]>([]);
   const [importing, setImporting] = useState(false);
+  const [parsingPdf, setParsingPdf] = useState(false);
+  const [parseError, setParseError] = useState<string | null>(null);
+  const [importSummary, setImportSummary] = useState<{
+    inputCount: number;
+    dedupedCount: number;
+    conflictCount: number;
+    needsReviewCount: number;
+  } | null>(null);
   const [importCount, setImportCount] = useState(0);
+  const healthSummary = summarizeClaimsHealth(claims);
 
-  const handleParse = useCallback(() => {
+  const handleParse = useCallback((source = 'resume_paste') => {
     if (!resumeText.trim()) return;
-    const parsed = parseResumeStructured(resumeText);
+    const parsed = parseClaimsForImport(resumeText);
+    setParseError(parsed.length === 0 ? 'No claims were detected from the provided content.' : null);
+    setImportSource(source);
     setParsedClaims(parsed);
     setStep(parsed.length > 0 ? 'review' : 'input');
   }, [resumeText]);
+
+  const handlePdfUpload = useCallback(async (file: File) => {
+    setParsingPdf(true);
+    setParseError(null);
+    try {
+      const extractedText = await extractTextFromPdfFile(file);
+      if (!extractedText.trim()) {
+        setParseError('No readable text was extracted from this PDF.');
+        return;
+      }
+
+      setResumeText(extractedText);
+      setImportSource(file.name || 'Profile.pdf');
+      const parsed = parseClaimsForImport(extractedText);
+      setParsedClaims(parsed);
+      setStep(parsed.length > 0 ? 'review' : 'input');
+      if (parsed.length === 0) {
+        setParseError('PDF imported, but no claims matched expected role/company patterns.');
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown PDF parsing error';
+      setParseError(`Failed to parse PDF: ${message}`);
+    } finally {
+      setParsingPdf(false);
+    }
+  }, []);
 
   const handleImport = useCallback(async () => {
     const toImport = parsedClaims.filter((c) => c.included);
@@ -202,10 +247,25 @@ function ClaimsSection({ claims, addClaim }: {
 
     setImporting(true);
     try {
-      for (const parsed of toImport) {
-        await addClaim(parsedClaimToImport(parsed));
+      const prepared = prepareClaimsFromParsedClaims(toImport, {
+        source: importSource === 'resume_paste' ? 'Resume Text' : importSource,
+      });
+
+      let imported = 0;
+      for (const claim of prepared.claims) {
+        const alreadyExists = claims.some((existing) => isLikelyDuplicateClaim(claim, existing));
+        if (alreadyExists) continue;
+        await addClaim(claim);
+        imported += 1;
       }
-      setImportCount(toImport.length);
+
+      setImportSummary({
+        inputCount: prepared.inputCount,
+        dedupedCount: prepared.dedupedCount,
+        conflictCount: prepared.conflictCount,
+        needsReviewCount: prepared.needsReviewCount,
+      });
+      setImportCount(imported);
       setResumeText('');
       setParsedClaims([]);
       setStep('done');
@@ -213,7 +273,7 @@ function ClaimsSection({ claims, addClaim }: {
     } finally {
       setImporting(false);
     }
-  }, [parsedClaims, addClaim]);
+  }, [parsedClaims, addClaim, claims, importSource]);
 
   const handleBack = useCallback(() => {
     setStep('input');
@@ -236,9 +296,31 @@ function ClaimsSection({ claims, addClaim }: {
             <FileText size={14} /> Import from Resume / LinkedIn
           </h3>
           <p className="text-xs text-neutral-500 mb-3">
-            Paste your resume or LinkedIn experience text. The parser will extract structured claims
+            Upload your LinkedIn export PDF or paste resume text. The parser will extract structured claims
             for you to review and edit before importing.
           </p>
+
+          <label className="w-full mb-3 flex items-center justify-center gap-2 px-3 py-2 border border-dashed border-neutral-300 rounded-lg text-sm text-neutral-700 hover:bg-neutral-50 cursor-pointer">
+            <Upload size={14} />
+            {parsingPdf ? 'Parsing PDF...' : 'Upload LinkedIn Profile PDF'}
+            <input
+              type="file"
+              accept="application/pdf,.pdf"
+              className="hidden"
+              disabled={parsingPdf}
+              onChange={async (event) => {
+                const file = event.target.files?.[0];
+                if (!file) return;
+                await handlePdfUpload(file);
+                event.currentTarget.value = '';
+              }}
+            />
+          </label>
+
+          <p className="text-[11px] text-neutral-500 mb-2">
+            For deterministic parsing, use local LinkedIn export PDF or structured resume text with role headers and bullets.
+          </p>
+
           <textarea
             value={resumeText}
             onChange={(e) => setResumeText(e.target.value)}
@@ -246,8 +328,13 @@ function ClaimsSection({ claims, addClaim }: {
             rows={10}
             className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm resize-y mb-3 focus:outline-none focus:ring-2 focus:ring-brand-500 font-mono"
           />
+          {parseError && (
+            <p className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-2.5 py-2 mb-3">
+              {parseError}
+            </p>
+          )}
           <button
-            onClick={handleParse}
+            onClick={() => handleParse('resume_paste')}
             disabled={!resumeText.trim()}
             className="w-full bg-brand-600 text-white py-2.5 rounded-lg text-sm font-medium disabled:opacity-50 hover:bg-brand-700 flex items-center justify-center gap-2"
           >
@@ -269,6 +356,9 @@ function ClaimsSection({ claims, addClaim }: {
               <p className="text-xs text-neutral-500 mt-0.5">
                 {parsedClaims.length} claim{parsedClaims.length !== 1 ? 's' : ''} found.
                 Edit fields, toggle inclusion, then import.
+              </p>
+              <p className="text-[11px] text-neutral-500 mt-1">
+                Source: <span className="font-medium text-neutral-700">{importSource === 'resume_paste' ? 'Resume Text' : importSource}</span>
               </p>
             </div>
             <button
@@ -335,8 +425,58 @@ function ClaimsSection({ claims, addClaim }: {
           <p className="text-sm font-medium text-green-800">
             {importCount} claim{importCount !== 1 ? 's' : ''} imported to ledger
           </p>
+          {importSummary && (
+            <div className="mt-2 text-xs text-green-700 space-y-0.5">
+              <p>Parsed: {importSummary.inputCount} | After dedupe: {importSummary.dedupedCount}</p>
+              <p>Conflicts: {importSummary.conflictCount} | Needs review: {importSummary.needsReviewCount}</p>
+            </div>
+          )}
         </div>
       )}
+
+      {/* Claims Health */}
+      <div className="bg-white rounded-lg border border-neutral-200 p-4 shadow-sm space-y-3">
+        <h3 className="text-h3 text-neutral-900">Claims Health</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <HealthChip label="Total" value={healthSummary.total} tone="neutral" />
+          <HealthChip label="Active" value={healthSummary.active} tone="green" />
+          <HealthChip label="Conflicts" value={healthSummary.conflict} tone={healthSummary.conflict > 0 ? 'amber' : 'neutral'} />
+          <HealthChip label="Needs Review" value={healthSummary.needsReview} tone={healthSummary.needsReview > 0 ? 'rose' : 'neutral'} />
+        </div>
+
+        <div className="text-xs text-neutral-600 space-y-0.5">
+          <p>
+            Last import: {healthSummary.lastImportTimestamp ? new Date(healthSummary.lastImportTimestamp).toLocaleString() : 'N/A'}
+          </p>
+          <p>Source: {healthSummary.lastImportSource || 'N/A'}</p>
+        </div>
+
+        {healthSummary.conflicts.length > 0 && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+            <p className="text-xs font-semibold text-amber-800 mb-1">Conflicts (excluded from auto-use)</p>
+            <ul className="space-y-1">
+              {healthSummary.conflicts.map((conflict, index) => (
+                <li key={`${conflict.conflictKey}-${index}`} className="text-xs text-amber-700">
+                  {conflict.company} | {conflict.role} | {conflict.claimText}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {healthSummary.topPreview.length > 0 && (
+          <div>
+            <p className="text-xs font-semibold text-neutral-700 mb-1">Top claims preview</p>
+            <ul className="space-y-1">
+              {healthSummary.topPreview.map((preview, index) => (
+                <li key={`${preview.company}-${preview.role}-${index}`} className="text-xs text-neutral-600">
+                  {preview.company} | {preview.role}: {preview.claimText}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
 
       {/* Existing Claims List */}
       <div>
@@ -350,6 +490,10 @@ function ClaimsSection({ claims, addClaim }: {
               <div>
                 <p className="text-sm font-medium text-neutral-900">{claim.role}</p>
                 <p className="text-xs text-neutral-500">{claim.company} | {claim.startDate}{claim.endDate ? ` - ${claim.endDate}` : ' - Present'}</p>
+                <p className="text-[11px] text-neutral-500">
+                  Status: <span className={claim.status === 'conflict' ? 'text-amber-700 font-medium' : claim.status === 'needs_review' ? 'text-rose-700 font-medium' : 'text-green-700 font-medium'}>{claim.status || 'active'}</span>
+                  {claim.source ? ` | Source: ${claim.source}` : ''}
+                </p>
               </div>
             </div>
             {claim.responsibilities.length > 0 && (
@@ -381,6 +525,32 @@ function ClaimsSection({ claims, addClaim }: {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function HealthChip({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone: 'neutral' | 'green' | 'amber' | 'rose';
+}) {
+  const toneClass =
+    tone === 'green'
+      ? 'bg-green-50 text-green-700 border-green-200'
+      : tone === 'amber'
+        ? 'bg-amber-50 text-amber-700 border-amber-200'
+        : tone === 'rose'
+          ? 'bg-rose-50 text-rose-700 border-rose-200'
+          : 'bg-neutral-50 text-neutral-700 border-neutral-200';
+
+  return (
+    <div className={`rounded-lg border px-3 py-2 ${toneClass}`}>
+      <p className="text-[11px] uppercase tracking-wide">{label}</p>
+      <p className="text-lg font-semibold">{value}</p>
     </div>
   );
 }

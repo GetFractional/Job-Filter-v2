@@ -264,6 +264,13 @@ export interface Claim {
   responsibilities: string[];
   tools: string[];
   outcomes: ClaimOutcome[];
+  claimText?: string;
+  source?: string;
+  verification?: ClaimVerification;
+  status?: ClaimStatus;
+  metrics?: ClaimMetric[];
+  conflictKey?: string;
+  importedAt?: string;
   createdAt: string;
 }
 
@@ -272,6 +279,18 @@ export interface ClaimOutcome {
   metric?: string;
   isNumeric: boolean;
   verified: boolean;
+}
+
+export type ClaimVerification = 'self_reported' | 'verified';
+
+export type ClaimStatus = 'active' | 'conflict' | 'needs_review';
+
+export interface ClaimMetric {
+  metricType: string;
+  value: number;
+  unit: '%' | '$' | 'x' | 'count';
+  context: string;
+  raw: string;
 }
 
 // ============================================================
