@@ -221,7 +221,7 @@ function JobCard({ job, onClick, onMoveStage }: { job: Job; onClick: () => void;
 export function PipelinePage() {
   const navigate = useNavigate();
   const jobs = useStore((s) => s.jobs);
-  const updateJob = useStore((s) => s.updateJob);
+  const moveJobToStage = useStore((s) => s.moveJobToStage);
 
   // ---- Computed stats ----
   const stats = useMemo(() => {
@@ -404,7 +404,7 @@ export function PipelinePage() {
                             key={job.id}
                             job={job}
                             onClick={() => navigate(`/job/${job.id}`)}
-                            onMoveStage={(stage) => updateJob(job.id, { stage, stageTimestamps: { ...job.stageTimestamps, [stage]: new Date().toISOString() } })}
+                            onMoveStage={(stage) => moveJobToStage(job.id, stage)}
                           />
                         ))}
                       </div>
