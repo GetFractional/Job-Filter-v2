@@ -309,10 +309,11 @@ function ClaimsSection({ claims, addClaim }: {
               className="hidden"
               disabled={parsingPdf}
               onChange={async (event) => {
+                const input = event.currentTarget;
                 const file = event.target.files?.[0];
                 if (!file) return;
                 await handlePdfUpload(file);
-                event.currentTarget.value = '';
+                input.value = '';
               }}
             />
           </label>
