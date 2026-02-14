@@ -442,6 +442,13 @@ export const useStore = create<AppState>((set, get) => ({
       responsibilities: claimData.responsibilities || [],
       tools: claimData.tools || [],
       outcomes: claimData.outcomes || [],
+      claimText: claimData.claimText,
+      source: claimData.source,
+      verification: claimData.verification || 'self_reported',
+      status: claimData.status || 'active',
+      metrics: claimData.metrics || [],
+      conflictKey: claimData.conflictKey,
+      importedAt: claimData.importedAt || now,
       createdAt: now,
     };
     await db.claims.add(claim);
