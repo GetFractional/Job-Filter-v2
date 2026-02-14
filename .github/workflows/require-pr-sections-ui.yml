@@ -5,7 +5,7 @@ on:
     types: [opened, edited, synchronize, reopened]
 
 jobs:
-  require-ui-pr-sections:
+  require-pr-sections-ui:
     runs-on: ubuntu-latest
     steps:
       - name: Check required PR sections when UI files changed
