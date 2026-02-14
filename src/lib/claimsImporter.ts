@@ -1,4 +1,5 @@
-import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
+import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist/legacy/build/pdf.mjs';
+import pdfWorker from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url';
 import type {
   Claim,
   ClaimMetric,
@@ -7,6 +8,8 @@ import type {
 } from '../types';
 import type { ParsedClaim } from './claimParser.ts';
 import { parseResumeStructured } from './claimParser.ts';
+
+GlobalWorkerOptions.workerSrc = pdfWorker;
 
 export interface ClaimsImportOptions {
   source?: string;
