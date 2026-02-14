@@ -3,6 +3,10 @@
 // Logs every generation for experimentation tracking.
 
 import type { Job, Claim, ResearchBrief } from '../types';
+import {
+  filterAutoUsableClaims,
+  summarizeClaimsAvailability,
+} from './claimsProvider';
 
 // ============================================================
 // Generation Context & Validation
@@ -22,6 +26,8 @@ export interface ValidationResult {
   missing: string[];
   warnings: string[];
 }
+
+const CLAIMS_MISSING_NOTICE = 'Claims missing, using generic fallback draft. Import or resolve claims in Settings > Claim Ledger.';
 
 /**
  * Validates that a GenerationContext has the required data before generation.
@@ -46,9 +52,8 @@ export function validateContext(ctx: {
   if (!ctx.userName) {
     missing.push('userName');
   }
-  if (!ctx.claims || ctx.claims.length === 0) {
-    warnings.push('No claims provided — generated content will use generic fallbacks.');
-  }
+  const availability = summarizeClaimsAvailability(ctx.claims || []);
+  warnings.push(...availability.warnings);
 
   return {
     valid: missing.length === 0,
@@ -63,7 +68,8 @@ export function validateContext(ctx: {
 
 export function generateOutreachEmail(ctx: GenerationContext): string {
   const { job, userName, contactName, claims, research } = ctx;
-  const topClaims = getTopClaims(claims, 2);
+  const usableClaims = filterAutoUsableClaims(claims);
+  const topClaims = getTopClaims(usableClaims, 2);
   const companyInsight = research?.companyOverview
     ? extractInsightSentence(research.companyOverview)
     : '';
@@ -82,6 +88,8 @@ I put together a brief growth plan outlining how I would approach the first year
 
 Would it be worth 20 minutes to walk through it? Happy to share the plan in advance.
 
+${topClaims.length === 0 ? `${CLAIMS_MISSING_NOTICE}\n` : ''} 
+
 Best,
 ${userName}`;
 }
@@ -97,7 +105,7 @@ export function generateLinkedInConnect(params: {
   contactName?: string;
 }): string {
   const { job, claims, contactName } = params;
-  const topClaim = getTopClaims(claims, 1)[0];
+  const topClaim = getTopClaims(filterAutoUsableClaims(claims), 1)[0];
 
   let note = `Hi${contactName ? ` ${contactName}` : ''}, I saw the ${job.title} opening at ${job.company}.`;
 
@@ -126,7 +134,8 @@ export function generateCoverLetter(params: {
   research?: ResearchBrief;
 }): string {
   const { job, userName, claims, research } = params;
-  const topClaims = getTopClaims(claims, 3);
+  const usableClaims = filterAutoUsableClaims(claims);
+  const topClaims = getTopClaims(usableClaims, 3);
   const companyInsight = research?.companyOverview
     ? extractInsightSentence(research.companyOverview)
     : `${job.company}'s growth trajectory`;
@@ -151,7 +160,9 @@ What excites me about this role is the chance to apply these systems at ${job.co
 I would welcome the chance to walk through this plan with your team. It is designed to show how I think, not just what I have done.
 
 Best regards,
-${userName}`;
+${userName}
+
+${topClaims.length === 0 ? `\n${CLAIMS_MISSING_NOTICE}` : ''}`;
 }
 
 // ============================================================
@@ -194,7 +205,8 @@ export function generateGrowthMemo(params: {
   research?: ResearchBrief;
 }): string {
   const { job, userName, claims, research } = params;
-  const topClaims = getTopClaims(claims, 4);
+  const usableClaims = filterAutoUsableClaims(claims);
+  const topClaims = getTopClaims(usableClaims, 4);
   const companyOverview = research?.companyOverview || `[Research ${job.company} to fill this section]`;
   const competitors = research?.competitors || '[Competitor analysis needed]';
   const gtm = research?.gtmChannels || '[GTM channel analysis needed]';
@@ -322,7 +334,7 @@ export function generateApplicationAnswer(params: {
   question: string;
 }): { answer: string; sources: string[] } {
   const { job, userName, claims, research, question } = params;
-  const topClaims = getTopClaims(claims, 3);
+  const topClaims = getTopClaims(filterAutoUsableClaims(claims), 3);
   const sources: string[] = [];
 
   // Build claim-backed evidence lines
@@ -371,6 +383,10 @@ export function generateApplicationAnswer(params: {
   // Append a subtle sign-off if the answer is substantial
   if (answer.length > 200) {
     answer += `\n\n— ${userName}`;
+  }
+
+  if (topClaims.length === 0) {
+    answer = `${answer}\n\n${CLAIMS_MISSING_NOTICE}`;
   }
 
   return { answer, sources };

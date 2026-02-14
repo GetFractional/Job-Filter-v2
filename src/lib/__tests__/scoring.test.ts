@@ -124,6 +124,20 @@ describe('scoreJob', () => {
     }
   });
 
+  it('excludes conflicting claims from automatic requirement matching', () => {
+    const conflictOnlyClaims = [
+      { ...testClaims[0], status: 'conflict' },
+    ] as unknown as Claim[];
+
+    const result = scoreJob(baseJob, baseProfile, conflictOnlyClaims);
+    const hubspotReq = result.requirementsExtracted.find(
+      (r) => r.type === 'tool' && r.description.toLowerCase().includes('hubspot')
+    );
+    if (hubspotReq) {
+      expect(hubspotReq.match).toBe('Missing');
+    }
+  });
+
   it('distinguishes Must vs Preferred priorities', () => {
     const result = scoreJob(baseJob, baseProfile, testClaims);
     const mustReqs = result.requirementsExtracted.filter((r) => r.priority === 'Must');

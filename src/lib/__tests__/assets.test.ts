@@ -95,7 +95,21 @@ describe('validateContext', () => {
       claims: [],
     });
     expect(result.valid).toBe(true);
-    expect(result.warnings.length).toBeGreaterThan(0);
+    expect(result.warnings.some((warning) => warning.toLowerCase().includes('claims missing'))).toBe(true);
+  });
+
+  it('warns when all claims are unresolved conflicts', () => {
+    const conflictClaims = [
+      { ...testClaims[0], status: 'conflict' },
+    ] as unknown as Claim[];
+
+    const result = validateContext({
+      job: testJob,
+      userName: 'Matt',
+      claims: conflictClaims,
+    });
+    expect(result.valid).toBe(true);
+    expect(result.warnings.some((warning) => warning.toLowerCase().includes('excluded from auto-use'))).toBe(true);
   });
 });
 
@@ -219,6 +233,15 @@ describe('generateOutreachEmail', () => {
       claims: testClaims,
     });
     expect(email).toContain('PreviousCo');
+  });
+
+  it('adds explicit fallback notice when claims are missing', () => {
+    const email = generateOutreachEmail({
+      job: testJob,
+      userName: 'Matt',
+      claims: [],
+    });
+    expect(email).toContain('Claims missing');
   });
 });
 
