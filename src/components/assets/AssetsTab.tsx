@@ -28,6 +28,7 @@ import {
   generateGrowthMemo,
   validateContext,
 } from '../../lib/assets';
+import { summarizeClaimsAvailability } from '../../lib/claimsProvider';
 import type { Job, Asset, AssetType } from '../../types';
 
 interface AssetsTabProps {
@@ -156,6 +157,7 @@ export function AssetsTab({ job }: AssetsTabProps) {
     ),
     [allAssets, job.id]
   );
+  const claimsAvailability = useMemo(() => summarizeClaimsAvailability(claims), [claims]);
 
   const generateContent = useCallback((type: AssetType): string => {
     const baseCtx = { job, userName, claims, research: job.researchBrief };
@@ -324,7 +326,11 @@ export function AssetsTab({ job }: AssetsTabProps) {
           {showWhyDraft && (
             <div className="px-4 pb-3 space-y-1.5 text-xs text-neutral-600">
               <p><span className="font-medium text-neutral-700">Job:</span> {job.title} at {job.company}</p>
-              <p><span className="font-medium text-neutral-700">Claims used:</span> {claims.length} claims bound</p>
+              <p>
+                <span className="font-medium text-neutral-700">Claims used:</span>{' '}
+                {claimsAvailability.autoUsableClaims} auto-usable / {claimsAvailability.totalClaims} total
+                {claimsAvailability.conflictClaims > 0 ? ` (${claimsAvailability.conflictClaims} conflict excluded)` : ''}
+              </p>
               <p><span className="font-medium text-neutral-700">Research:</span> {job.researchBrief ? 'Available' : 'Not available'}</p>
               <p><span className="font-medium text-neutral-700">User name:</span> {userName}</p>
               <p><span className="font-medium text-neutral-700">Generated:</span> template-fill (no API cost)</p>
@@ -535,6 +541,20 @@ export function AssetsTab({ job }: AssetsTabProps) {
         </div>
       )}
 
+      {claimsAvailability.warnings.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 space-y-1.5">
+          <p className="text-xs font-semibold text-amber-800">Claims invariant warnings</p>
+          {claimsAvailability.warnings.map((warning, index) => (
+            <p key={index} className="text-xs text-amber-700">
+              {warning}
+            </p>
+          ))}
+          <p className="text-[11px] text-amber-700">
+            Resolve in Settings &gt; Claim Ledger. Generation remains available with safe fallback text.
+          </p>
+        </div>
+      )}
+
       {/* Generate Button */}
       <div className="relative">
         <button
@@ -576,9 +596,9 @@ export function AssetsTab({ job }: AssetsTabProps) {
                   </button>
                 );
               })}
-              {claims.length === 0 && (
+              {claimsAvailability.autoUsableClaims === 0 && (
                 <p className="text-[11px] text-amber-600 px-4 py-2 border-t border-neutral-100">
-                  Add claims in Settings for personalized assets
+                  No auto-usable claims available. Drafts will include fallback language.
                 </p>
               )}
             </div>

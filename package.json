@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "proof:harness": "vitest run --config vitest.proof.config.ts",
     "preview": "vite preview",
     "verify": "npm run lint --if-present && npm run typecheck --if-present && npm test --if-present && npm run build --if-present",
     "typecheck": "tsc -p tsconfig.json --noEmit"
@@ -19,6 +20,7 @@
     "dexie": "^4.3.0",
     "dexie-react-hooks": "^4.2.0",
     "lucide-react": "^0.563.0",
+    "pdfjs-dist": "^4.10.38",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.13.0",

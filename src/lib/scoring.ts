@@ -3,6 +3,7 @@
 // See docs/MASTER_PLAN.md section 9 for spec.
 
 import type { Job, FitLabel, Profile, Requirement, Claim, RequirementPriority, RequirementMatch } from '../types';
+import { filterAutoUsableClaims } from './claimsProvider';
 
 // ============================================================
 // Scoring Weights (calibratable)
@@ -68,6 +69,7 @@ export interface ScoreBreakdown {
 }
 
 export function scoreJob(job: Partial<Job>, profile: Profile, claims?: Claim[]): ScoringResult {
+  const autoUsableClaims = claims ? filterAutoUsableClaims(claims) : [];
   const jd = (job.jobDescription || '').toLowerCase();
   const title = (job.title || '').toLowerCase();
 
@@ -276,7 +278,7 @@ export function scoreJob(job: Partial<Job>, profile: Profile, claims?: Claim[]):
   // Extract requirements (with claim matching)
   // ----------------------------------------------------------
 
-  const requirements = extractRequirements(jd, claims);
+  const requirements = extractRequirements(jd, autoUsableClaims);
 
   // ----------------------------------------------------------
   // Final Score
