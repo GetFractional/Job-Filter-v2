@@ -38,9 +38,10 @@ Actions:
 1. Verify repo is clean and up to date.
 2. Confirm ClickUp MCP is available.
 3. Run Reality Check:
-   - Create or locate a sentinel task.
+   - Use the permanent task: `SYSTEM: Delivery OS Sync Log` (`https://app.clickup.com/t/868hgd4n1`).
    - Add a unique token comment.
    - Re-fetch and prove token exists.
+   - Do not create a new sentinel task unless ClickUp writes fail.
 4. Count tasks in "In Development" in Job Filter space.
 5. Enforce WIP cap:
    - If count > 2, stop and ask which task to pause.
