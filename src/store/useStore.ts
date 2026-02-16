@@ -7,6 +7,7 @@ import { db, generateId, seedDefaultProfile } from '../db';
 import { scoreJob } from '../lib/scoring';
 import { parseCompFromText } from '../lib/scoring';
 import { isClosedWonDemotionBlocked } from '../lib/stageTransitions';
+import { clearImportSession, loadImportSession, saveImportSession } from '../lib/importSessionStorage';
 import type {
   Job,
   Company,
@@ -19,6 +20,7 @@ import type {
   PipelineStage,
   GenerationLog,
   ApplicationAnswer,
+  ImportSession,
 } from '../types';
 
 interface AppState {
@@ -38,6 +40,7 @@ interface AppState {
   selectedJobId: string | null;
   activeTab: 'score' | 'requirements' | 'research' | 'assets' | 'crm' | 'qa';
   isLoading: boolean;
+  importSession: ImportSession | null;
 
   // Actions
   initialize: () => Promise<void>;
@@ -63,6 +66,8 @@ interface AppState {
   deleteApplicationAnswer: (id: string) => Promise<void>;
   setSelectedJob: (id: string | null) => void;
   setActiveTab: (tab: 'score' | 'requirements' | 'research' | 'assets' | 'crm' | 'qa') => void;
+  setImportSession: (session: ImportSession | null) => void;
+  hydrateImportSession: () => void;
   refreshData: () => Promise<void>;
 }
 
@@ -81,6 +86,7 @@ export const useStore = create<AppState>((set, get) => ({
   selectedJobId: null,
   activeTab: 'score',
   isLoading: true,
+  importSession: null,
 
   // --------------------------------------------------------
   // Initialize: load all data from IndexedDB
@@ -516,4 +522,17 @@ export const useStore = create<AppState>((set, get) => ({
 
   setSelectedJob: (id) => set({ selectedJobId: id }),
   setActiveTab: (tab) => set({ activeTab: tab }),
+  setImportSession: (session) => {
+    if (session) {
+      const storage = saveImportSession(session);
+      set({ importSession: { ...session, storage } });
+      return;
+    }
+    clearImportSession();
+    set({ importSession: null });
+  },
+  hydrateImportSession: () => {
+    const session = loadImportSession();
+    set({ importSession: session });
+  },
 }));

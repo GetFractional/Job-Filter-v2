@@ -177,7 +177,7 @@ const DATE_PATTERNS: RegExp[] = [
 ];
 
 // Bullet point prefixes
-const BULLET_RE = /^[-*\u2022\u25E6\u25AA\u25B8\u25BA\u2023\u27A2\u2219]\s*/;
+const BULLET_RE = /^[-*\u2022\u25CF\u25E6\u25AA\u25B8\u25BA\u2023\u27A2\u2219]\s*/;
 
 // Metric indicators for outcome classification
 const METRIC_RE =
@@ -550,7 +550,18 @@ function buildRawBlocks(classified: ClassifiedLine[]): RawClaimBlock[] {
       const bulletText = cl.trimmed.replace(BULLET_RE, '').trim();
       if (bulletText) {
         current.bullets.push(bulletText);
+        i++;
+        continue;
       }
+
+      // Handle bullet-only line where content is on the next text line.
+      const nextLine = classified[i + 1];
+      if (nextLine && nextLine.kind === 'text' && nextLine.trimmed) {
+        current.bullets.push(nextLine.trimmed);
+        i += 2;
+        continue;
+      }
+
       i++;
       continue;
     }

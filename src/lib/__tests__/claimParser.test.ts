@@ -140,6 +140,24 @@ Manager at DupCo
     // Should not have duplicate responsibilities
     expect(claims[0].responsibilities.filter((r) => r.includes('Led marketing')).length).toBe(1);
   });
+
+  it('detects solid-circle bullets and bullet continuation lines', () => {
+    const text = `
+Acme Corp
+Senior Growth Manager
+Jan 2022 - Present
+●
+Grew qualified pipeline by 35% year over year
+● Managed HubSpot lifecycle programs
+    `;
+
+    const claims = parseResumeStructured(text);
+    expect(claims.length).toBe(1);
+    const claim = claims[0];
+    const mergedLines = [...claim.responsibilities, ...claim.outcomes.map((o) => o.description)];
+    expect(mergedLines.some((line) => line.includes('Grew qualified pipeline'))).toBe(true);
+    expect(mergedLines.some((line) => line.includes('Managed HubSpot lifecycle programs'))).toBe(true);
+  });
 });
 
 // ============================================================
