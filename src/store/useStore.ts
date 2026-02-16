@@ -8,6 +8,7 @@ import { scoreJob } from '../lib/scoring';
 import { parseCompFromText } from '../lib/scoring';
 import { isClosedWonDemotionBlocked } from '../lib/stageTransitions';
 import { getAutoUsableClaims } from '../lib/claimAutoUse';
+import { buildProfileEvidenceClaim } from '../lib/profileEvidence';
 import type {
   Job,
   Company,
@@ -256,7 +257,8 @@ export const useStore = create<AppState>((set, get) => ({
     if (!job || !profile) return;
 
     const claims = getAutoUsableClaims(get().claims);
-    const result = scoreJob(job, profile, claims);
+    const profileEvidence = buildProfileEvidenceClaim(profile);
+    const result = scoreJob(job, profile, [...claims, ...profileEvidence]);
     const now = new Date().toISOString();
 
     const updates: Partial<Job> = {

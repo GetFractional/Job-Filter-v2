@@ -73,6 +73,8 @@ function ProfileSection({ profile, updateProfile }: {
     compTarget: profile.compTarget,
     locationPreference: profile.locationPreference,
     targetRoles: profile.targetRoles.join('\n'),
+    skills: profile.skills ?? [],
+    tools: profile.tools ?? [],
     requiredBenefits: profile.requiredBenefits.join('\n'),
     preferredBenefits: profile.preferredBenefits.join('\n'),
     disqualifiers: profile.disqualifiers.join('\n'),
@@ -86,6 +88,8 @@ function ProfileSection({ profile, updateProfile }: {
       compTarget: form.compTarget,
       locationPreference: form.locationPreference,
       targetRoles: form.targetRoles.split('\n').filter(Boolean).map((s) => s.trim()),
+      skills: form.skills.map((skill) => skill.trim()).filter(Boolean),
+      tools: form.tools.map((tool) => tool.trim()).filter(Boolean),
       requiredBenefits: form.requiredBenefits.split('\n').filter(Boolean).map((s) => s.trim()),
       preferredBenefits: form.preferredBenefits.split('\n').filter(Boolean).map((s) => s.trim()),
       disqualifiers: form.disqualifiers.split('\n').filter(Boolean).map((s) => s.trim()),
@@ -141,6 +145,20 @@ function ProfileSection({ profile, updateProfile }: {
           className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm resize-y focus:outline-none focus:ring-2 focus:ring-brand-500"
         />
       </div>
+      <TagInputField
+        label="Skills"
+        helperText="Add reusable strengths for matching and writing."
+        values={form.skills}
+        onChange={(values) => setForm({ ...form, skills: values })}
+        placeholder="Type a skill and press Enter"
+      />
+      <TagInputField
+        label="Tools"
+        helperText="Add software/tools you want considered in matching and assets."
+        values={form.tools}
+        onChange={(values) => setForm({ ...form, tools: values })}
+        placeholder="Type a tool and press Enter"
+      />
       <div>
         <label className="text-xs font-medium text-neutral-600 mb-1 block">Required Benefits (one per line)</label>
         <textarea
@@ -393,6 +411,80 @@ function ClaimsSection({ claims, addClaim }: {
             )}
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+function TagInputField({
+  label,
+  helperText,
+  values,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  helperText: string;
+  values: string[];
+  onChange: (next: string[]) => void;
+  placeholder: string;
+}) {
+  const [draft, setDraft] = useState('');
+
+  const addTag = useCallback(() => {
+    const normalized = draft.trim();
+    if (!normalized) return;
+    if (values.some((value) => value.toLowerCase() === normalized.toLowerCase())) {
+      setDraft('');
+      return;
+    }
+    onChange([...values, normalized]);
+    setDraft('');
+  }, [draft, onChange, values]);
+
+  const removeTag = useCallback((valueToRemove: string) => {
+    onChange(values.filter((value) => value !== valueToRemove));
+  }, [onChange, values]);
+
+  return (
+    <div>
+      <label className="text-xs font-medium text-neutral-600 mb-1 block">{label}</label>
+      <p className="text-[11px] text-neutral-500 mb-2">{helperText}</p>
+      <div className="flex flex-wrap gap-1.5 mb-2">
+        {values.map((value) => (
+          <span key={value} className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] rounded-md bg-neutral-100 text-neutral-700">
+            {value}
+            <button
+              type="button"
+              onClick={() => removeTag(value)}
+              className="text-neutral-500 hover:text-red-600"
+              aria-label={`Remove ${value}`}
+            >
+              ×
+            </button>
+          </span>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        <input
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ',') {
+              event.preventDefault();
+              addTag();
+            }
+          }}
+          placeholder={placeholder}
+          className="flex-1 px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+        />
+        <button
+          type="button"
+          onClick={addTag}
+          className="px-3 py-2 text-xs border border-neutral-300 rounded-lg text-neutral-700 hover:bg-neutral-50"
+        >
+          Add
+        </button>
       </div>
     </div>
   );

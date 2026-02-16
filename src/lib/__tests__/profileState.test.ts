@@ -30,6 +30,8 @@ describe('profileState', () => {
     expect(profile.id).toBe('default');
     expect(profile.name).toBe('');
     expect(profile.targetRoles).toEqual([]);
+    expect(profile.skills).toEqual([]);
+    expect(profile.tools).toEqual([]);
     expect(profile.compFloor).toBe(0);
     expect(profile.compTarget).toBe(0);
     expect(profile.locationPreference).toBe('');

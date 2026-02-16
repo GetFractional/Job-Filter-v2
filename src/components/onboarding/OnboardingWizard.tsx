@@ -381,7 +381,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     </span>
                   </div>
 
-                  <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
+                  <div className="space-y-2">
                     <ClaimsReviewEditor
                       items={reviewItems}
                       onChange={(items) => setReviewItems(regroupClaimReviewItems(items))}

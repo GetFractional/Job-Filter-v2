@@ -246,6 +246,8 @@ export interface Profile {
   id: string;
   name: string;
   targetRoles: string[];
+  skills: string[];
+  tools: string[];
   compFloor: number;
   compTarget: number;
   requiredBenefits: string[];

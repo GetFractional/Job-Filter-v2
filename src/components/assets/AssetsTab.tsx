@@ -29,6 +29,7 @@ import {
   validateContext,
 } from '../../lib/assets';
 import { getAutoUsableClaims } from '../../lib/claimAutoUse';
+import { buildProfileEvidenceClaim } from '../../lib/profileEvidence';
 import type { Job, Asset, AssetType } from '../../types';
 
 interface AssetsTabProps {
@@ -135,8 +136,12 @@ const QUALITY_CHECKS: Record<string, string[]> = {
 export function AssetsTab({ job }: AssetsTabProps) {
   const allAssets = useStore((s) => s.assets);
   const claims = useStore((s) => s.claims);
-  const autoUsableClaims = useMemo(() => getAutoUsableClaims(claims), [claims]);
   const profile = useStore((s) => s.profile);
+  const autoUsableClaims = useMemo(() => getAutoUsableClaims(claims), [claims]);
+  const claimsForGeneration = useMemo(() => {
+    const profileEvidence = profile ? buildProfileEvidenceClaim(profile) : [];
+    return [...autoUsableClaims, ...profileEvidence];
+  }, [autoUsableClaims, profile]);
   const addAsset = useStore((s) => s.addAsset);
   const updateAsset = useStore((s) => s.updateAsset);
   const addGenerationLog = useStore((s) => s.addGenerationLog);
@@ -160,13 +165,13 @@ export function AssetsTab({ job }: AssetsTabProps) {
   );
 
   const generateContent = useCallback((type: AssetType): string => {
-    const baseCtx = { job, userName, claims: autoUsableClaims, research: job.researchBrief };
+    const baseCtx = { job, userName, claims: claimsForGeneration, research: job.researchBrief };
 
     switch (type) {
       case 'Outreach Email':
         return generateOutreachEmail({ ...baseCtx });
       case 'LinkedIn Connect':
-        return generateLinkedInConnect({ job, userName, claims: autoUsableClaims });
+        return generateLinkedInConnect({ job, userName, claims: claimsForGeneration });
       case 'Cover Letter':
         return generateCoverLetter(baseCtx);
       case 'Follow-up Email':
@@ -176,14 +181,14 @@ export function AssetsTab({ job }: AssetsTabProps) {
       default:
         return `[${type} generation coming soon]`;
     }
-  }, [job, userName, autoUsableClaims]);
+  }, [job, userName, claimsForGeneration]);
 
   const handleGenerate = useCallback(async (type: AssetType) => {
     setContextError(null);
     setShowGenMenu(false);
 
     // Pre-generation validation
-    const validation = validateContext({ job, userName, claims: autoUsableClaims });
+    const validation = validateContext({ job, userName, claims: claimsForGeneration });
     if (!validation.valid) {
       setContextError(`Missing required context: ${validation.missing.join(', ')}`);
       return;
@@ -223,7 +228,7 @@ export function AssetsTab({ job }: AssetsTabProps) {
     } finally {
       setGenerating(null);
     }
-  }, [job, userName, autoUsableClaims, generateContent, addAsset, addGenerationLog]);
+  }, [job, userName, claimsForGeneration, generateContent, addAsset, addGenerationLog]);
 
   const handleRegenerate = useCallback(async () => {
     if (!currentAsset) return;

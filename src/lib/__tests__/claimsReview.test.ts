@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   createClaimReviewItems,
   regroupClaimReviewItems,
+  splitReviewItem,
   reviewItemToClaimInput,
   type ClaimReviewItem,
 } from '../claimsReview';
@@ -67,6 +68,7 @@ describe('reviewItemToClaimInput', () => {
       metricValue: '35',
       metricUnit: '%',
       metricContext: 'qualified pipeline',
+      tools: ['HubSpot', 'Salesforce'],
       status: 'active',
       included: true,
       autoUse: true,
@@ -79,6 +81,7 @@ describe('reviewItemToClaimInput', () => {
     expect(claimInput.metric?.value).toBe('35');
     expect(claimInput.autoUse).toBe(true);
     expect(claimInput.outcomes?.[0]?.description).toBe('Edited claim text');
+    expect(claimInput.tools).toEqual(['HubSpot', 'Salesforce']);
   });
 
   it('recomputes status after inline edits', () => {
@@ -95,6 +98,7 @@ describe('reviewItemToClaimInput', () => {
         metricValue: '',
         metricUnit: '',
         metricContext: '',
+        tools: [],
         status: 'active',
         included: true,
         autoUse: true,
@@ -104,5 +108,67 @@ describe('reviewItemToClaimInput', () => {
     const regrouped = regroupClaimReviewItems(items);
     expect(regrouped[0].status).toBe('needs_review');
     expect(regrouped[0].autoUse).toBe(false);
+  });
+});
+
+describe('splitReviewItem', () => {
+  it('splits multiline bullet text into individual bullets', () => {
+    const item: ClaimReviewItem = {
+      id: 'split-1',
+      company: 'Acme',
+      role: 'Head of Growth',
+      startDate: 'Jan 2021',
+      endDate: '',
+      timeframe: 'Jan 2021 - Present',
+      rawSnippet: '',
+      claimText: `- Led lifecycle program across 4 channels
+- Increased pipeline by 40%
+- Improved MQL to SQL by 23%
+- Reduced CAC by 18%
+- Launched ABM for enterprise accounts
+- Built weekly funnel dashboard
+- Implemented lead scoring model
+- Partnered with product marketing
+- Scaled outbound experiment velocity
+- Trained SDR team on new messaging
+- Improved onboarding conversion by 12%
+- Automated reporting with GA4`,
+      metricValue: '',
+      metricUnit: '',
+      metricContext: '',
+      tools: ['HubSpot'],
+      status: 'active',
+      included: true,
+      autoUse: true,
+    };
+
+    const result = splitReviewItem(item);
+    expect(result.reason).toBeUndefined();
+    expect(result.items.length).toBeGreaterThan(10);
+    expect(result.items[0].claimText).toContain('Led lifecycle program');
+  });
+
+  it('returns reason when no split boundary exists', () => {
+    const item: ClaimReviewItem = {
+      id: 'split-2',
+      company: 'Acme',
+      role: 'Head of Growth',
+      startDate: 'Jan 2021',
+      endDate: '',
+      timeframe: 'Jan 2021 - Present',
+      rawSnippet: '',
+      claimText: 'Owned growth strategy with leadership accountability.',
+      metricValue: '',
+      metricUnit: '',
+      metricContext: '',
+      tools: [],
+      status: 'active',
+      included: true,
+      autoUse: true,
+    };
+
+    const result = splitReviewItem(item);
+    expect(result.items).toHaveLength(1);
+    expect(result.reason).toContain('No bullet boundaries');
   });
 });

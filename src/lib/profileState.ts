@@ -9,6 +9,8 @@ export function createEmptyProfile(timestamp = new Date().toISOString()): Profil
     id: DEFAULT_PROFILE_ID,
     name: '',
     targetRoles: [],
+    skills: [],
+    tools: [],
     compFloor: 0,
     compTarget: 0,
     requiredBenefits: [],

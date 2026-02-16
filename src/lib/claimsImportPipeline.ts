@@ -183,18 +183,61 @@ async function extractPdfText(file: File): Promise<string> {
   const bytes = new Uint8Array(await file.arrayBuffer());
   const pdf = await getDocument({ data: bytes }).promise;
   const pages: string[] = [];
+  const BULLET_TOKEN_RE = /^[\u2022\u25E6\u25AA\u25B8\u25BA\u2023\u27A2\-*]$/;
 
   for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
     const page = await pdf.getPage(pageNumber);
     const text = await page.getTextContent();
-    const pageLines = text.items
-      .map((item) => ('str' in item ? item.str : ''))
-      .join(' ')
-      .trim();
-    if (pageLines) pages.push(pageLines);
+    const lines: string[] = [];
+    let currentLine = '';
+    let previousY: number | null = null;
+
+    const flushLine = () => {
+      const normalized = currentLine.trim();
+      if (normalized) lines.push(normalized);
+      currentLine = '';
+    };
+
+    for (const item of text.items) {
+      if (!('str' in item) || typeof item.str !== 'string') continue;
+      const token = item.str.trim();
+      const tokenY = Array.isArray(item.transform) ? Number(item.transform[5]) : null;
+      const hasLineBreak = Boolean(item.hasEOL);
+      const shouldBreakLine =
+        previousY !== null && tokenY !== null && Math.abs(tokenY - previousY) > 2.5;
+
+      if (shouldBreakLine || hasLineBreak) {
+        flushLine();
+      }
+
+      if (!token) {
+        if (hasLineBreak) flushLine();
+        if (tokenY !== null) previousY = tokenY;
+        continue;
+      }
+
+      if (BULLET_TOKEN_RE.test(token)) {
+        flushLine();
+        currentLine = `${token} `;
+      } else if (!currentLine) {
+        currentLine = token;
+      } else if (/^[,.;:!?)]/.test(token)) {
+        currentLine = `${currentLine}${token}`;
+      } else {
+        currentLine = `${currentLine} ${token}`;
+      }
+
+      if (tokenY !== null) previousY = tokenY;
+      if (hasLineBreak) flushLine();
+    }
+
+    flushLine();
+    if (lines.length > 0) {
+      pages.push(lines.join('\n'));
+    }
   }
 
-  return normalizeClaimsImportText(pages.join('\n'));
+  return normalizeClaimsImportText(pages.join('\n\n'));
 }
 
 async function extractTxtText(file: File): Promise<string> {

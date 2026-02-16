@@ -15,6 +15,7 @@ export interface ClaimReviewItem {
   metricValue: string;
   metricUnit: string;
   metricContext: string;
+  tools: string[];
   status: ClaimReviewStatus;
   included: boolean;
   autoUse: boolean;
@@ -28,10 +29,20 @@ export interface ClaimReviewGroup {
   items: ClaimReviewItem[];
 }
 
+export interface SplitReviewResult {
+  items: ClaimReviewItem[];
+  reason?: string;
+}
+
 const METRIC_RE = /(\$\s*\d[\d,.]*\s*[kKmMbB]?|\d[\d,.]*\s*%|\d[\d,.]*\s*[xX])/;
+const BULLET_LINE_RE = /^\s*[\u2022\u25E6\u25AA\u25B8\u25BA\u2023\u27A2\-*]\s+/;
 
 function normalizeText(text: string): string {
   return text.replace(/\s+/g, ' ').trim();
+}
+
+function normalizeLines(text: string): string {
+  return text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 }
 
 function makeId(seed: string, index: number): string {
@@ -86,6 +97,70 @@ function baseStatus(item: Pick<ClaimReviewItem, 'company' | 'role' | 'claimText'
   return 'active';
 }
 
+function normalizeToolList(tools: string[]): string[] {
+  return [...new Set(tools.map((tool) => tool.trim()).filter(Boolean))];
+}
+
+function splitByLineBullets(text: string): string[] {
+  const lines = normalizeLines(text).split('\n');
+  const segments: string[] = [];
+  let current = '';
+
+  const flush = () => {
+    const normalized = normalizeText(current);
+    if (normalized) segments.push(normalized);
+    current = '';
+  };
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) {
+      flush();
+      continue;
+    }
+
+    if (BULLET_LINE_RE.test(line)) {
+      flush();
+      current = line.replace(BULLET_LINE_RE, '').trim();
+      continue;
+    }
+
+    current = current ? `${current} ${line}` : line;
+  }
+
+  flush();
+  return segments;
+}
+
+function splitByParagraphs(text: string): string[] {
+  return normalizeLines(text)
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.replace(BULLET_LINE_RE, '').trim())
+    .filter(Boolean);
+}
+
+function splitInlineBullets(text: string): string[] {
+  const normalized = normalizeLines(text)
+    .replace(/\s+[\u2022\u25E6\u25AA\u25B8\u25BA\u2023\u27A2*]\s+(?=[A-Z0-9])/g, '\n• ')
+    .replace(/\s+-\s+(?=[A-Z0-9])/g, '\n- ');
+
+  return splitByLineBullets(normalized);
+}
+
+function smartSplit(text: string): string[] {
+  const lineSplit = splitByLineBullets(text);
+  if (lineSplit.length > 1) return lineSplit;
+
+  const paragraphSplit = splitByParagraphs(text);
+  if (paragraphSplit.length > 1) return paragraphSplit;
+
+  const inlineSplit = splitInlineBullets(text);
+  if (inlineSplit.length > 1) return inlineSplit;
+
+  const single = normalizeText(text);
+  return single ? [single] : [];
+}
+
 function applyConflictStatus(items: ClaimReviewItem[]): ClaimReviewItem[] {
   const keyed = new Map<string, { values: Set<string>; indexes: number[] }>();
 
@@ -113,11 +188,10 @@ function applyConflictStatus(items: ClaimReviewItem[]): ClaimReviewItem[] {
   for (const { values, indexes } of keyed.values()) {
     if (values.size <= 1) continue;
     for (const index of indexes) {
-      const current = next[index];
       next[index] = {
-        ...current,
+        ...next[index],
         status: 'conflict',
-        autoUse: current.autoUse && current.status !== 'needs_review' ? false : current.autoUse,
+        autoUse: false,
       };
     }
   }
@@ -125,72 +199,74 @@ function applyConflictStatus(items: ClaimReviewItem[]): ClaimReviewItem[] {
   return next;
 }
 
+function claimSourceLines(claim: ParsedClaim): Array<{ text: string; metric?: string }> {
+  const outcomeLines = claim.outcomes.map((outcome) => ({
+    text: normalizeText(outcome.description),
+    metric: outcome.metric || '',
+  }));
+  const responsibilityLines = claim.responsibilities.map((responsibility) => ({
+    text: normalizeText(responsibility),
+    metric: '',
+  }));
+
+  const merged = [...outcomeLines, ...responsibilityLines].filter((line) => line.text.length > 0);
+  if (merged.length > 0) return merged;
+
+  const fallback = normalizeText(claim.claimText || claim.rawSnippet || '');
+  if (!fallback) return [];
+  return [{ text: fallback, metric: claim.metricValue ? `${claim.metricValue}${claim.metricUnit}` : '' }];
+}
+
 export function createClaimReviewItems(parsedClaims: ParsedClaim[]): ClaimReviewItem[] {
   const items: ClaimReviewItem[] = [];
 
   parsedClaims.forEach((claim, claimIndex) => {
-    const lines = [
-      ...(claim.outcomes.map((o) => ({ text: normalizeText(o.description), metric: o.metric || '' }))),
-      ...(claim.responsibilities.map((r) => ({ text: normalizeText(r), metric: '' }))),
-    ].filter((line) => line.text.length > 0);
-
     const timeframe = buildTimeframe(claim.startDate, claim.endDate);
+    const tools = normalizeToolList(claim.tools ?? []);
+    const sourceLines = claimSourceLines(claim);
 
-    if (lines.length === 0) {
-      const placeholderText = normalizeText(claim.claimText || claim.rawSnippet || '');
-      const parsedMetric = parseMetric(placeholderText);
-      const initialStatus = baseStatus({ company: claim.company, role: claim.role, claimText: placeholderText });
+    sourceLines.forEach((sourceLine, lineIndex) => {
+      const segments = smartSplit(sourceLine.text);
+      const lines = segments.length > 0 ? segments : [sourceLine.text];
 
-      items.push({
-        id: makeId(claim._key, claimIndex),
-        company: claim.company,
-        role: claim.role,
-        startDate: claim.startDate,
-        endDate: claim.endDate,
-        timeframe,
-        rawSnippet: claim.rawSnippet || placeholderText,
-        claimText: placeholderText,
-        metricValue: claim.metricValue || parsedMetric.value,
-        metricUnit: claim.metricUnit || parsedMetric.unit,
-        metricContext: claim.metricContext || parsedMetric.context,
-        status: claim.reviewStatus || initialStatus,
-        included: claim.included,
-        autoUse:
-          typeof claim.autoUse === 'boolean'
-            ? claim.autoUse
-            : (claim.reviewStatus || initialStatus) === 'active',
-      });
-      return;
-    }
+      lines.forEach((lineText, segmentIndex) => {
+        const parsedMetric = parseMetric(lineText, sourceLine.metric);
+        const initialStatus = baseStatus({
+          company: claim.company,
+          role: claim.role,
+          claimText: lineText,
+        });
 
-    lines.forEach((line, lineIndex) => {
-      const parsedMetric = parseMetric(line.text, line.metric);
-      const initialStatus = baseStatus({ company: claim.company, role: claim.role, claimText: line.text });
-
-      items.push({
-        id: makeId(claim._key, lineIndex),
-        company: claim.company,
-        role: claim.role,
-        startDate: claim.startDate,
-        endDate: claim.endDate,
-        timeframe,
-        rawSnippet: line.text,
-        claimText: line.text,
-        metricValue: parsedMetric.value,
-        metricUnit: parsedMetric.unit,
-        metricContext: parsedMetric.context,
-        status: initialStatus,
-        included: claim.included,
-        autoUse: initialStatus === 'active',
+        items.push({
+          id: makeId(claim._key || `claim-${claimIndex}`, lineIndex * 100 + segmentIndex),
+          company: claim.company,
+          role: claim.role,
+          startDate: claim.startDate,
+          endDate: claim.endDate,
+          timeframe,
+          rawSnippet: lineText,
+          claimText: lineText,
+          metricValue: parsedMetric.value,
+          metricUnit: parsedMetric.unit,
+          metricContext: parsedMetric.context,
+          tools,
+          status: initialStatus,
+          included: claim.included,
+          autoUse: initialStatus === 'active' && (claim.autoUse ?? true),
+        });
       });
     });
   });
 
-  return applyConflictStatus(items).map((item) => ({
-    ...item,
-    status: baseStatus(item) === 'needs_review' ? 'needs_review' : item.status,
-    autoUse: baseStatus(item) === 'needs_review' ? false : item.autoUse,
-  }));
+  return applyConflictStatus(items).map((item) => {
+    const status = baseStatus(item) === 'needs_review' ? 'needs_review' : item.status;
+    return {
+      ...item,
+      status,
+      autoUse: status === 'needs_review' ? false : item.autoUse,
+      tools: normalizeToolList(item.tools),
+    };
+  });
 }
 
 export function regroupClaimReviewItems(items: ClaimReviewItem[]): ClaimReviewItem[] {
@@ -203,6 +279,7 @@ export function regroupClaimReviewItems(items: ClaimReviewItem[]): ClaimReviewIt
         timeframe,
         status,
         autoUse: status === 'needs_review' ? false : item.autoUse,
+        tools: normalizeToolList(item.tools),
       };
     })
   );
@@ -256,45 +333,57 @@ export function reviewItemToClaimInput(item: ClaimReviewItem): Partial<Claim> {
           verified: false,
         }]
       : [],
-    tools: [],
+    tools: normalizeToolList(item.tools),
   };
 }
 
-export function splitReviewItem(item: ClaimReviewItem): ClaimReviewItem[] {
-  const parts = item.claimText
-    .split(';')
-    .map((part) => normalizeText(part))
-    .filter(Boolean);
+export function splitReviewItem(item: ClaimReviewItem): SplitReviewResult {
+  const parts = smartSplit(item.claimText);
 
   if (parts.length <= 1) {
-    return [item];
+    return {
+      items: [item],
+      reason: 'No bullet boundaries found. Try adding line breaks before splitting.',
+    };
   }
 
-  return parts.map((part, index) => {
-    const metric = parseMetric(part);
-    return {
-      ...item,
-      id: makeId(item.id, index),
-      claimText: part,
-      rawSnippet: part,
-      metricValue: metric.value,
-      metricUnit: metric.unit,
-      metricContext: metric.context,
-    };
-  });
+  return {
+    items: parts.map((part, index) => {
+      const metric = parseMetric(part);
+      return {
+        ...item,
+        id: makeId(item.id, index),
+        claimText: part,
+        rawSnippet: part,
+        metricValue: metric.value,
+        metricUnit: metric.unit,
+        metricContext: metric.context,
+      };
+    }),
+  };
+}
+
+export function canMergeWithPrevious(previous: ClaimReviewItem, current: ClaimReviewItem): boolean {
+  return (
+    previous.company === current.company &&
+    previous.role === current.role &&
+    previous.startDate === current.startDate &&
+    previous.endDate === current.endDate
+  );
 }
 
 export function mergeReviewItems(primary: ClaimReviewItem, secondary: ClaimReviewItem): ClaimReviewItem {
-  const mergedText = normalizeText(`${primary.claimText}; ${secondary.claimText}`);
+  const mergedText = normalizeText(`${primary.claimText}\n${secondary.claimText}`);
   const metric = parseMetric(mergedText);
 
   return {
     ...primary,
     claimText: mergedText,
-    rawSnippet: normalizeText(`${primary.rawSnippet}; ${secondary.rawSnippet}`),
+    rawSnippet: normalizeText(`${primary.rawSnippet}\n${secondary.rawSnippet}`),
     metricValue: primary.metricValue || metric.value,
     metricUnit: primary.metricUnit || metric.unit,
     metricContext: primary.metricContext || secondary.metricContext || metric.context,
+    tools: normalizeToolList([...primary.tools, ...secondary.tools]),
     included: primary.included || secondary.included,
     autoUse: primary.autoUse || secondary.autoUse,
   };
