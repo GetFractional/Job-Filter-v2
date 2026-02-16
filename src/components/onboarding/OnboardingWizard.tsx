@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, type ChangeEvent } from 'react';
 import {
   Rocket,
   ChevronRight,
@@ -13,13 +13,19 @@ import {
   AlertTriangle,
   Sparkles,
   Settings2,
+  Upload,
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import {
-  parseResumeStructured,
   parsedClaimToImport,
 } from '../../lib/claimParser';
 import type { ParsedClaim } from '../../lib/claimParser';
+import {
+  extractClaimsImportText,
+  getClaimsImportAcceptValue,
+  parseClaimsImportText,
+  validateClaimsImportFile,
+} from '../../lib/claimsImportPipeline';
 
 interface OnboardingWizardProps {
   onComplete: () => void;
@@ -58,6 +64,9 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   // Parsed claims for review (null = not yet parsed)
   const [parsedClaims, setParsedClaims] = useState<ParsedClaim[] | null>(null);
   const [claimsImported, setClaimsImported] = useState(0);
+  const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
+  const [readingFile, setReadingFile] = useState(false);
+  const [fileImportError, setFileImportError] = useState<string | null>(null);
 
   const stepIndex = STEPS.findIndex((s) => s.id === step);
 
@@ -89,9 +98,37 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
   const handleParseResume = useCallback(() => {
     if (!resumeText.trim()) return;
-    const parsed = parseResumeStructured(resumeText);
+    const parsed = parseClaimsImportText(resumeText);
     setParsedClaims(parsed);
   }, [resumeText]);
+
+  const handleImportFile = useCallback(async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    const validationError = validateClaimsImportFile(file);
+    if (validationError) {
+      setFileImportError(validationError);
+      setSelectedFileName(null);
+      return;
+    }
+
+    setReadingFile(true);
+    setFileImportError(null);
+    setSelectedFileName(file.name);
+
+    try {
+      const extractedText = await extractClaimsImportText(file);
+      setResumeText(extractedText);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to read the selected file.';
+      setFileImportError(message);
+      setSelectedFileName(null);
+    } finally {
+      setReadingFile(false);
+    }
+  }, []);
 
   const handleToggleClaim = useCallback((key: string) => {
     setParsedClaims((prev) =>
@@ -112,6 +149,8 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
         }
       }
       setClaimsImported(imported);
+      setSelectedFileName(null);
+      setFileImportError(null);
     } finally {
       setSaving(false);
     }
@@ -312,7 +351,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                 </div>
                 <div>
                   <h2 className="text-lg font-semibold text-neutral-900">Import Your Resume</h2>
-                  <p className="text-xs text-neutral-500">Paste your resume to populate the claim ledger for truthful scoring.</p>
+                  <p className="text-xs text-neutral-500">Upload PDF/DOCX/TXT or paste text. Both paths feed the same claim parser.</p>
                 </div>
               </div>
 
@@ -397,6 +436,24 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
               ) : (
                 /* ---- Paste textarea ---- */
                 <>
+                  <div className="flex items-center gap-2 mb-3">
+                    <label className="inline-flex items-center gap-1.5 px-3 py-2 border border-neutral-200 rounded-lg text-xs font-medium text-neutral-700 hover:bg-neutral-50 cursor-pointer">
+                      <Upload size={13} />
+                      {readingFile ? 'Reading file...' : 'Upload PDF, DOCX, or TXT'}
+                      <input
+                        type="file"
+                        accept={getClaimsImportAcceptValue()}
+                        onChange={handleImportFile}
+                        className="sr-only"
+                      />
+                    </label>
+                    {selectedFileName && (
+                      <span className="text-[11px] text-neutral-500 truncate">{selectedFileName}</span>
+                    )}
+                  </div>
+                  {fileImportError && (
+                    <p className="text-xs text-red-600 mb-3">{fileImportError}</p>
+                  )}
                   <textarea
                     value={resumeText}
                     onChange={(e) => setResumeText(e.target.value)}
@@ -575,7 +632,7 @@ Contract-to-hire only"
             )}
             <button
               onClick={step === 'ready' ? onComplete : handleNext}
-              disabled={saving}
+              disabled={saving || readingFile}
               className="inline-flex items-center gap-1.5 px-6 py-2.5 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 disabled:opacity-50"
             >
               {saving ? (

@@ -1,10 +1,11 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, type ChangeEvent } from 'react';
 import { useStore } from '../store/useStore';
 import {
   Save,
   Trash2,
   Download,
   FileText,
+  Upload,
   Check,
   X,
   ChevronDown,
@@ -17,10 +18,16 @@ import {
   Briefcase,
 } from 'lucide-react';
 import { db, seedDefaultProfile } from '../db';
-import { parseResumeStructured, parsedClaimToImport } from '../lib/claimParser';
+import { parsedClaimToImport } from '../lib/claimParser';
 import type { ParsedClaim } from '../lib/claimParser';
-import type { Claim } from '../types';
+import {
+  extractClaimsImportText,
+  getClaimsImportAcceptValue,
+  parseClaimsImportText,
+  validateClaimsImportFile,
+} from '../lib/claimsImportPipeline';
 import { clearJobFilterLocalState } from '../lib/profileState';
+import type { Claim } from '../types';
 
 export function SettingsPage() {
   const profile = useStore((s) => s.profile);
@@ -189,13 +196,44 @@ function ClaimsSection({ claims, addClaim }: {
   const [parsedClaims, setParsedClaims] = useState<ParsedClaim[]>([]);
   const [importing, setImporting] = useState(false);
   const [importCount, setImportCount] = useState(0);
+  const [importingFile, setImportingFile] = useState(false);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
 
   const handleParse = useCallback(() => {
     if (!resumeText.trim()) return;
-    const parsed = parseResumeStructured(resumeText);
+    const parsed = parseClaimsImportText(resumeText);
     setParsedClaims(parsed);
     setStep(parsed.length > 0 ? 'review' : 'input');
   }, [resumeText]);
+
+  const handleImportFile = useCallback(async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    const validationError = validateClaimsImportFile(file);
+    if (validationError) {
+      setFileError(validationError);
+      setSelectedFileName(null);
+      return;
+    }
+
+    setImportingFile(true);
+    setFileError(null);
+    setSelectedFileName(file.name);
+
+    try {
+      const extractedText = await extractClaimsImportText(file);
+      setResumeText(extractedText);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to read the file.';
+      setFileError(message);
+      setSelectedFileName(null);
+    } finally {
+      setImportingFile(false);
+    }
+  }, []);
 
   const handleImport = useCallback(async () => {
     const toImport = parsedClaims.filter((c) => c.included);
@@ -209,6 +247,8 @@ function ClaimsSection({ claims, addClaim }: {
       setImportCount(toImport.length);
       setResumeText('');
       setParsedClaims([]);
+      setSelectedFileName(null);
+      setFileError(null);
       setStep('done');
       setTimeout(() => setStep('input'), 3000);
     } finally {
@@ -237,9 +277,26 @@ function ClaimsSection({ claims, addClaim }: {
             <FileText size={14} /> Import from Resume / LinkedIn
           </h3>
           <p className="text-xs text-neutral-500 mb-3">
-            Paste your resume or LinkedIn experience text. The parser will extract structured claims
-            for you to review and edit before importing.
+            Upload a resume file or paste text. Both paths use the same parser and review flow before import.
           </p>
+          <div className="flex items-center gap-2 mb-3">
+            <label className="inline-flex items-center gap-1.5 px-3 py-2 border border-neutral-300 rounded-lg text-xs font-medium text-neutral-700 hover:bg-neutral-50 cursor-pointer">
+              <Upload size={13} />
+              {importingFile ? 'Reading file...' : 'Upload PDF, DOCX, or TXT'}
+              <input
+                type="file"
+                accept={getClaimsImportAcceptValue()}
+                onChange={handleImportFile}
+                className="sr-only"
+              />
+            </label>
+            {selectedFileName && (
+              <span className="text-[11px] text-neutral-500 truncate">{selectedFileName}</span>
+            )}
+          </div>
+          {fileError && (
+            <p className="text-xs text-red-600 mb-2">{fileError}</p>
+          )}
           <textarea
             value={resumeText}
             onChange={(e) => setResumeText(e.target.value)}
@@ -249,7 +306,7 @@ function ClaimsSection({ claims, addClaim }: {
           />
           <button
             onClick={handleParse}
-            disabled={!resumeText.trim()}
+            disabled={!resumeText.trim() || importingFile}
             className="w-full bg-brand-600 text-white py-2.5 rounded-lg text-sm font-medium disabled:opacity-50 hover:bg-brand-700 flex items-center justify-center gap-2"
           >
             <FileText size={14} />
