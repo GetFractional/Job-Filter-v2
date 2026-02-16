@@ -11,10 +11,11 @@ import {
 } from 'lucide-react';
 import { db, seedDefaultProfile } from '../db';
 import {
-  extractClaimsImportText,
+  extractClaimsImportWithMetadata,
   getClaimsImportAcceptValue,
-  parseClaimsImportText,
+  parseClaimsImport,
   validateClaimsImportFile,
+  type ClaimsImportParseOptions,
 } from '../lib/claimsImportPipeline';
 import { ClaimsReviewEditor } from '../components/claims/ClaimsReviewEditor';
 import {
@@ -24,7 +25,8 @@ import {
   type ClaimReviewItem,
 } from '../lib/claimsReview';
 import { clearJobFilterLocalState } from '../lib/profileState';
-import type { Claim } from '../types';
+import type { Claim, ParseDiagnostics } from '../types';
+import type { ParseSegmentationMode } from '../lib/claimParser';
 
 export function SettingsPage() {
   const profile = useStore((s) => s.profile);
@@ -201,6 +203,13 @@ function ProfileSection({ profile, updateProfile }: {
 // ============================================================
 
 type ClaimStep = 'input' | 'review' | 'done';
+const SEGMENTATION_MODES: ParseSegmentationMode[] = ['default', 'newlines', 'bullets', 'headings'];
+const SEGMENTATION_MODE_LABELS: Record<ParseSegmentationMode, string> = {
+  default: 'Default',
+  newlines: 'Newlines',
+  bullets: 'Bullets',
+  headings: 'Headings',
+};
 
 function ClaimsSection({ claims, addClaim }: {
   claims: Claim[];
@@ -214,14 +223,31 @@ function ClaimsSection({ claims, addClaim }: {
   const [importingFile, setImportingFile] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
+  const [sourcePageCount, setSourcePageCount] = useState(0);
+  const [segmentationMode, setSegmentationMode] = useState<ParseSegmentationMode>('default');
+  const [parseDiagnostics, setParseDiagnostics] = useState<ParseDiagnostics | null>(null);
+  const [lowConfidence, setLowConfidence] = useState(false);
+  const showDiagnostics = import.meta.env.DEV;
+  const aiStructuringEnabled = import.meta.env.VITE_ENABLE_AI_STRUCTURING === '1';
+
+  const runParse = useCallback((mode: ParseSegmentationMode = segmentationMode) => {
+    if (!resumeText.trim()) return;
+    const parseOptions: ClaimsImportParseOptions = {
+      segmentationMode: mode,
+      pageCount: sourcePageCount,
+    };
+    const result = parseClaimsImport(resumeText, parseOptions);
+    const nextItems = createClaimReviewItems(result.claims);
+    setReviewItems(nextItems);
+    setParseDiagnostics(result.diagnostics);
+    setSegmentationMode(mode);
+    setLowConfidence(result.lowConfidence || nextItems.length === 0);
+    setStep('review');
+  }, [resumeText, segmentationMode, sourcePageCount]);
 
   const handleParse = useCallback(() => {
-    if (!resumeText.trim()) return;
-    const parsed = parseClaimsImportText(resumeText);
-    const nextItems = createClaimReviewItems(parsed);
-    setReviewItems(nextItems);
-    setStep(nextItems.length > 0 ? 'review' : 'input');
-  }, [resumeText]);
+    runParse(segmentationMode);
+  }, [runParse, segmentationMode]);
 
   const handleImportFile = useCallback(async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -240,12 +266,16 @@ function ClaimsSection({ claims, addClaim }: {
     setSelectedFileName(file.name);
 
     try {
-      const extractedText = await extractClaimsImportText(file);
-      setResumeText(extractedText);
+      const extracted = await extractClaimsImportWithMetadata(file);
+      setResumeText(extracted.text);
+      setSourcePageCount(extracted.pageCount);
+      setParseDiagnostics(null);
+      setLowConfidence(false);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to read the file.';
       setFileError(message);
       setSelectedFileName(null);
+      setSourcePageCount(0);
     } finally {
       setImportingFile(false);
     }
@@ -264,7 +294,10 @@ function ClaimsSection({ claims, addClaim }: {
       setResumeText('');
       setReviewItems([]);
       setSelectedFileName(null);
+      setSourcePageCount(0);
       setFileError(null);
+      setParseDiagnostics(null);
+      setLowConfidence(false);
       setStep('done');
       setTimeout(() => setStep('input'), 3000);
     } finally {
@@ -274,6 +307,8 @@ function ClaimsSection({ claims, addClaim }: {
 
   const handleDiscard = useCallback(() => {
     setReviewItems([]);
+    setParseDiagnostics(null);
+    setLowConfidence(false);
     setStep('input');
   }, []);
 
@@ -305,7 +340,13 @@ function ClaimsSection({ claims, addClaim }: {
           {fileError && <p className="text-xs text-red-600 mb-2">{fileError}</p>}
           <textarea
             value={resumeText}
-            onChange={(e) => setResumeText(e.target.value)}
+            onChange={(e) => {
+              setResumeText(e.target.value);
+              if (!e.target.value.trim()) {
+                setParseDiagnostics(null);
+                setLowConfidence(false);
+              }
+            }}
             placeholder={"Role at Company\nJan 2021 - Present\n- Led lifecycle marketing strategy across 4 channels\n- Increased qualified pipeline by 40%\n- Managed a cross-functional team\n\nRole at Example Inc\nMar 2018 - Dec 2020\n- Built demand generation engine from 0 to $5M pipeline\n- Launched ABM program targeting enterprise accounts"}
             rows={10}
             className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm resize-y mb-3 focus:outline-none focus:ring-2 focus:ring-brand-500 font-mono"
@@ -318,18 +359,78 @@ function ClaimsSection({ claims, addClaim }: {
             <FileText size={14} />
             Parse & Review Claims
           </button>
+          {showDiagnostics && parseDiagnostics && (
+            <details className="mt-3 rounded-lg border border-neutral-200 bg-neutral-50 p-3">
+              <summary className="cursor-pointer text-xs font-medium text-neutral-700">
+                Advanced diagnostics (dev only)
+              </summary>
+              <DiagnosticsGrid diagnostics={parseDiagnostics} />
+            </details>
+          )}
         </div>
       )}
 
       {step === 'review' && (
         <div className="space-y-4">
           {reviewItems.length === 0 ? (
-            <div className="bg-amber-50 rounded-lg border border-amber-200 p-4 text-center">
-              <AlertTriangle size={20} className="text-amber-500 mx-auto mb-2" />
-              <p className="text-sm text-amber-700">No claims could be parsed from the text.</p>
-              <p className="text-xs text-amber-600 mt-1">
-                Make sure your text has role headers (for example "Role at Company") followed by bullet points.
-              </p>
+            <div className="space-y-3">
+              <div className="bg-amber-50 rounded-lg border border-amber-200 p-4 text-center">
+                <AlertTriangle size={20} className="text-amber-500 mx-auto mb-2" />
+                <p className="text-sm text-amber-700">No claims could be parsed from the text.</p>
+                <p className="text-xs text-amber-600 mt-1">
+                  Try an alternate segmentation mode below or continue with Skip.
+                </p>
+              </div>
+
+              {lowConfidence && (
+                <div className="rounded-lg border border-neutral-200 bg-white p-3 space-y-2">
+                  <p className="text-xs font-medium text-neutral-700">Guided recovery</p>
+                  <div className="flex flex-wrap gap-2">
+                    {SEGMENTATION_MODES.map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => runParse(mode)}
+                        className={`px-2.5 py-1.5 rounded-md text-xs border ${
+                          mode === segmentationMode
+                            ? 'bg-brand-50 border-brand-300 text-brand-700'
+                            : 'border-neutral-300 text-neutral-700 hover:bg-neutral-50'
+                        }`}
+                      >
+                        Try {SEGMENTATION_MODE_LABELS[mode]}
+                      </button>
+                    ))}
+                    {aiStructuringEnabled && (
+                      <button
+                        type="button"
+                        onClick={() => setFileError('AI structuring is enabled but not configured in this build.')}
+                        className="px-2.5 py-1.5 rounded-md text-xs border border-neutral-300 text-neutral-700 hover:bg-neutral-50"
+                      >
+                        Try AI structuring (beta)
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {showDiagnostics && parseDiagnostics && (
+                <details className="rounded-lg border border-neutral-200 bg-neutral-50 p-3">
+                  <summary className="cursor-pointer text-xs font-medium text-neutral-700">
+                    Advanced diagnostics (dev only)
+                  </summary>
+                  <DiagnosticsGrid diagnostics={parseDiagnostics} />
+                </details>
+              )}
+
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setStep('input')}
+                  className="px-3 py-2 text-xs border border-neutral-300 rounded-lg text-neutral-700 hover:bg-neutral-50"
+                >
+                  Back to import
+                </button>
+              </div>
             </div>
           ) : (
             <ClaimsReviewEditor
@@ -412,6 +513,43 @@ function ClaimsSection({ claims, addClaim }: {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function DiagnosticsGrid({ diagnostics }: { diagnostics: ParseDiagnostics }) {
+  const rows: Array<[string, string | number]> = [
+    ['Extracted text length', diagnostics.extractedTextLength],
+    ['Page count', diagnostics.pageCount],
+    ['Detected lines', diagnostics.detectedLinesCount],
+    ['Bullet candidates', diagnostics.bulletCandidatesCount],
+    ['Section headers', diagnostics.sectionHeadersDetected],
+    ['Company candidates', diagnostics.companyCandidatesDetected],
+    ['Role candidates', diagnostics.roleCandidatesDetected],
+    ['Final companies', diagnostics.finalCompaniesCount],
+    ['Final roles', diagnostics.rolesCount],
+    ['Final bullets', diagnostics.bulletsCount],
+    ['Reason codes', diagnostics.reasonCodes.join(', ') || 'None'],
+  ];
+
+  return (
+    <div className="mt-3 space-y-3">
+      <dl className="grid gap-2 sm:grid-cols-2">
+        {rows.map(([label, value]) => (
+          <div key={label} className="rounded border border-neutral-200 bg-white p-2">
+            <dt className="text-[11px] text-neutral-500">{label}</dt>
+            <dd className="text-xs font-medium text-neutral-800">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      {diagnostics.previewLines.length > 0 && (
+        <div className="rounded border border-neutral-200 bg-white p-2">
+          <p className="text-[11px] text-neutral-500 mb-1">Preview lines (first 30)</p>
+          <pre className="text-[11px] text-neutral-700 whitespace-pre-wrap break-words max-h-40 overflow-auto">
+            {diagnostics.previewLines.join('\n')}
+          </pre>
+        </div>
+      )}
     </div>
   );
 }

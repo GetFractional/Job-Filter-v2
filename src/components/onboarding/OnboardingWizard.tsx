@@ -17,10 +17,11 @@ import {
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import {
-  extractClaimsImportText,
+  extractClaimsImportWithMetadata,
   getClaimsImportAcceptValue,
-  parseClaimsImportText,
+  parseClaimsImport,
   validateClaimsImportFile,
+  type ClaimsImportParseOptions,
 } from '../../lib/claimsImportPipeline';
 import { ClaimsReviewEditor } from '../claims/ClaimsReviewEditor';
 import {
@@ -29,6 +30,8 @@ import {
   reviewItemToClaimInput,
   type ClaimReviewItem,
 } from '../../lib/claimsReview';
+import type { ParseDiagnostics } from '../../types';
+import type { ParseSegmentationMode } from '../../lib/claimParser';
 
 interface OnboardingWizardProps {
   onComplete: () => void;
@@ -43,6 +46,14 @@ const STEPS: { id: Step; label: string }[] = [
   { id: 'preferences', label: 'Preferences' },
   { id: 'ready', label: 'Ready' },
 ];
+
+const SEGMENTATION_MODES: ParseSegmentationMode[] = ['default', 'newlines', 'bullets', 'headings'];
+const SEGMENTATION_MODE_LABELS: Record<ParseSegmentationMode, string> = {
+  default: 'Default',
+  newlines: 'Newlines',
+  bullets: 'Bullets',
+  headings: 'Headings',
+};
 
 export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const profile = useStore((s) => s.profile);
@@ -70,6 +81,12 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [readingFile, setReadingFile] = useState(false);
   const [fileImportError, setFileImportError] = useState<string | null>(null);
+  const [sourcePageCount, setSourcePageCount] = useState(0);
+  const [segmentationMode, setSegmentationMode] = useState<ParseSegmentationMode>('default');
+  const [parseDiagnostics, setParseDiagnostics] = useState<ParseDiagnostics | null>(null);
+  const [lowConfidence, setLowConfidence] = useState(false);
+  const showDiagnostics = import.meta.env.DEV;
+  const aiStructuringEnabled = import.meta.env.VITE_ENABLE_AI_STRUCTURING === '1';
 
   const stepIndex = STEPS.findIndex((s) => s.id === step);
 
@@ -99,12 +116,23 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     }
   }, [compFloor, compTarget, locationPref, disqualifiers, updateProfile]);
 
-  const handleParseResume = useCallback(() => {
+  const runParseResume = useCallback((mode: ParseSegmentationMode = segmentationMode) => {
     if (!resumeText.trim()) return;
-    const parsed = parseClaimsImportText(resumeText);
-    const items = createClaimReviewItems(parsed);
+    const parseOptions: ClaimsImportParseOptions = {
+      segmentationMode: mode,
+      pageCount: sourcePageCount,
+    };
+    const result = parseClaimsImport(resumeText, parseOptions);
+    const items = createClaimReviewItems(result.claims);
     setReviewItems(items);
-  }, [resumeText]);
+    setParseDiagnostics(result.diagnostics);
+    setSegmentationMode(mode);
+    setLowConfidence(result.lowConfidence || items.length === 0);
+  }, [resumeText, segmentationMode, sourcePageCount]);
+
+  const handleParseResume = useCallback(() => {
+    runParseResume(segmentationMode);
+  }, [runParseResume, segmentationMode]);
 
   const handleImportFile = useCallback(async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -123,12 +151,16 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     setSelectedFileName(file.name);
 
     try {
-      const extractedText = await extractClaimsImportText(file);
-      setResumeText(extractedText);
+      const extracted = await extractClaimsImportWithMetadata(file);
+      setResumeText(extracted.text);
+      setSourcePageCount(extracted.pageCount);
+      setParseDiagnostics(null);
+      setLowConfidence(false);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to read the selected file.';
       setFileImportError(message);
       setSelectedFileName(null);
+      setSourcePageCount(0);
     } finally {
       setReadingFile(false);
     }
@@ -136,6 +168,8 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
   const handleDiscardReview = useCallback(() => {
     setReviewItems(null);
+    setParseDiagnostics(null);
+    setLowConfidence(false);
   }, []);
 
   const handleImportSelectedClaims = useCallback(async () => {
@@ -153,6 +187,9 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
       setSelectedFileName(null);
       setFileImportError(null);
       setReviewItems(null);
+      setParseDiagnostics(null);
+      setLowConfidence(false);
+      setSourcePageCount(0);
     } finally {
       setSaving(false);
     }
@@ -206,7 +243,11 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
   // Check whether required preferences are filled
   const missingRequiredPrefs = !compFloor.trim() || !locationPref.trim();
-  const isClaimsReviewMode = step === 'claims' && reviewItems !== null && claimsImported === 0;
+  const isClaimsReviewMode =
+    step === 'claims' &&
+    reviewItems !== null &&
+    reviewItems.length > 0 &&
+    claimsImported === 0;
 
   return (
     <div className="min-h-screen bg-neutral-50 flex flex-col">
@@ -392,11 +433,6 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     />
                   </div>
 
-                  {reviewItems.length === 0 && (
-                    <div className="text-center py-6">
-                      <p className="text-sm text-neutral-500">No claims could be parsed. Try a different format or skip this step.</p>
-                    </div>
-                  )}
                 </div>
               ) : (
                 /* ---- Paste textarea ---- */
@@ -421,7 +457,13 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                   )}
                   <textarea
                     value={resumeText}
-                    onChange={(e) => setResumeText(e.target.value)}
+                    onChange={(e) => {
+                      setResumeText(e.target.value);
+                      if (!e.target.value.trim()) {
+                        setParseDiagnostics(null);
+                        setLowConfidence(false);
+                      }
+                    }}
                     placeholder="Paste your resume text here...
 
 Example:
@@ -439,7 +481,67 @@ Head of Marketing at Example Co, Jan 2021 - Present
                       You can skip this and import later from Settings.
                     </p>
                   </div>
+                  {showDiagnostics && parseDiagnostics && (
+                    <details className="mt-3 rounded-lg border border-neutral-200 bg-neutral-50 p-3">
+                      <summary className="cursor-pointer text-xs font-medium text-neutral-700">
+                        Advanced diagnostics (dev only)
+                      </summary>
+                      <DiagnosticsGrid diagnostics={parseDiagnostics} />
+                    </details>
+                  )}
                 </>
+              )}
+
+              {reviewItems && reviewItems.length === 0 && (
+                <div className="space-y-3">
+                  <div className="bg-amber-50 rounded-lg border border-amber-200 p-4 text-center">
+                    <AlertTriangle size={20} className="text-amber-500 mx-auto mb-2" />
+                    <p className="text-sm text-amber-700">We could not parse role blocks from this import.</p>
+                    <p className="text-xs text-amber-600 mt-1">
+                      Try alternate segmentation below or Skip this step.
+                    </p>
+                  </div>
+
+                  {lowConfidence && (
+                    <div className="rounded-lg border border-neutral-200 bg-white p-3 space-y-2">
+                      <p className="text-xs font-medium text-neutral-700">Guided recovery</p>
+                      <div className="flex flex-wrap gap-2">
+                        {SEGMENTATION_MODES.map((mode) => (
+                          <button
+                            key={mode}
+                            type="button"
+                            onClick={() => runParseResume(mode)}
+                            className={`px-2.5 py-1.5 rounded-md text-xs border ${
+                              mode === segmentationMode
+                                ? 'bg-brand-50 border-brand-300 text-brand-700'
+                                : 'border-neutral-300 text-neutral-700 hover:bg-neutral-50'
+                            }`}
+                          >
+                            Try {SEGMENTATION_MODE_LABELS[mode]}
+                          </button>
+                        ))}
+                        {aiStructuringEnabled && (
+                          <button
+                            type="button"
+                            onClick={() => setFileImportError('AI structuring is enabled but not configured in this build.')}
+                            className="px-2.5 py-1.5 rounded-md text-xs border border-neutral-300 text-neutral-700 hover:bg-neutral-50"
+                          >
+                            Try AI structuring (beta)
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {showDiagnostics && parseDiagnostics && (
+                    <details className="rounded-lg border border-neutral-200 bg-neutral-50 p-3">
+                      <summary className="cursor-pointer text-xs font-medium text-neutral-700">
+                        Advanced diagnostics (dev only)
+                      </summary>
+                      <DiagnosticsGrid diagnostics={parseDiagnostics} />
+                    </details>
+                  )}
+                </div>
               )}
             </div>
           )}
@@ -627,6 +729,43 @@ Contract-to-hire only"
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function DiagnosticsGrid({ diagnostics }: { diagnostics: ParseDiagnostics }) {
+  const rows: Array<[string, string | number]> = [
+    ['Extracted text length', diagnostics.extractedTextLength],
+    ['Page count', diagnostics.pageCount],
+    ['Detected lines', diagnostics.detectedLinesCount],
+    ['Bullet candidates', diagnostics.bulletCandidatesCount],
+    ['Section headers', diagnostics.sectionHeadersDetected],
+    ['Company candidates', diagnostics.companyCandidatesDetected],
+    ['Role candidates', diagnostics.roleCandidatesDetected],
+    ['Final companies', diagnostics.finalCompaniesCount],
+    ['Final roles', diagnostics.rolesCount],
+    ['Final bullets', diagnostics.bulletsCount],
+    ['Reason codes', diagnostics.reasonCodes.join(', ') || 'None'],
+  ];
+
+  return (
+    <div className="mt-3 space-y-3">
+      <dl className="grid gap-2 sm:grid-cols-2">
+        {rows.map(([label, value]) => (
+          <div key={label} className="rounded border border-neutral-200 bg-white p-2">
+            <dt className="text-[11px] text-neutral-500">{label}</dt>
+            <dd className="text-xs font-medium text-neutral-800">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      {diagnostics.previewLines.length > 0 && (
+        <div className="rounded border border-neutral-200 bg-white p-2">
+          <p className="text-[11px] text-neutral-500 mb-1">Preview lines (first 30)</p>
+          <pre className="text-[11px] text-neutral-700 whitespace-pre-wrap break-words max-h-36 overflow-auto">
+            {diagnostics.previewLines.join('\n')}
+          </pre>
+        </div>
+      )}
     </div>
   );
 }

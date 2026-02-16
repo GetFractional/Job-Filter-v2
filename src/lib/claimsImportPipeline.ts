@@ -1,7 +1,11 @@
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
-import { parseResumeStructured } from './claimParser';
-import type { ParsedClaim } from './claimParser';
+import {
+  parseResumeStructuredWithDiagnostics,
+  type ParseSegmentationMode,
+  type ParsedClaim,
+} from './claimParser';
+import type { ParseDiagnostics } from '../types';
 
 GlobalWorkerOptions.workerSrc = pdfWorker;
 
@@ -10,6 +14,30 @@ const DOCX_MIME =
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
 type ClaimsImportFileKind = 'pdf' | 'docx' | 'txt';
+
+export interface ClaimsImportExtraction {
+  text: string;
+  pageCount: number;
+  sourceKind: ClaimsImportFileKind;
+}
+
+export interface ClaimsImportParseOptions {
+  segmentationMode?: ParseSegmentationMode;
+  pageCount?: number;
+}
+
+export interface ClaimsImportParseResult {
+  claims: ParsedClaim[];
+  diagnostics: ParseDiagnostics;
+  lowConfidence: boolean;
+}
+
+export const CLAIMS_SEGMENTATION_MODES: ParseSegmentationMode[] = [
+  'default',
+  'newlines',
+  'bullets',
+  'headings',
+];
 
 const FILE_KIND_BY_EXTENSION: Record<string, ClaimsImportFileKind> = {
   pdf: 'pdf',
@@ -179,7 +207,7 @@ async function extractDocxText(file: File): Promise<string> {
   return normalizeClaimsImportText(decodedSections.join('\n'));
 }
 
-async function extractPdfText(file: File): Promise<string> {
+async function extractPdfText(file: File): Promise<{ text: string; pageCount: number }> {
   const bytes = new Uint8Array(await file.arrayBuffer());
   const pdf = await getDocument({ data: bytes }).promise;
   const pages: string[] = [];
@@ -237,7 +265,10 @@ async function extractPdfText(file: File): Promise<string> {
     }
   }
 
-  return normalizeClaimsImportText(pages.join('\n\n'));
+  return {
+    text: normalizeClaimsImportText(pages.join('\n\n')),
+    pageCount: pdf.numPages,
+  };
 }
 
 async function extractTxtText(file: File): Promise<string> {
@@ -259,20 +290,53 @@ export function validateClaimsImportFile(file: Pick<File, 'name' | 'type' | 'siz
 }
 
 export async function extractClaimsImportText(file: File): Promise<string> {
+  const { text } = await extractClaimsImportWithMetadata(file);
+  return text;
+}
+
+export async function extractClaimsImportWithMetadata(file: File): Promise<ClaimsImportExtraction> {
   const kind = detectFileKind(file);
   if (!kind) {
     throw new Error('Unsupported file type. Upload PDF, DOCX, or TXT.');
   }
 
-  if (kind === 'pdf') return extractPdfText(file);
-  if (kind === 'docx') return extractDocxText(file);
-  return extractTxtText(file);
+  if (kind === 'pdf') {
+    const extracted = await extractPdfText(file);
+    return {
+      text: extracted.text,
+      pageCount: extracted.pageCount,
+      sourceKind: kind,
+    };
+  }
+
+  if (kind === 'docx') {
+    return {
+      text: await extractDocxText(file),
+      pageCount: 0,
+      sourceKind: kind,
+    };
+  }
+
+  return {
+    text: await extractTxtText(file),
+    pageCount: 0,
+    sourceKind: kind,
+  };
+}
+
+export function parseClaimsImport(
+  rawText: string,
+  options: ClaimsImportParseOptions = {},
+): ClaimsImportParseResult {
+  const normalized = normalizeClaimsImportText(rawText);
+  return parseResumeStructuredWithDiagnostics(normalized, {
+    segmentationMode: options.segmentationMode || 'default',
+    pageCount: options.pageCount || 0,
+  });
 }
 
 export function parseClaimsImportText(rawText: string): ParsedClaim[] {
-  const normalized = normalizeClaimsImportText(rawText);
-  if (!normalized) return [];
-  return parseResumeStructured(normalized);
+  return parseClaimsImport(rawText).claims;
 }
 
 export function getClaimsImportAcceptValue(): string {

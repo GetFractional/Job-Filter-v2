@@ -1,6 +1,10 @@
 // Unit tests for the structured resume/LinkedIn claim parser
 import { describe, it, expect } from 'vitest';
-import { parseResumeStructured, detectTools } from '../claimParser';
+import {
+  parseResumeStructured,
+  parseResumeStructuredWithDiagnostics,
+  detectTools,
+} from '../claimParser';
 
 // ============================================================
 // Standard resume format
@@ -139,6 +143,71 @@ Manager at DupCo
     expect(claims.length).toBe(1);
     // Should not have duplicate responsibilities
     expect(claims[0].responsibilities.filter((r) => r.includes('Led marketing')).length).toBe(1);
+  });
+
+  it('recognizes U+25CF bullets from PDF extraction', () => {
+    const text = `
+Senior Marketing Manager at Example Corp
+Jan 2020 - Present
+● Built lifecycle strategy across three segments
+● Increased retained revenue by 24%
+    `;
+
+    const claims = parseResumeStructured(text);
+    expect(claims.length).toBe(1);
+    expect(claims[0].responsibilities.some((line) => line.includes('Built lifecycle strategy'))).toBe(true);
+    expect(claims[0].outcomes.some((line) => line.description.includes('24%'))).toBe(true);
+  });
+
+  it('joins bullet-only lines with continuation text', () => {
+    const text = `
+Director at Continuation Inc
+2021 - 2023
+●
+Built a demand generation engine from zero to scale
+●
+Improved conversion by 30%
+    `;
+
+    const claims = parseResumeStructured(text);
+    expect(claims.length).toBe(1);
+    expect(claims[0].responsibilities.some((line) => line.includes('Built a demand generation engine'))).toBe(true);
+    expect(claims[0].outcomes.some((line) => line.description.includes('30%'))).toBe(true);
+  });
+
+  it('merges colon-prefixed continuation lines into previous bullets', () => {
+    const text = `
+VP Marketing at Colon Labs
+Jan 2022 - Present
+● Built GTM operating cadence
+: Revenue operations, lead routing, and forecasting
+    `;
+
+    const claims = parseResumeStructured(text);
+    expect(claims.length).toBe(1);
+    expect(claims[0].responsibilities[0]).toContain('Revenue operations');
+  });
+
+  it('rejects contact/location noise lines as role headers', () => {
+    const text = `
+Matt Dimock | Nashville, TN | matt@example.com | 615-555-0101
+Director of Growth at Valid Co
+Jan 2021 - Present
+● Grew pipeline by 40%
+    `;
+
+    const claims = parseResumeStructured(text);
+    expect(claims.length).toBe(1);
+    expect(claims[0].company).toBe('Valid Co');
+    expect(claims[0].role).toBe('Director of Growth');
+  });
+
+  it('returns diagnostics reason codes for low-confidence parses', () => {
+    const text = 'Random paragraph with no headers and no bullets or role metadata.';
+    const result = parseResumeStructuredWithDiagnostics(text);
+    expect(result.claims).toHaveLength(0);
+    expect(result.lowConfidence).toBe(true);
+    expect(result.diagnostics.reasonCodes).toContain('FILTERED_ALL');
   });
 });
 
