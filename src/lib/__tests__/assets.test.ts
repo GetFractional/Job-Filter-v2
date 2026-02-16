@@ -220,6 +220,27 @@ describe('generateOutreachEmail', () => {
     });
     expect(email).toContain('PreviousCo');
   });
+
+  it('prefers edited claimText over fallback outcome text', () => {
+    const editedClaims: Claim[] = [
+      {
+        ...testClaims[0],
+        claimText: 'Built a lifecycle engine that raised qualified pipeline by 35%',
+        outcomes: [
+          { description: 'Old parsed outcome should not be preferred', metric: '35%', isNumeric: true, verified: false },
+        ],
+      },
+    ];
+
+    const email = generateOutreachEmail({
+      job: testJob,
+      userName: 'Matt',
+      claims: editedClaims,
+    });
+
+    expect(email).toContain('Built a lifecycle engine that raised qualified pipeline by 35%');
+    expect(email).not.toContain('Old parsed outcome should not be preferred');
+  });
 });
 
 // ============================================================

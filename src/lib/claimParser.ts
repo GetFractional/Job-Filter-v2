@@ -7,7 +7,7 @@
 //   Pass 2 — Extract role, company, dates, bullets, tools from each block.
 // Followed by a merge step to combine orphan fragments.
 
-import type { ClaimOutcome } from '../types';
+import type { ClaimOutcome, ClaimReviewStatus, ClaimMetric } from '../types';
 
 // ============================================================
 // Types
@@ -20,6 +20,13 @@ export interface ParsedClaim {
   company: string;
   startDate: string;
   endDate: string; // empty string = Present
+  rawSnippet: string;
+  claimText: string;
+  metricValue: string;
+  metricUnit: string;
+  metricContext: string;
+  reviewStatus: ClaimReviewStatus;
+  autoUse: boolean;
   responsibilities: string[];
   tools: string[];
   outcomes: ParsedOutcome[];
@@ -587,6 +594,13 @@ function makeClaim(): ParsedClaim {
     company: '',
     startDate: '',
     endDate: '',
+    rawSnippet: '',
+    claimText: '',
+    metricValue: '',
+    metricUnit: '',
+    metricContext: '',
+    reviewStatus: 'active',
+    autoUse: true,
     responsibilities: [],
     tools: [],
     outcomes: [],
@@ -631,6 +645,16 @@ function blockToClaim(block: RawClaimBlock): ParsedClaim {
   }
 
   claim.tools = [...allToolsSet];
+  const firstOutcome = claim.outcomes[0];
+  const firstResponsibility = claim.responsibilities[0];
+  claim.claimText = firstOutcome?.description || firstResponsibility || '';
+  claim.rawSnippet = claim.claimText;
+  if (firstOutcome?.metric) {
+    const metric = parseMetricString(firstOutcome.metric, firstOutcome.description);
+    claim.metricValue = metric.value || '';
+    claim.metricUnit = metric.unit || '';
+    claim.metricContext = metric.context || '';
+  }
   return claim;
 }
 
@@ -691,6 +715,50 @@ function deduplicateResponsibilities(claims: ParsedClaim[]): void {
   }
 }
 
+function parseMetricString(metric: string, contextSource: string): ClaimMetric {
+  const compact = metric.replace(/\s+/g, '');
+  const valueMatch = compact.match(/^\$?\d[\d,.]*/);
+  const unit = compact.slice(valueMatch?.[0].length || 0);
+  return {
+    value: valueMatch?.[0],
+    unit: unit || undefined,
+    context: contextSource.replace(/\s+/g, ' ').trim().slice(0, 120),
+  };
+}
+
+function applyReviewStatus(claims: ParsedClaim[]): void {
+  const metricGroups = new Map<string, { values: Set<string>; indexes: number[] }>();
+
+  claims.forEach((claim, index) => {
+    const hasCoreFields = Boolean(claim.company.trim() && claim.role.trim() && claim.claimText.trim());
+    claim.reviewStatus = hasCoreFields ? 'active' : 'needs_review';
+    claim.autoUse = claim.reviewStatus === 'active';
+
+    if (!claim.metricValue.trim()) return;
+    const key = [
+      claim.company.toLowerCase().trim(),
+      claim.role.toLowerCase().trim(),
+      claim.metricUnit.toLowerCase().trim(),
+    ].join('::');
+
+    if (!metricGroups.has(key)) {
+      metricGroups.set(key, { values: new Set<string>(), indexes: [] });
+    }
+    const group = metricGroups.get(key);
+    if (!group) return;
+    group.values.add(claim.metricValue.trim());
+    group.indexes.push(index);
+  });
+
+  for (const { values, indexes } of metricGroups.values()) {
+    if (values.size <= 1) continue;
+    for (const index of indexes) {
+      claims[index].reviewStatus = 'conflict';
+      claims[index].autoUse = false;
+    }
+  }
+}
+
 // ============================================================
 // Main entry point
 // ============================================================
@@ -718,6 +786,7 @@ export function parseResumeStructured(text: string): ParsedClaim[] {
 
   // Deduplicate responsibilities and outcomes
   deduplicateResponsibilities(claims);
+  applyReviewStatus(claims);
 
   return claims;
 }
@@ -775,22 +844,50 @@ export function parsedClaimToImport(parsed: ParsedClaim): {
   company: string;
   startDate: string;
   endDate?: string;
+  claimText?: string;
+  rawSnippet?: string;
+  reviewStatus?: ClaimReviewStatus;
+  autoUse?: boolean;
+  metric?: ClaimMetric;
   responsibilities: string[];
   tools: string[];
   outcomes: ClaimOutcome[];
 } {
+  const normalizedClaimText = parsed.claimText.trim();
+  const metricLabel = `${parsed.metricValue}${parsed.metricUnit}`.trim();
+  const hasMetric = parsed.metricValue.trim().length > 0;
+
   return {
     role: parsed.role,
     company: parsed.company,
     startDate: parsed.startDate,
     endDate: parsed.endDate || undefined,
-    responsibilities: parsed.responsibilities,
+    claimText: normalizedClaimText || undefined,
+    rawSnippet: parsed.rawSnippet || undefined,
+    reviewStatus: parsed.reviewStatus,
+    autoUse: parsed.autoUse,
+    metric: {
+      value: parsed.metricValue || undefined,
+      unit: parsed.metricUnit || undefined,
+      context: parsed.metricContext || undefined,
+    },
+    responsibilities: hasMetric || !normalizedClaimText ? parsed.responsibilities : [normalizedClaimText, ...parsed.responsibilities],
     tools: parsed.tools,
-    outcomes: parsed.outcomes.map((o) => ({
-      description: o.description,
-      metric: o.metric,
-      isNumeric: o.isNumeric,
-      verified: false,
-    })),
+    outcomes: [
+      ...(hasMetric && normalizedClaimText
+        ? [{
+            description: normalizedClaimText,
+            metric: metricLabel || undefined,
+            isNumeric: true,
+            verified: false,
+          }]
+        : []),
+      ...parsed.outcomes.map((o) => ({
+        description: o.description,
+        metric: o.metric,
+        isNumeric: o.isNumeric,
+        verified: false,
+      })),
+    ],
   };
 }

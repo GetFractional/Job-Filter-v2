@@ -17,15 +17,18 @@ import {
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import {
-  parsedClaimToImport,
-} from '../../lib/claimParser';
-import type { ParsedClaim } from '../../lib/claimParser';
-import {
   extractClaimsImportText,
   getClaimsImportAcceptValue,
   parseClaimsImportText,
   validateClaimsImportFile,
 } from '../../lib/claimsImportPipeline';
+import { ClaimsReviewEditor } from '../claims/ClaimsReviewEditor';
+import {
+  createClaimReviewItems,
+  regroupClaimReviewItems,
+  reviewItemToClaimInput,
+  type ClaimReviewItem,
+} from '../../lib/claimsReview';
 
 interface OnboardingWizardProps {
   onComplete: () => void;
@@ -61,8 +64,8 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
   // Resume paste state
   const [resumeText, setResumeText] = useState('');
-  // Parsed claims for review (null = not yet parsed)
-  const [parsedClaims, setParsedClaims] = useState<ParsedClaim[] | null>(null);
+  // Review items for explicit pre-commit review (null = not yet parsed)
+  const [reviewItems, setReviewItems] = useState<ClaimReviewItem[] | null>(null);
   const [claimsImported, setClaimsImported] = useState(0);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [readingFile, setReadingFile] = useState(false);
@@ -99,7 +102,8 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const handleParseResume = useCallback(() => {
     if (!resumeText.trim()) return;
     const parsed = parseClaimsImportText(resumeText);
-    setParsedClaims(parsed);
+    const items = createClaimReviewItems(parsed);
+    setReviewItems(items);
   }, [resumeText]);
 
   const handleImportFile = useCallback(async (event: ChangeEvent<HTMLInputElement>) => {
@@ -130,34 +134,32 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     }
   }, []);
 
-  const handleToggleClaim = useCallback((key: string) => {
-    setParsedClaims((prev) =>
-      prev?.map((c) => (c._key === key ? { ...c, included: !c.included } : c)) ?? null
-    );
+  const handleDiscardReview = useCallback(() => {
+    setReviewItems(null);
   }, []);
 
   const handleImportSelectedClaims = useCallback(async () => {
-    if (!parsedClaims) return;
+    if (!reviewItems) return;
     setSaving(true);
     try {
       let imported = 0;
-      for (const claim of parsedClaims) {
-        if (claim.included && (claim.role || claim.company)) {
-          const data = parsedClaimToImport(claim);
-          await addClaim(data);
-          imported++;
-        }
+      for (const item of reviewItems) {
+        if (!item.included) continue;
+        const data = reviewItemToClaimInput(item);
+        await addClaim(data);
+        imported++;
       }
       setClaimsImported(imported);
       setSelectedFileName(null);
       setFileImportError(null);
+      setReviewItems(null);
     } finally {
       setSaving(false);
     }
-  }, [parsedClaims, addClaim]);
+  }, [reviewItems, addClaim]);
 
-  const selectedClaimCount = parsedClaims?.filter((c) => c.included).length ?? 0;
-  const totalClaimCount = parsedClaims?.length ?? 0;
+  const selectedClaimCount = reviewItems?.filter((item) => item.included).length ?? 0;
+  const totalClaimCount = reviewItems?.length ?? 0;
 
   const handleNext = async () => {
     if (step === 'profile') {
@@ -165,12 +167,12 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     }
     if (step === 'claims') {
       // If user pasted text but hasn't parsed yet, parse first
-      if (resumeText.trim() && !parsedClaims) {
+      if (resumeText.trim() && !reviewItems) {
         handleParseResume();
         return; // Stay on claims step to show review UI
       }
       // If parsed but not yet imported, import selected
-      if (parsedClaims && claimsImported === 0) {
+      if (reviewItems && claimsImported === 0) {
         await handleImportSelectedClaims();
       }
     }
@@ -204,6 +206,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
   // Check whether required preferences are filled
   const missingRequiredPrefs = !compFloor.trim() || !locationPref.trim();
+  const isClaimsReviewMode = step === 'claims' && reviewItems !== null && claimsImported === 0;
 
   return (
     <div className="min-h-screen bg-neutral-50 flex flex-col">
@@ -368,7 +371,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     You can review and edit them later in Settings &rarr; Claim Ledger.
                   </p>
                 </div>
-              ) : parsedClaims ? (
+              ) : reviewItems ? (
                 /* ---- Review / Merge UI ---- */
                 <div>
                   <div className="flex items-center justify-between mb-3">
@@ -379,55 +382,17 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                   </div>
 
                   <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
-                    {parsedClaims.map((claim) => {
-                      const bulletCount = claim.responsibilities.length + claim.outcomes.length;
-                      const dateRange = claim.startDate
-                        ? `${claim.startDate}${claim.endDate ? ` - ${claim.endDate}` : ' - Present'}`
-                        : '';
-                      return (
-                        <label
-                          key={claim._key}
-                          className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                            claim.included
-                              ? 'bg-white border-neutral-200 hover:border-brand-300'
-                              : 'bg-neutral-50 border-neutral-100 opacity-60'
-                          }`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={claim.included}
-                            onChange={() => handleToggleClaim(claim._key)}
-                            className="mt-1 h-4 w-4 rounded border-neutral-300 text-brand-600 focus:ring-brand-500/30"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              {claim.role && (
-                                <span className="text-sm font-semibold text-neutral-900 truncate">{claim.role}</span>
-                              )}
-                              {claim.company && (
-                                <span className="text-xs text-neutral-500">at {claim.company}</span>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-3 mt-0.5">
-                              {dateRange && (
-                                <span className="text-[11px] text-neutral-400">{dateRange}</span>
-                              )}
-                              <span className="text-[11px] text-neutral-400">
-                                {bulletCount} bullet{bulletCount !== 1 ? 's' : ''}
-                              </span>
-                              {claim.tools.length > 0 && (
-                                <span className="text-[11px] text-neutral-400">
-                                  {claim.tools.length} tool{claim.tools.length !== 1 ? 's' : ''}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </label>
-                      );
-                    })}
+                    <ClaimsReviewEditor
+                      items={reviewItems}
+                      onChange={(items) => setReviewItems(regroupClaimReviewItems(items))}
+                      onApprove={handleImportSelectedClaims}
+                      onDiscard={handleDiscardReview}
+                      approving={saving}
+                      approveLabel="Approve & Save"
+                    />
                   </div>
 
-                  {parsedClaims.length === 0 && (
+                  {reviewItems.length === 0 && (
                     <div className="text-center py-6">
                       <p className="text-sm text-neutral-500">No claims could be parsed. Try a different format or skip this step.</p>
                     </div>
@@ -622,7 +587,7 @@ Contract-to-hire only"
           </div>
 
           <div className="flex items-center gap-3">
-            {step !== 'welcome' && step !== 'ready' && (
+            {step !== 'welcome' && step !== 'ready' && !isClaimsReviewMode && (
               <button
                 onClick={handleSkip}
                 className="px-4 py-2 text-sm text-neutral-500 hover:text-neutral-700"
@@ -630,33 +595,35 @@ Contract-to-hire only"
                 Skip
               </button>
             )}
-            <button
-              onClick={step === 'ready' ? onComplete : handleNext}
-              disabled={saving || readingFile}
-              className="inline-flex items-center gap-1.5 px-6 py-2.5 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 disabled:opacity-50"
-            >
-              {saving ? (
-                <>
-                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Saving...
-                </>
-              ) : step === 'ready' ? (
-                <>
-                  Let's Go
-                  <Rocket size={14} />
-                </>
-              ) : step === 'claims' && resumeText.trim() && !parsedClaims ? (
-                <>
-                  Parse & Review
-                  <ChevronRight size={14} />
-                </>
-              ) : (
-                <>
-                  Continue
-                  <ChevronRight size={14} />
-                </>
-              )}
-            </button>
+            {!isClaimsReviewMode && (
+              <button
+                onClick={step === 'ready' ? onComplete : handleNext}
+                disabled={saving || readingFile}
+                className="inline-flex items-center gap-1.5 px-6 py-2.5 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 disabled:opacity-50"
+              >
+                {saving ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Saving...
+                  </>
+                ) : step === 'ready' ? (
+                  <>
+                    Let's Go
+                    <Rocket size={14} />
+                  </>
+                ) : step === 'claims' && resumeText.trim() && !reviewItems ? (
+                  <>
+                    Parse & Review
+                    <ChevronRight size={14} />
+                  </>
+                ) : (
+                  <>
+                    Continue
+                    <ChevronRight size={14} />
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </div>
       </div>

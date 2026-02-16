@@ -7,6 +7,7 @@ import { db, generateId, seedDefaultProfile } from '../db';
 import { scoreJob } from '../lib/scoring';
 import { parseCompFromText } from '../lib/scoring';
 import { isClosedWonDemotionBlocked } from '../lib/stageTransitions';
+import { getAutoUsableClaims } from '../lib/claimAutoUse';
 import type {
   Job,
   Company,
@@ -254,7 +255,7 @@ export const useStore = create<AppState>((set, get) => ({
     const profile = get().profile;
     if (!job || !profile) return;
 
-    const claims = get().claims;
+    const claims = getAutoUsableClaims(get().claims);
     const result = scoreJob(job, profile, claims);
     const now = new Date().toISOString();
 
@@ -439,6 +440,11 @@ export const useStore = create<AppState>((set, get) => ({
       role: claimData.role || '',
       startDate: claimData.startDate || '',
       endDate: claimData.endDate,
+      claimText: claimData.claimText,
+      rawSnippet: claimData.rawSnippet,
+      reviewStatus: claimData.reviewStatus,
+      autoUse: claimData.autoUse,
+      metric: claimData.metric,
       responsibilities: claimData.responsibilities || [],
       tools: claimData.tools || [],
       outcomes: claimData.outcomes || [],

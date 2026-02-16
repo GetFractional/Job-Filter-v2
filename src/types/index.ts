@@ -255,12 +255,25 @@ export interface Profile {
   updatedAt: string;
 }
 
+export type ClaimReviewStatus = 'active' | 'needs_review' | 'conflict';
+
+export interface ClaimMetric {
+  value?: string;
+  unit?: string;
+  context?: string;
+}
+
 export interface Claim {
   id: string;
   company: string;
   role: string;
   startDate: string;
   endDate?: string;
+  claimText?: string;
+  rawSnippet?: string;
+  reviewStatus?: ClaimReviewStatus;
+  autoUse?: boolean;
+  metric?: ClaimMetric;
   responsibilities: string[];
   tools: string[];
   outcomes: ClaimOutcome[];
