@@ -48,8 +48,8 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const [targetRoles, setTargetRoles] = useState(profile?.targetRoles?.join(', ') || '');
 
   // Preferences form state (moved from profile)
-  const [compFloor, setCompFloor] = useState(profile?.compFloor?.toString() || '150000');
-  const [compTarget, setCompTarget] = useState(profile?.compTarget?.toString() || '180000');
+  const [compFloor, setCompFloor] = useState(profile?.compFloor ? profile.compFloor.toString() : '');
+  const [compTarget, setCompTarget] = useState(profile?.compTarget ? profile.compTarget.toString() : '');
   const [locationPref, setLocationPref] = useState(profile?.locationPreference || '');
   const [disqualifiers, setDisqualifiers] = useState(profile?.disqualifiers?.join('\n') || '');
 
@@ -65,7 +65,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     setSaving(true);
     try {
       await updateProfile({
-        name: name.trim() || 'User',
+        name: name.trim(),
         targetRoles: targetRoles.split(',').map((r) => r.trim()).filter(Boolean),
       });
     } finally {
@@ -77,8 +77,8 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     setSaving(true);
     try {
       await updateProfile({
-        compFloor: parseInt(compFloor) || 150000,
-        compTarget: parseInt(compTarget) || 180000,
+        compFloor: parseInt(compFloor) || 0,
+        compTarget: parseInt(compTarget) || 0,
         locationPreference: locationPref.trim(),
         disqualifiers: disqualifiers.split('\n').map((d) => d.trim()).filter(Boolean),
       });
@@ -277,7 +277,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="Matt"
+                    placeholder="Enter your name"
                     className="w-full px-3.5 py-2.5 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
                   />
                 </div>
@@ -293,7 +293,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     type="text"
                     value={targetRoles}
                     onChange={(e) => setTargetRoles(e.target.value)}
-                    placeholder="VP of Growth, Director of Marketing, Head of Growth"
+                    placeholder="Growth Marketing Lead, Product Marketing Manager"
                     className="w-full px-3.5 py-2.5 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
                   />
                 </div>
@@ -403,10 +403,10 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     placeholder="Paste your resume text here...
 
 Example:
-VP of Growth at Previous Company, Jan 2021 - Present
-- Led GTM strategy for 3 product lines generating $12M ARR
-- Built and managed team of 8 across growth, content, and demand gen
-- Implemented Salesforce + HubSpot integration reducing lead response time by 40%"
+Head of Marketing at Example Co, Jan 2021 - Present
+- Led lifecycle strategy across 4 channels
+- Increased pipeline by 40%
+- Managed a cross-functional growth team"
                     rows={12}
                     className="w-full px-3.5 py-2.5 bg-white border border-neutral-200 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 resize-none"
                   />

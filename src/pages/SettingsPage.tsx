@@ -16,10 +16,11 @@ import {
   Target,
   Briefcase,
 } from 'lucide-react';
-import { db } from '../db';
+import { db, seedDefaultProfile } from '../db';
 import { parseResumeStructured, parsedClaimToImport } from '../lib/claimParser';
 import type { ParsedClaim } from '../lib/claimParser';
 import type { Claim } from '../types';
+import { clearJobFilterLocalState } from '../lib/profileState';
 
 export function SettingsPage() {
   const profile = useStore((s) => s.profile);
@@ -242,7 +243,7 @@ function ClaimsSection({ claims, addClaim }: {
           <textarea
             value={resumeText}
             onChange={(e) => setResumeText(e.target.value)}
-            placeholder={"VP of Growth at Previous Company\nJan 2021 - Present\n- Led lifecycle marketing strategy across 4 channels\n- Grew revenue 150% YoY through funnel optimization\n- Managed team of 8 using HubSpot, Segment, Amplitude\n\nDirector of Marketing - Widget Inc\nMar 2018 - Dec 2020\n- Built demand gen engine from 0 to $5M pipeline\n- Launched ABM program targeting enterprise accounts"}
+            placeholder={"Role at Company\nJan 2021 - Present\n- Led lifecycle marketing strategy across 4 channels\n- Increased qualified pipeline by 40%\n- Managed a cross-functional team\n\nRole at Example Inc\nMar 2018 - Dec 2020\n- Built demand generation engine from 0 to $5M pipeline\n- Launched ABM program targeting enterprise accounts"}
             rows={10}
             className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm resize-y mb-3 focus:outline-none focus:ring-2 focus:ring-brand-500 font-mono"
           />
@@ -284,7 +285,7 @@ function ClaimsSection({ claims, addClaim }: {
               <AlertTriangle size={20} className="text-amber-500 mx-auto mb-2" />
               <p className="text-sm text-amber-700">No claims could be parsed from the text.</p>
               <p className="text-xs text-amber-600 mt-1">
-                Make sure your text has role headers (e.g. "VP of Growth at Previous Company")
+                Make sure your text has role headers (e.g. "Role at Company")
                 followed by bullet points.
               </p>
             </div>
@@ -707,15 +708,25 @@ function DataSection({ refreshData }: { refreshData: () => Promise<void> }) {
       db.jobs.clear(),
       db.companies.clear(),
       db.contacts.clear(),
+      db.contactJobLinks.clear(),
       db.activities.clear(),
       db.assets.clear(),
       db.claims.clear(),
+      db.profiles.clear(),
       db.generationLogs.clear(),
       db.outcomes.clear(),
       db.experiments.clear(),
+      db.applicationAnswers.clear(),
     ]);
+    if (typeof window !== 'undefined') {
+      clearJobFilterLocalState(window.localStorage);
+    }
+    await seedDefaultProfile();
     await refreshData();
     setConfirmClear(false);
+    if (typeof window !== 'undefined') {
+      window.location.reload();
+    }
   };
 
   return (
@@ -732,14 +743,14 @@ function DataSection({ refreshData }: { refreshData: () => Promise<void> }) {
       </div>
 
       <div className="bg-white rounded-lg border border-red-200 p-5 shadow-sm">
-        <h3 className="text-h3 text-red-700 mb-2">Clear All Data</h3>
-        <p className="text-xs text-neutral-500 mb-3">Permanently delete all jobs, contacts, activities, and assets. This cannot be undone.</p>
+        <h3 className="text-h3 text-red-700 mb-2">Reset / Clear all data</h3>
+        <p className="text-xs text-neutral-500 mb-3">Permanently delete all local jobs, contacts, claims, profile data, and onboarding state. This cannot be undone.</p>
         {!confirmClear ? (
           <button
             onClick={() => setConfirmClear(true)}
             className="w-full bg-red-50 text-red-700 border border-red-200 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-red-100"
           >
-            <Trash2 size={14} /> Clear Data
+            <Trash2 size={14} /> Reset / Clear all data
           </button>
         ) : (
           <div className="space-y-2">

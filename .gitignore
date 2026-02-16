@@ -30,3 +30,8 @@ dist-ssr
 
 # Codex local environment files may contain machine-specific or secret data
 .codex/environments/environment.toml
+
+# QA and audit screenshot artifacts (do not commit by default)
+docs/qa/**/*.png
+docs/ux-audit-screenshots/**
+*prod-audit*.png

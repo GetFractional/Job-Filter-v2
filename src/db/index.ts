@@ -17,6 +17,7 @@ import type {
   GenerationLog,
   ApplicationAnswer,
 } from '../types';
+import { createEmptyProfile } from '../lib/profileState';
 
 export class JobFilterDB extends Dexie {
   jobs!: Table<Job, string>;
@@ -71,35 +72,13 @@ export class JobFilterDB extends Dexie {
 export const db = new JobFilterDB();
 
 // ============================================================
-// Seed default profile
+// Ensure a baseline profile record exists
 // ============================================================
 
 export async function seedDefaultProfile(): Promise<void> {
   const existing = await db.profiles.count();
   if (existing === 0) {
-    await db.profiles.add({
-      id: 'default',
-      name: 'Matt',
-      targetRoles: [
-        'Director of Marketing',
-        'Director of Growth',
-        'Head of Marketing',
-        'Head of Growth',
-        'VP of Marketing',
-        'VP of Growth',
-        'VP of Revenue',
-      ],
-      compFloor: 150000,
-      compTarget: 180000,
-      requiredBenefits: ['Medical (self + dependents)', 'Dental (self + dependents)'],
-      preferredBenefits: ['401(k)', 'Bonus', 'Equity/Shares'],
-      locationPreference: 'Remote preferred; hybrid/in-person OK around Nashville; any timezone OK',
-      disqualifiers: [
-        'Performance-marketing-operator expectations (hands-on paid account mgmt as core)',
-        'Seed-stage companies (unless explicit override)',
-      ],
-      updatedAt: new Date().toISOString(),
-    });
+    await db.profiles.add(createEmptyProfile());
   }
 }
 

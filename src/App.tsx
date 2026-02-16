@@ -9,8 +9,7 @@ import { ContactsPage } from './pages/ContactsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { CaptureModal } from './components/jobs/CaptureModal';
 import { OnboardingWizard } from './components/onboarding/OnboardingWizard';
-
-const ONBOARDING_KEY = 'jf2-onboarding-complete';
+import { ONBOARDING_STORAGE_KEY } from './lib/profileState';
 
 export default function App() {
   const initialize = useStore((s) => s.initialize);
@@ -22,14 +21,15 @@ export default function App() {
   }, [initialize]);
 
   // Derive onboarding state synchronously from loading/jobs state
-  const dismissed = typeof window !== 'undefined' ? localStorage.getItem(ONBOARDING_KEY) : null;
+  const dismissed =
+    typeof window !== 'undefined' ? localStorage.getItem(ONBOARDING_STORAGE_KEY) : null;
   const showOnboarding = useMemo(
     () => !isLoading && !dismissed && jobs.length === 0,
     [isLoading, dismissed, jobs.length],
   );
 
   const handleOnboardingComplete = () => {
-    localStorage.setItem(ONBOARDING_KEY, 'true');
+    localStorage.setItem(ONBOARDING_STORAGE_KEY, 'true');
     // Force re-render: the useMemo will now see `dismissed` as truthy
     window.location.reload();
   };

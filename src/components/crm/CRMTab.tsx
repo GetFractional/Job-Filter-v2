@@ -421,7 +421,7 @@ export function CRMTab({ job }: CRMTabProps) {
               type="text"
               value={contactRole}
               onChange={(e) => setContactRole(e.target.value)}
-              placeholder="Role (e.g. VP of Marketing)"
+              placeholder="Role (e.g. Hiring Manager)"
               className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
             />
             <div className="grid grid-cols-2 gap-3">

@@ -1,0 +1,34 @@
+import type { Profile } from '../types';
+
+export const DEFAULT_PROFILE_ID = 'default';
+export const ONBOARDING_STORAGE_KEY = 'jf2-onboarding-complete';
+const LOCAL_STORAGE_PREFIX = 'jf2-';
+
+export function createEmptyProfile(timestamp = new Date().toISOString()): Profile {
+  return {
+    id: DEFAULT_PROFILE_ID,
+    name: '',
+    targetRoles: [],
+    compFloor: 0,
+    compTarget: 0,
+    requiredBenefits: [],
+    preferredBenefits: [],
+    locationPreference: '',
+    disqualifiers: [],
+    updatedAt: timestamp,
+  };
+}
+
+export function clearJobFilterLocalState(
+  storage: Pick<Storage, 'length' | 'key' | 'removeItem'>,
+): string[] {
+  const keysToRemove: string[] = [];
+  for (let i = 0; i < storage.length; i += 1) {
+    const key = storage.key(i);
+    if (key && key.startsWith(LOCAL_STORAGE_PREFIX)) {
+      keysToRemove.push(key);
+    }
+  }
+  keysToRemove.forEach((key) => storage.removeItem(key));
+  return keysToRemove;
+}
