@@ -12,6 +12,8 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
+import { getAutoUsableClaims } from '../../lib/claimAutoUse';
+import { buildProfileEvidenceClaim } from '../../lib/profileEvidence';
 import type { Job, AnswerSource } from '../../types';
 
 interface QATabProps {
@@ -21,6 +23,11 @@ interface QATabProps {
 export function QATab({ job }: QATabProps) {
   const claims = useStore((s) => s.claims);
   const profile = useStore((s) => s.profile);
+  const autoUsableClaims = useMemo(() => getAutoUsableClaims(claims), [claims]);
+  const claimsForAnswers = useMemo(() => {
+    const profileEvidence = profile ? buildProfileEvidenceClaim(profile) : [];
+    return [...autoUsableClaims, ...profileEvidence];
+  }, [autoUsableClaims, profile]);
   const allAnswers = useStore((s) => s.applicationAnswers);
   const addApplicationAnswer = useStore((s) => s.addApplicationAnswer);
   const updateApplicationAnswer = useStore((s) => s.updateApplicationAnswer);
@@ -44,7 +51,7 @@ export function QATab({ job }: QATabProps) {
     const parts: string[] = [];
 
     // Find relevant claims
-    const relevantClaims = claims.filter((claim) => {
+    const relevantClaims = claimsForAnswers.filter((claim) => {
       const allText = [
         claim.role,
         claim.company,
@@ -111,7 +118,7 @@ export function QATab({ job }: QATabProps) {
     }
     // Tools / technical questions
     else if (q.includes('tool') || q.includes('software') || q.includes('technology') || q.includes('tech stack')) {
-      const allTools = [...new Set(claims.flatMap((c) => c.tools))];
+      const allTools = [...new Set(claimsForAnswers.flatMap((c) => c.tools))];
       if (allTools.length > 0) {
         parts.push(`I have hands-on experience with ${allTools.slice(0, 6).join(', ')}${allTools.length > 6 ? `, and ${allTools.length - 6} more` : ''}.`);
         sources.push({ type: 'claim', label: 'Tools across roles', excerpt: allTools.join(', ') });
@@ -137,7 +144,7 @@ export function QATab({ job }: QATabProps) {
     }
 
     return { answer: parts.join('\n\n'), sources };
-  }, [claims, profile, job]);
+  }, [claimsForAnswers, profile, job]);
 
   const handleAddQuestion = async () => {
     if (!newQuestion.trim()) return;
@@ -219,11 +226,11 @@ export function QATab({ job }: QATabProps) {
       </div>
 
       {/* Context Status */}
-      {claims.length === 0 && (
+      {claimsForAnswers.length === 0 && (
         <div className="flex items-start gap-2 p-3 bg-amber-50 rounded-lg border border-amber-200">
           <AlertCircle size={14} className="text-amber-600 shrink-0 mt-0.5" />
           <p className="text-xs text-amber-700">
-            No claims imported. Answers will be generic. Import your resume in Settings for grounded answers.
+            No claim or profile evidence available. Answers will be generic unless you review claims or add skills/tools in Settings.
           </p>
         </div>
       )}

@@ -7,7 +7,13 @@
 //   Pass 2 — Extract role, company, dates, bullets, tools from each block.
 // Followed by a merge step to combine orphan fragments.
 
-import type { ClaimOutcome } from '../types';
+import type {
+  ClaimOutcome,
+  ClaimReviewStatus,
+  ClaimMetric,
+  ParseDiagnostics,
+  ParseReasonCode,
+} from '../types';
 
 // ============================================================
 // Types
@@ -20,6 +26,13 @@ export interface ParsedClaim {
   company: string;
   startDate: string;
   endDate: string; // empty string = Present
+  rawSnippet: string;
+  claimText: string;
+  metricValue: string;
+  metricUnit: string;
+  metricContext: string;
+  reviewStatus: ClaimReviewStatus;
+  autoUse: boolean;
   responsibilities: string[];
   tools: string[];
   outcomes: ParsedOutcome[];
@@ -31,6 +44,19 @@ export interface ParsedOutcome {
   description: string;
   metric?: string;
   isNumeric: boolean;
+}
+
+export type ParseSegmentationMode = 'default' | 'newlines' | 'bullets' | 'headings';
+
+export interface ParseResumeStructuredOptions {
+  segmentationMode?: ParseSegmentationMode;
+  pageCount?: number;
+}
+
+export interface ParseResumeStructuredResult {
+  claims: ParsedClaim[];
+  diagnostics: ParseDiagnostics;
+  lowConfidence: boolean;
 }
 
 // ============================================================
@@ -177,7 +203,7 @@ const DATE_PATTERNS: RegExp[] = [
 ];
 
 // Bullet point prefixes
-const BULLET_RE = /^[-*\u2022\u25E6\u25AA\u25B8\u25BA\u2023\u27A2\u2219]\s*/;
+const BULLET_RE = /^[-*\u2022\u25CF\u25E6\u25AA\u25B8\u25BA\u2023\u27A2\u2219]\s*/;
 
 // Metric indicators for outcome classification
 const METRIC_RE =
@@ -233,9 +259,28 @@ const HEADER_PATTERNS: {
 /** Common role-title keywords used to disambiguate "Company — Role" vs "Role — Company". */
 const ROLE_KEYWORDS_RE =
   /\b(director|manager|engineer|developer|lead|head|chief|vp|vice president|analyst|coordinator|specialist|consultant|architect|designer|scientist|officer|associate|senior|junior|principal|staff|intern)\b/i;
+const CONTACT_NOISE_RE =
+  /(https?:\/\/|www\.|@[a-z0-9.-]+\.[a-z]{2,}|\b\d{3}[-.)\s]*\d{3}[-.\s]*\d{4}\b)/i;
+const LOCATION_RESIDUAL_RE =
+  /\b(remote|hybrid|onsite|on-site|usa|united states|ca|tn|ny|tx|fl|wa)\b/i;
 
 function looksLikeRoleTitle(text: string): boolean {
   return ROLE_KEYWORDS_RE.test(text);
+}
+
+function looksLikeHeaderNoise(text: string): boolean {
+  const normalized = text.trim();
+  if (!normalized) return true;
+  if (CONTACT_NOISE_RE.test(normalized)) return true;
+  // Ratio-based guard: if mostly digits/symbols, it's not a reliable header.
+  const alphaCount = (normalized.match(/[a-z]/gi) || []).length;
+  const nonAlphaCount = normalized.length - alphaCount;
+  if (alphaCount > 0 && nonAlphaCount / normalized.length > 0.45) return true;
+  // Metric-heavy lines are often accomplishments, not role/company headers.
+  if (/\$\d|\d+%|\d+x|\b(orders|revenue|pipeline|aov|margin|leads)\b/i.test(normalized)) {
+    return true;
+  }
+  return false;
 }
 
 // ============================================================
@@ -268,10 +313,12 @@ function extractDateRange(
   for (const pattern of DATE_PATTERNS) {
     const m = text.match(pattern);
     if (m) {
-      const endRaw = m[2];
+      const startRaw = m[1] || m[3] || m[5];
+      const endRaw = m[2] || m[4] || m[6];
+      if (!startRaw || !endRaw) continue;
       const endNorm =
         /^(present|current|now)$/i.test(endRaw) ? '' : endRaw;
-      return { start: m[1], end: endNorm, matched: m[0] };
+      return { start: startRaw, end: endNorm, matched: m[0] };
     }
   }
   return null;
@@ -293,12 +340,15 @@ function matchRoleHeader(
   }
 
   if (headerLine.length < 3 || headerLine.length > 120) return null;
+  if (looksLikeHeaderNoise(headerLine)) return null;
 
   for (const { re, extract } of HEADER_PATTERNS) {
     const m = headerLine.match(re);
     if (m) {
       const result = extract(m);
-      if (result) return result;
+      if (result && !looksLikeHeaderNoise(result.role) && !looksLikeHeaderNoise(result.company)) {
+        return result;
+      }
     }
   }
 
@@ -351,7 +401,12 @@ function classifyLines(lines: string[]): ClassifiedLine[] {
       // Check whether the non-date portion looks like a role name
       const residual = trimmed.replace(dateInfo.matched, '').trim()
         .replace(/^[,|–—-]\s*|\s*[,|–—-]$/g, '').trim();
-      if (residual.length >= 3 && /^[A-Z]/.test(residual)) {
+      if (
+        residual.length >= 3 &&
+        /^[A-Z]/.test(residual) &&
+        !LOCATION_RESIDUAL_RE.test(residual.toLowerCase()) &&
+        !looksLikeHeaderNoise(residual)
+      ) {
         // Treat as a role header with unknown company
         return {
           index,
@@ -386,6 +441,112 @@ interface RawClaimBlock {
   endDate: string;
   bullets: string[];
   textLines: string[];
+}
+
+const BULLET_ONLY_RE = /^[-*\u2022\u25CF\u25E6\u25AA\u25B8\u25BA\u2023\u27A2\u2219]$/;
+const INLINE_BULLET_SPLIT_RE =
+  /(?=[\u2022\u25CF\u25E6\u25AA\u25B8\u25BA\u2023\u27A2\u2219]\s+)/g;
+
+function looksLikeAllCapsHeading(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed || trimmed.length > 40) return false;
+  if (/[a-z]/.test(trimmed)) return false;
+  return /^[A-Z0-9/&\s]+$/.test(trimmed);
+}
+
+function withInlineBulletSplits(lines: string[]): string[] {
+  const next: string[] = [];
+  for (const rawLine of lines) {
+    const trimmed = rawLine.trim();
+    if (!trimmed) {
+      next.push(rawLine);
+      continue;
+    }
+
+    const parts = trimmed.split(INLINE_BULLET_SPLIT_RE).map((part) => part.trim()).filter(Boolean);
+    if (parts.length > 1) {
+      next.push(...parts);
+      continue;
+    }
+
+    next.push(rawLine);
+  }
+  return next;
+}
+
+function withHeadingBoundaries(lines: string[]): string[] {
+  const next: string[] = [];
+  for (const rawLine of lines) {
+    const trimmed = rawLine.trim();
+    if (!trimmed) {
+      next.push(rawLine);
+      continue;
+    }
+    if (isSectionHeader(trimmed) || looksLikeAllCapsHeading(trimmed)) {
+      if (next[next.length - 1] !== '') {
+        next.push('');
+      }
+      next.push(trimmed);
+      next.push('');
+      continue;
+    }
+    next.push(rawLine);
+  }
+  return next;
+}
+
+function preprocessParserLines(
+  lines: string[],
+  segmentationMode: ParseSegmentationMode = 'default',
+): string[] {
+  const normalized = lines.map((line) => line.replace(/\u00A0/g, ''));
+
+  if (segmentationMode === 'newlines') {
+    return normalized;
+  }
+
+  const next: string[] = [];
+
+  for (let i = 0; i < normalized.length; i += 1) {
+    const rawLine = normalized[i];
+    const trimmed = rawLine.trim();
+
+    if (!trimmed) {
+      next.push('');
+      continue;
+    }
+
+    // Join PDF artifacts where bullet glyph appears on one line and content on the next.
+    if (BULLET_ONLY_RE.test(trimmed)) {
+      let j = i + 1;
+      while (j < normalized.length && !normalized[j].trim()) {
+        j += 1;
+      }
+      if (j < normalized.length) {
+        next.push(`${trimmed} ${normalized[j].trim()}`);
+        i = j;
+        continue;
+      }
+    }
+
+    // Join lines that start with ":" to the previous line.
+    if (/^:\s*/.test(trimmed) && next.length > 0) {
+      const previousIndex = next.length - 1;
+      next[previousIndex] = `${next[previousIndex].trim()} ${trimmed}`;
+      continue;
+    }
+
+    next.push(rawLine);
+  }
+
+  let preprocessed = next;
+  if (segmentationMode === 'bullets') {
+    preprocessed = withInlineBulletSplits(preprocessed);
+  }
+  if (segmentationMode === 'headings') {
+    preprocessed = withHeadingBoundaries(preprocessed);
+  }
+  return preprocessed;
 }
 
 /**
@@ -475,12 +636,14 @@ function tryLinkedInBlock(
 function buildRawBlocks(classified: ClassifiedLine[]): RawClaimBlock[] {
   const blocks: RawClaimBlock[] = [];
   let current: RawClaimBlock | null = null;
+  let lastLineWasBullet = false;
 
   const pushCurrent = () => {
     if (current) {
       blocks.push(current);
       current = null;
     }
+    lastLineWasBullet = false;
   };
 
   let i = 0;
@@ -489,6 +652,7 @@ function buildRawBlocks(classified: ClassifiedLine[]): RawClaimBlock[] {
 
     // Skip blanks and section headers
     if (cl.kind === 'blank' || cl.kind === 'section_header') {
+      lastLineWasBullet = false;
       i++;
       continue;
     }
@@ -504,6 +668,7 @@ function buildRawBlocks(classified: ClassifiedLine[]): RawClaimBlock[] {
         bullets: [],
         textLines: [],
       };
+      lastLineWasBullet = false;
       i++;
       continue;
     }
@@ -521,6 +686,7 @@ function buildRawBlocks(classified: ClassifiedLine[]): RawClaimBlock[] {
           bullets: [],
           textLines: [],
         };
+        lastLineWasBullet = false;
         i += linked.consumed;
         continue;
       }
@@ -530,6 +696,7 @@ function buildRawBlocks(classified: ClassifiedLine[]): RawClaimBlock[] {
     if (cl.kind === 'date_line' && cl.dateMatch && current && !current.startDate) {
       current.startDate = cl.dateMatch.start;
       current.endDate = cl.dateMatch.end;
+      lastLineWasBullet = false;
       i++;
       continue;
     }
@@ -551,6 +718,7 @@ function buildRawBlocks(classified: ClassifiedLine[]): RawClaimBlock[] {
       if (bulletText) {
         current.bullets.push(bulletText);
       }
+      lastLineWasBullet = true;
       i++;
       continue;
     }
@@ -558,10 +726,16 @@ function buildRawBlocks(classified: ClassifiedLine[]): RawClaimBlock[] {
     // Plain text line — attach to current block as context
     if (cl.kind === 'text') {
       if (current) {
-        current.textLines.push(cl.trimmed);
+        if (lastLineWasBullet && current.bullets.length > 0) {
+          const lastIndex = current.bullets.length - 1;
+          current.bullets[lastIndex] = `${current.bullets[lastIndex]} ${cl.trimmed}`.replace(/\s+/g, ' ').trim();
+        } else {
+          current.textLines.push(cl.trimmed);
+        }
       }
       // If there's no current block, we discard stray text (not enough info
       // to start a claim).
+      lastLineWasBullet = false;
       i++;
       continue;
     }
@@ -587,6 +761,13 @@ function makeClaim(): ParsedClaim {
     company: '',
     startDate: '',
     endDate: '',
+    rawSnippet: '',
+    claimText: '',
+    metricValue: '',
+    metricUnit: '',
+    metricContext: '',
+    reviewStatus: 'active',
+    autoUse: true,
     responsibilities: [],
     tools: [],
     outcomes: [],
@@ -631,6 +812,16 @@ function blockToClaim(block: RawClaimBlock): ParsedClaim {
   }
 
   claim.tools = [...allToolsSet];
+  const firstOutcome = claim.outcomes[0];
+  const firstResponsibility = claim.responsibilities[0];
+  claim.claimText = firstOutcome?.description || firstResponsibility || '';
+  claim.rawSnippet = claim.claimText;
+  if (firstOutcome?.metric) {
+    const metric = parseMetricString(firstOutcome.metric, firstOutcome.description);
+    claim.metricValue = metric.value || '';
+    claim.metricUnit = metric.unit || '';
+    claim.metricContext = metric.context || '';
+  }
   return claim;
 }
 
@@ -691,15 +882,110 @@ function deduplicateResponsibilities(claims: ParsedClaim[]): void {
   }
 }
 
+function parseMetricString(metric: string, contextSource: string): ClaimMetric {
+  const compact = metric.replace(/\s+/g, '');
+  const valueMatch = compact.match(/^\$?\d[\d,.]*/);
+  const unit = compact.slice(valueMatch?.[0].length || 0);
+  return {
+    value: valueMatch?.[0],
+    unit: unit || undefined,
+    context: contextSource.replace(/\s+/g, ' ').trim().slice(0, 120),
+  };
+}
+
+function applyReviewStatus(claims: ParsedClaim[]): void {
+  const metricGroups = new Map<string, { values: Set<string>; indexes: number[] }>();
+
+  claims.forEach((claim, index) => {
+    const hasCoreFields = Boolean(claim.company.trim() && claim.role.trim() && claim.claimText.trim());
+    claim.reviewStatus = hasCoreFields ? 'active' : 'needs_review';
+    claim.autoUse = claim.reviewStatus === 'active';
+
+    if (!claim.metricValue.trim()) return;
+    const key = [
+      claim.company.toLowerCase().trim(),
+      claim.role.toLowerCase().trim(),
+      claim.metricUnit.toLowerCase().trim(),
+    ].join('::');
+
+    if (!metricGroups.has(key)) {
+      metricGroups.set(key, { values: new Set<string>(), indexes: [] });
+    }
+    const group = metricGroups.get(key);
+    if (!group) return;
+    group.values.add(claim.metricValue.trim());
+    group.indexes.push(index);
+  });
+
+  for (const { values, indexes } of metricGroups.values()) {
+    if (values.size <= 1) continue;
+    for (const index of indexes) {
+      claims[index].reviewStatus = 'conflict';
+      claims[index].autoUse = false;
+    }
+  }
+}
+
 // ============================================================
 // Main entry point
 // ============================================================
 
-export function parseResumeStructured(text: string): ParsedClaim[] {
+function buildReasonCodes(
+  diagnostics: Omit<ParseDiagnostics, 'reasonCodes'>,
+): ParseReasonCode[] {
+  const reasonCodes: ParseReasonCode[] = [];
+
+  if (!diagnostics.extractedTextLength) {
+    reasonCodes.push('TEXT_EMPTY');
+    return reasonCodes;
+  }
+
+  if (diagnostics.detectedLinesCount <= 3 && diagnostics.extractedTextLength > 200) {
+    reasonCodes.push('LAYOUT_COLLAPSE');
+  }
+
+  if (diagnostics.bulletCandidatesCount === 0 && diagnostics.extractedTextLength > 120) {
+    reasonCodes.push('BULLET_DETECT_FAIL');
+  }
+
+  if (
+    diagnostics.roleCandidatesDetected === 0 &&
+    diagnostics.companyCandidatesDetected === 0 &&
+    diagnostics.detectedLinesCount >= 5
+  ) {
+    reasonCodes.push('ROLE_DETECT_FAIL');
+  }
+
+  if (diagnostics.rolesCount === 0 && diagnostics.finalCompaniesCount === 0) {
+    reasonCodes.push('FILTERED_ALL');
+  }
+
+  return reasonCodes;
+}
+
+function isLowConfidenceDiagnostics(diagnostics: ParseDiagnostics): boolean {
+  const highRisk: ParseReasonCode[] = [
+    'TEXT_EMPTY',
+    'LAYOUT_COLLAPSE',
+    'BULLET_DETECT_FAIL',
+    'ROLE_DETECT_FAIL',
+    'FILTERED_ALL',
+  ];
+  return diagnostics.reasonCodes.some((code) => highRisk.includes(code));
+}
+
+export function parseResumeStructuredWithDiagnostics(
+  text: string,
+  options: ParseResumeStructuredOptions = {},
+): ParseResumeStructuredResult {
   // Reset key counter each invocation for deterministic keys
   _keyCounter = 0;
 
-  const lines = text.split('\n');
+  const normalizedText = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+  const lines = preprocessParserLines(
+    normalizedText ? normalizedText.split('\n') : [],
+    options.segmentationMode || 'default',
+  );
 
   // Pass 1: Classify every line
   const classified = classifyLines(lines);
@@ -718,8 +1004,48 @@ export function parseResumeStructured(text: string): ParsedClaim[] {
 
   // Deduplicate responsibilities and outcomes
   deduplicateResponsibilities(claims);
+  applyReviewStatus(claims);
 
-  return claims;
+  const finalCompaniesCount = new Set(
+    claims.map((claim) => claim.company.trim().toLowerCase()).filter(Boolean),
+  ).size;
+  const rolesCount = claims.filter((claim) => claim.role.trim()).length;
+  const bulletsCount = claims.reduce(
+    (count, claim) => count + claim.responsibilities.length + claim.outcomes.length,
+    0,
+  );
+
+  const diagnosticsBase: Omit<ParseDiagnostics, 'reasonCodes'> = {
+    extractedTextLength: normalizedText.length,
+    pageCount: options.pageCount || 0,
+    detectedLinesCount: lines.filter((line) => line.trim()).length,
+    bulletCandidatesCount: classified.filter((line) => line.kind === 'bullet').length,
+    sectionHeadersDetected: classified.filter((line) => line.kind === 'section_header').length,
+    companyCandidatesDetected: rawBlocks.filter((block) => block.company.trim()).length,
+    roleCandidatesDetected: rawBlocks.filter((block) => block.role.trim()).length,
+    finalCompaniesCount,
+    rolesCount,
+    bulletsCount,
+    previewLines: lines.map((line) => line.trim()).filter(Boolean).slice(0, 30),
+  };
+
+  const diagnostics: ParseDiagnostics = {
+    ...diagnosticsBase,
+    reasonCodes: buildReasonCodes(diagnosticsBase),
+  };
+
+  return {
+    claims,
+    diagnostics,
+    lowConfidence: isLowConfidenceDiagnostics(diagnostics),
+  };
+}
+
+export function parseResumeStructured(
+  text: string,
+  options: ParseResumeStructuredOptions = {},
+): ParsedClaim[] {
+  return parseResumeStructuredWithDiagnostics(text, options).claims;
 }
 
 // ============================================================
@@ -775,22 +1101,50 @@ export function parsedClaimToImport(parsed: ParsedClaim): {
   company: string;
   startDate: string;
   endDate?: string;
+  claimText?: string;
+  rawSnippet?: string;
+  reviewStatus?: ClaimReviewStatus;
+  autoUse?: boolean;
+  metric?: ClaimMetric;
   responsibilities: string[];
   tools: string[];
   outcomes: ClaimOutcome[];
 } {
+  const normalizedClaimText = parsed.claimText.trim();
+  const metricLabel = `${parsed.metricValue}${parsed.metricUnit}`.trim();
+  const hasMetric = parsed.metricValue.trim().length > 0;
+
   return {
     role: parsed.role,
     company: parsed.company,
     startDate: parsed.startDate,
     endDate: parsed.endDate || undefined,
-    responsibilities: parsed.responsibilities,
+    claimText: normalizedClaimText || undefined,
+    rawSnippet: parsed.rawSnippet || undefined,
+    reviewStatus: parsed.reviewStatus,
+    autoUse: parsed.autoUse,
+    metric: {
+      value: parsed.metricValue || undefined,
+      unit: parsed.metricUnit || undefined,
+      context: parsed.metricContext || undefined,
+    },
+    responsibilities: hasMetric || !normalizedClaimText ? parsed.responsibilities : [normalizedClaimText, ...parsed.responsibilities],
     tools: parsed.tools,
-    outcomes: parsed.outcomes.map((o) => ({
-      description: o.description,
-      metric: o.metric,
-      isNumeric: o.isNumeric,
-      verified: false,
-    })),
+    outcomes: [
+      ...(hasMetric && normalizedClaimText
+        ? [{
+            description: normalizedClaimText,
+            metric: metricLabel || undefined,
+            isNumeric: true,
+            verified: false,
+          }]
+        : []),
+      ...parsed.outcomes.map((o) => ({
+        description: o.description,
+        metric: o.metric,
+        isNumeric: o.isNumeric,
+        verified: false,
+      })),
+    ],
   };
 }

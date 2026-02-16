@@ -7,6 +7,8 @@ const baseProfile: Profile = {
   id: 'default',
   name: 'Matt',
   targetRoles: ['Director of Growth', 'VP of Marketing'],
+  skills: [],
+  tools: [],
   compFloor: 150000,
   compTarget: 180000,
   requiredBenefits: ['Medical'],

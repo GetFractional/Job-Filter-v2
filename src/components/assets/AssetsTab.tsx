@@ -28,6 +28,8 @@ import {
   generateGrowthMemo,
   validateContext,
 } from '../../lib/assets';
+import { getAutoUsableClaims } from '../../lib/claimAutoUse';
+import { buildProfileEvidenceClaim } from '../../lib/profileEvidence';
 import type { Job, Asset, AssetType } from '../../types';
 
 interface AssetsTabProps {
@@ -135,6 +137,11 @@ export function AssetsTab({ job }: AssetsTabProps) {
   const allAssets = useStore((s) => s.assets);
   const claims = useStore((s) => s.claims);
   const profile = useStore((s) => s.profile);
+  const autoUsableClaims = useMemo(() => getAutoUsableClaims(claims), [claims]);
+  const claimsForGeneration = useMemo(() => {
+    const profileEvidence = profile ? buildProfileEvidenceClaim(profile) : [];
+    return [...autoUsableClaims, ...profileEvidence];
+  }, [autoUsableClaims, profile]);
   const addAsset = useStore((s) => s.addAsset);
   const updateAsset = useStore((s) => s.updateAsset);
   const addGenerationLog = useStore((s) => s.addGenerationLog);
@@ -158,13 +165,13 @@ export function AssetsTab({ job }: AssetsTabProps) {
   );
 
   const generateContent = useCallback((type: AssetType): string => {
-    const baseCtx = { job, userName, claims, research: job.researchBrief };
+    const baseCtx = { job, userName, claims: claimsForGeneration, research: job.researchBrief };
 
     switch (type) {
       case 'Outreach Email':
         return generateOutreachEmail({ ...baseCtx });
       case 'LinkedIn Connect':
-        return generateLinkedInConnect({ job, userName, claims });
+        return generateLinkedInConnect({ job, userName, claims: claimsForGeneration });
       case 'Cover Letter':
         return generateCoverLetter(baseCtx);
       case 'Follow-up Email':
@@ -174,14 +181,14 @@ export function AssetsTab({ job }: AssetsTabProps) {
       default:
         return `[${type} generation coming soon]`;
     }
-  }, [job, userName, claims]);
+  }, [job, userName, claimsForGeneration]);
 
   const handleGenerate = useCallback(async (type: AssetType) => {
     setContextError(null);
     setShowGenMenu(false);
 
     // Pre-generation validation
-    const validation = validateContext({ job, userName, claims });
+    const validation = validateContext({ job, userName, claims: claimsForGeneration });
     if (!validation.valid) {
       setContextError(`Missing required context: ${validation.missing.join(', ')}`);
       return;
@@ -221,7 +228,7 @@ export function AssetsTab({ job }: AssetsTabProps) {
     } finally {
       setGenerating(null);
     }
-  }, [job, userName, claims, generateContent, addAsset, addGenerationLog]);
+  }, [job, userName, claimsForGeneration, generateContent, addAsset, addGenerationLog]);
 
   const handleRegenerate = useCallback(async () => {
     if (!currentAsset) return;
@@ -324,7 +331,7 @@ export function AssetsTab({ job }: AssetsTabProps) {
           {showWhyDraft && (
             <div className="px-4 pb-3 space-y-1.5 text-xs text-neutral-600">
               <p><span className="font-medium text-neutral-700">Job:</span> {job.title} at {job.company}</p>
-              <p><span className="font-medium text-neutral-700">Claims used:</span> {claims.length} claims bound</p>
+              <p><span className="font-medium text-neutral-700">Claims used:</span> {autoUsableClaims.length} auto-usable of {claims.length} total</p>
               <p><span className="font-medium text-neutral-700">Research:</span> {job.researchBrief ? 'Available' : 'Not available'}</p>
               <p><span className="font-medium text-neutral-700">User name:</span> {userName}</p>
               <p><span className="font-medium text-neutral-700">Generated:</span> template-fill (no API cost)</p>
@@ -576,9 +583,9 @@ export function AssetsTab({ job }: AssetsTabProps) {
                   </button>
                 );
               })}
-              {claims.length === 0 && (
+              {autoUsableClaims.length === 0 && (
                 <p className="text-[11px] text-amber-600 px-4 py-2 border-t border-neutral-100">
-                  Add claims in Settings for personalized assets
+                  Add or enable claims in Settings for personalized assets
                 </p>
               )}
             </div>

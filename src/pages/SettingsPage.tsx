@@ -7,27 +7,26 @@ import {
   FileText,
   Upload,
   Check,
-  X,
-  ChevronDown,
-  ChevronRight,
-  Pencil,
-  Minus,
   AlertTriangle,
-  Wrench,
-  Target,
-  Briefcase,
 } from 'lucide-react';
 import { db, seedDefaultProfile } from '../db';
-import { parsedClaimToImport } from '../lib/claimParser';
-import type { ParsedClaim } from '../lib/claimParser';
 import {
-  extractClaimsImportText,
+  extractClaimsImportWithMetadata,
   getClaimsImportAcceptValue,
-  parseClaimsImportText,
+  parseClaimsImport,
   validateClaimsImportFile,
+  type ClaimsImportParseOptions,
 } from '../lib/claimsImportPipeline';
+import { ClaimsReviewEditor } from '../components/claims/ClaimsReviewEditor';
+import {
+  createClaimReviewItems,
+  regroupClaimReviewItems,
+  reviewItemToClaimInput,
+  type ClaimReviewItem,
+} from '../lib/claimsReview';
 import { clearJobFilterLocalState } from '../lib/profileState';
-import type { Claim } from '../types';
+import type { Claim, ParseDiagnostics } from '../types';
+import type { ParseSegmentationMode } from '../lib/claimParser';
 
 export function SettingsPage() {
   const profile = useStore((s) => s.profile);
@@ -76,6 +75,8 @@ function ProfileSection({ profile, updateProfile }: {
     compTarget: profile.compTarget,
     locationPreference: profile.locationPreference,
     targetRoles: profile.targetRoles.join('\n'),
+    skills: profile.skills ?? [],
+    tools: profile.tools ?? [],
     requiredBenefits: profile.requiredBenefits.join('\n'),
     preferredBenefits: profile.preferredBenefits.join('\n'),
     disqualifiers: profile.disqualifiers.join('\n'),
@@ -89,6 +90,8 @@ function ProfileSection({ profile, updateProfile }: {
       compTarget: form.compTarget,
       locationPreference: form.locationPreference,
       targetRoles: form.targetRoles.split('\n').filter(Boolean).map((s) => s.trim()),
+      skills: form.skills.map((skill) => skill.trim()).filter(Boolean),
+      tools: form.tools.map((tool) => tool.trim()).filter(Boolean),
       requiredBenefits: form.requiredBenefits.split('\n').filter(Boolean).map((s) => s.trim()),
       preferredBenefits: form.preferredBenefits.split('\n').filter(Boolean).map((s) => s.trim()),
       disqualifiers: form.disqualifiers.split('\n').filter(Boolean).map((s) => s.trim()),
@@ -144,6 +147,20 @@ function ProfileSection({ profile, updateProfile }: {
           className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm resize-y focus:outline-none focus:ring-2 focus:ring-brand-500"
         />
       </div>
+      <TagInputField
+        label="Skills"
+        helperText="Add reusable strengths for matching and writing."
+        values={form.skills}
+        onChange={(values) => setForm({ ...form, skills: values })}
+        placeholder="Type a skill and press Enter"
+      />
+      <TagInputField
+        label="Tools"
+        helperText="Add software/tools you want considered in matching and assets."
+        values={form.tools}
+        onChange={(values) => setForm({ ...form, tools: values })}
+        placeholder="Type a tool and press Enter"
+      />
       <div>
         <label className="text-xs font-medium text-neutral-600 mb-1 block">Required Benefits (one per line)</label>
         <textarea
@@ -186,6 +203,13 @@ function ProfileSection({ profile, updateProfile }: {
 // ============================================================
 
 type ClaimStep = 'input' | 'review' | 'done';
+const SEGMENTATION_MODES: ParseSegmentationMode[] = ['default', 'newlines', 'bullets', 'headings'];
+const SEGMENTATION_MODE_LABELS: Record<ParseSegmentationMode, string> = {
+  default: 'Default',
+  newlines: 'Newlines',
+  bullets: 'Bullets',
+  headings: 'Headings',
+};
 
 function ClaimsSection({ claims, addClaim }: {
   claims: Claim[];
@@ -193,19 +217,37 @@ function ClaimsSection({ claims, addClaim }: {
 }) {
   const [resumeText, setResumeText] = useState('');
   const [step, setStep] = useState<ClaimStep>('input');
-  const [parsedClaims, setParsedClaims] = useState<ParsedClaim[]>([]);
+  const [reviewItems, setReviewItems] = useState<ClaimReviewItem[]>([]);
   const [importing, setImporting] = useState(false);
   const [importCount, setImportCount] = useState(0);
   const [importingFile, setImportingFile] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
+  const [sourcePageCount, setSourcePageCount] = useState(0);
+  const [segmentationMode, setSegmentationMode] = useState<ParseSegmentationMode>('default');
+  const [parseDiagnostics, setParseDiagnostics] = useState<ParseDiagnostics | null>(null);
+  const [lowConfidence, setLowConfidence] = useState(false);
+  const showDiagnostics = import.meta.env.DEV;
+  const aiStructuringEnabled = import.meta.env.VITE_ENABLE_AI_STRUCTURING === '1';
+
+  const runParse = useCallback((mode: ParseSegmentationMode = segmentationMode) => {
+    if (!resumeText.trim()) return;
+    const parseOptions: ClaimsImportParseOptions = {
+      segmentationMode: mode,
+      pageCount: sourcePageCount,
+    };
+    const result = parseClaimsImport(resumeText, parseOptions);
+    const nextItems = createClaimReviewItems(result.claims);
+    setReviewItems(nextItems);
+    setParseDiagnostics(result.diagnostics);
+    setSegmentationMode(mode);
+    setLowConfidence(result.lowConfidence || nextItems.length === 0);
+    setStep('review');
+  }, [resumeText, segmentationMode, sourcePageCount]);
 
   const handleParse = useCallback(() => {
-    if (!resumeText.trim()) return;
-    const parsed = parseClaimsImportText(resumeText);
-    setParsedClaims(parsed);
-    setStep(parsed.length > 0 ? 'review' : 'input');
-  }, [resumeText]);
+    runParse(segmentationMode);
+  }, [runParse, segmentationMode]);
 
   const handleImportFile = useCallback(async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -224,53 +266,54 @@ function ClaimsSection({ claims, addClaim }: {
     setSelectedFileName(file.name);
 
     try {
-      const extractedText = await extractClaimsImportText(file);
-      setResumeText(extractedText);
+      const extracted = await extractClaimsImportWithMetadata(file);
+      setResumeText(extracted.text);
+      setSourcePageCount(extracted.pageCount);
+      setParseDiagnostics(null);
+      setLowConfidence(false);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to read the file.';
       setFileError(message);
       setSelectedFileName(null);
+      setSourcePageCount(0);
     } finally {
       setImportingFile(false);
     }
   }, []);
 
-  const handleImport = useCallback(async () => {
-    const toImport = parsedClaims.filter((c) => c.included);
+  const handleApprove = useCallback(async () => {
+    const toImport = reviewItems.filter((item) => item.included);
     if (toImport.length === 0) return;
 
     setImporting(true);
     try {
-      for (const parsed of toImport) {
-        await addClaim(parsedClaimToImport(parsed));
+      for (const reviewItem of toImport) {
+        await addClaim(reviewItemToClaimInput(reviewItem));
       }
       setImportCount(toImport.length);
       setResumeText('');
-      setParsedClaims([]);
+      setReviewItems([]);
       setSelectedFileName(null);
+      setSourcePageCount(0);
       setFileError(null);
+      setParseDiagnostics(null);
+      setLowConfidence(false);
       setStep('done');
       setTimeout(() => setStep('input'), 3000);
     } finally {
       setImporting(false);
     }
-  }, [parsedClaims, addClaim]);
+  }, [addClaim, reviewItems]);
 
-  const handleBack = useCallback(() => {
+  const handleDiscard = useCallback(() => {
+    setReviewItems([]);
+    setParseDiagnostics(null);
+    setLowConfidence(false);
     setStep('input');
   }, []);
 
-  const updateParsedClaim = useCallback((key: string, updates: Partial<ParsedClaim>) => {
-    setParsedClaims((prev) =>
-      prev.map((c) => (c._key === key ? { ...c, ...updates } : c))
-    );
-  }, []);
-
-  const includedCount = parsedClaims.filter((c) => c.included).length;
-
   return (
     <div className="space-y-4">
-      {/* Import Section */}
       {step === 'input' && (
         <div className="bg-white rounded-lg border border-neutral-200 p-5 shadow-sm">
           <h3 className="text-h3 text-neutral-900 mb-2 flex items-center gap-2">
@@ -294,12 +337,16 @@ function ClaimsSection({ claims, addClaim }: {
               <span className="text-[11px] text-neutral-500 truncate">{selectedFileName}</span>
             )}
           </div>
-          {fileError && (
-            <p className="text-xs text-red-600 mb-2">{fileError}</p>
-          )}
+          {fileError && <p className="text-xs text-red-600 mb-2">{fileError}</p>}
           <textarea
             value={resumeText}
-            onChange={(e) => setResumeText(e.target.value)}
+            onChange={(e) => {
+              setResumeText(e.target.value);
+              if (!e.target.value.trim()) {
+                setParseDiagnostics(null);
+                setLowConfidence(false);
+              }
+            }}
             placeholder={"Role at Company\nJan 2021 - Present\n- Led lifecycle marketing strategy across 4 channels\n- Increased qualified pipeline by 40%\n- Managed a cross-functional team\n\nRole at Example Inc\nMar 2018 - Dec 2020\n- Built demand generation engine from 0 to $5M pipeline\n- Launched ABM program targeting enterprise accounts"}
             rows={10}
             className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm resize-y mb-3 focus:outline-none focus:ring-2 focus:ring-brand-500 font-mono"
@@ -312,81 +359,92 @@ function ClaimsSection({ claims, addClaim }: {
             <FileText size={14} />
             Parse & Review Claims
           </button>
-        </div>
-      )}
-
-      {/* Review Step */}
-      {step === 'review' && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-h3 text-neutral-900 flex items-center gap-2">
-                <Pencil size={14} />
-                Review Parsed Claims
-              </h3>
-              <p className="text-xs text-neutral-500 mt-0.5">
-                {parsedClaims.length} claim{parsedClaims.length !== 1 ? 's' : ''} found.
-                Edit fields, toggle inclusion, then import.
-              </p>
-            </div>
-            <button
-              onClick={handleBack}
-              className="text-xs text-neutral-500 hover:text-neutral-700 flex items-center gap-1"
-            >
-              <X size={12} /> Back to paste
-            </button>
-          </div>
-
-          {parsedClaims.length === 0 ? (
-            <div className="bg-amber-50 rounded-lg border border-amber-200 p-4 text-center">
-              <AlertTriangle size={20} className="text-amber-500 mx-auto mb-2" />
-              <p className="text-sm text-amber-700">No claims could be parsed from the text.</p>
-              <p className="text-xs text-amber-600 mt-1">
-                Make sure your text has role headers (e.g. "Role at Company")
-                followed by bullet points.
-              </p>
-            </div>
-          ) : (
-            <>
-              {parsedClaims.map((claim) => (
-                <ReviewCard
-                  key={claim._key}
-                  claim={claim}
-                  onUpdate={(updates) => updateParsedClaim(claim._key, updates)}
-                />
-              ))}
-
-              <div className="flex gap-3">
-                <button
-                  onClick={handleBack}
-                  className="flex-1 px-4 py-2.5 border border-neutral-200 rounded-lg text-sm font-medium text-neutral-700 hover:bg-neutral-50"
-                >
-                  Back
-                </button>
-                <button
-                  onClick={handleImport}
-                  disabled={includedCount === 0 || importing}
-                  className="flex-1 px-4 py-2.5 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {importing ? (
-                    <>
-                      <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Importing...
-                    </>
-                  ) : (
-                    <>
-                      <Check size={14} />
-                      Import {includedCount} Claim{includedCount !== 1 ? 's' : ''}
-                    </>
-                  )}
-                </button>
-              </div>
-            </>
+          {showDiagnostics && parseDiagnostics && (
+            <details className="mt-3 rounded-lg border border-neutral-200 bg-neutral-50 p-3">
+              <summary className="cursor-pointer text-xs font-medium text-neutral-700">
+                Advanced diagnostics (dev only)
+              </summary>
+              <DiagnosticsGrid diagnostics={parseDiagnostics} />
+            </details>
           )}
         </div>
       )}
 
-      {/* Done Step */}
+      {step === 'review' && (
+        <div className="space-y-4">
+          {reviewItems.length === 0 ? (
+            <div className="space-y-3">
+              <div className="bg-amber-50 rounded-lg border border-amber-200 p-4 text-center">
+                <AlertTriangle size={20} className="text-amber-500 mx-auto mb-2" />
+                <p className="text-sm text-amber-700">No claims could be parsed from the text.</p>
+                <p className="text-xs text-amber-600 mt-1">
+                  Try an alternate segmentation mode below or continue with Skip.
+                </p>
+              </div>
+
+              {lowConfidence && (
+                <div className="rounded-lg border border-neutral-200 bg-white p-3 space-y-2">
+                  <p className="text-xs font-medium text-neutral-700">Guided recovery</p>
+                  <div className="flex flex-wrap gap-2">
+                    {SEGMENTATION_MODES.map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => runParse(mode)}
+                        className={`px-2.5 py-1.5 rounded-md text-xs border ${
+                          mode === segmentationMode
+                            ? 'bg-brand-50 border-brand-300 text-brand-700'
+                            : 'border-neutral-300 text-neutral-700 hover:bg-neutral-50'
+                        }`}
+                      >
+                        Try {SEGMENTATION_MODE_LABELS[mode]}
+                      </button>
+                    ))}
+                    {aiStructuringEnabled && (
+                      <button
+                        type="button"
+                        onClick={() => setFileError('AI structuring is enabled but not configured in this build.')}
+                        className="px-2.5 py-1.5 rounded-md text-xs border border-neutral-300 text-neutral-700 hover:bg-neutral-50"
+                      >
+                        Try AI structuring (beta)
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {showDiagnostics && parseDiagnostics && (
+                <details className="rounded-lg border border-neutral-200 bg-neutral-50 p-3">
+                  <summary className="cursor-pointer text-xs font-medium text-neutral-700">
+                    Advanced diagnostics (dev only)
+                  </summary>
+                  <DiagnosticsGrid diagnostics={parseDiagnostics} />
+                </details>
+              )}
+
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setStep('input')}
+                  className="px-3 py-2 text-xs border border-neutral-300 rounded-lg text-neutral-700 hover:bg-neutral-50"
+                >
+                  Back to import
+                </button>
+              </div>
+            </div>
+          ) : (
+            <ClaimsReviewEditor
+              items={reviewItems}
+              onChange={(items) => setReviewItems(regroupClaimReviewItems(items))}
+              onApprove={handleApprove}
+              onDiscard={handleDiscard}
+              approving={importing}
+              approveLabel="Approve & Save"
+            />
+          )}
+        </div>
+      )}
+
       {step === 'done' && (
         <div className="bg-green-50 rounded-lg border border-green-200 p-5 text-center">
           <Check size={24} className="text-green-600 mx-auto mb-2" />
@@ -396,7 +454,6 @@ function ClaimsSection({ claims, addClaim }: {
         </div>
       )}
 
-      {/* Existing Claims List */}
       <div>
         <h3 className="text-h3 text-neutral-900 mb-2">Claims ({claims.length})</h3>
         {claims.length === 0 && (
@@ -409,7 +466,24 @@ function ClaimsSection({ claims, addClaim }: {
                 <p className="text-sm font-medium text-neutral-900">{claim.role}</p>
                 <p className="text-xs text-neutral-500">{claim.company} | {claim.startDate}{claim.endDate ? ` - ${claim.endDate}` : ' - Present'}</p>
               </div>
+              {claim.reviewStatus && (
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-md ${
+                  claim.reviewStatus === 'active'
+                    ? 'bg-green-50 text-green-700'
+                    : claim.reviewStatus === 'conflict'
+                    ? 'bg-red-50 text-red-700'
+                    : 'bg-amber-50 text-amber-700'
+                }`}>
+                  {claim.reviewStatus}
+                </span>
+              )}
             </div>
+            {claim.rawSnippet && (
+              <p className="text-[11px] text-neutral-500 mb-1">Raw: {claim.rawSnippet}</p>
+            )}
+            {claim.claimText && (
+              <p className="text-xs text-neutral-700 mb-1">Normalized: {claim.claimText}</p>
+            )}
             {claim.responsibilities.length > 0 && (
               <ul className="mt-1 space-y-0.5">
                 {claim.responsibilities.slice(0, 3).map((r, i) => (
@@ -443,298 +517,116 @@ function ClaimsSection({ claims, addClaim }: {
   );
 }
 
-// ============================================================
-// Review Card — editable parsed claim
-// ============================================================
-
-function ReviewCard({
-  claim,
-  onUpdate,
-}: {
-  claim: ParsedClaim;
-  onUpdate: (updates: Partial<ParsedClaim>) => void;
-}) {
-  const [expanded, setExpanded] = useState(true);
-  const [editingField, setEditingField] = useState<string | null>(null);
-
-  const toggleIncluded = () => onUpdate({ included: !claim.included });
+function DiagnosticsGrid({ diagnostics }: { diagnostics: ParseDiagnostics }) {
+  const rows: Array<[string, string | number]> = [
+    ['Extracted text length', diagnostics.extractedTextLength],
+    ['Page count', diagnostics.pageCount],
+    ['Detected lines', diagnostics.detectedLinesCount],
+    ['Bullet candidates', diagnostics.bulletCandidatesCount],
+    ['Section headers', diagnostics.sectionHeadersDetected],
+    ['Company candidates', diagnostics.companyCandidatesDetected],
+    ['Role candidates', diagnostics.roleCandidatesDetected],
+    ['Final companies', diagnostics.finalCompaniesCount],
+    ['Final roles', diagnostics.rolesCount],
+    ['Final bullets', diagnostics.bulletsCount],
+    ['Reason codes', diagnostics.reasonCodes.join(', ') || 'None'],
+  ];
 
   return (
-    <div
-      className={`rounded-lg border shadow-sm transition-colors ${
-        claim.included
-          ? 'bg-white border-neutral-200'
-          : 'bg-neutral-50 border-neutral-200 opacity-60'
-      }`}
-    >
-      {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3">
-        <button
-          onClick={toggleIncluded}
-          className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 transition-colors ${
-            claim.included
-              ? 'bg-brand-600 border-brand-600 text-white'
-              : 'border-neutral-300 bg-white'
-          }`}
-          aria-label={claim.included ? 'Exclude claim' : 'Include claim'}
-        >
-          {claim.included && <Check size={12} />}
-        </button>
-
-        <button
-          onClick={() => setExpanded(!expanded)}
-          className="flex-1 flex items-center gap-2 text-left min-w-0"
-        >
-          {expanded ? <ChevronDown size={14} className="text-neutral-400 shrink-0" /> : <ChevronRight size={14} className="text-neutral-400 shrink-0" />}
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-neutral-900 truncate">
-              {claim.role || <span className="text-neutral-400 italic">No role</span>}
-            </p>
-            <p className="text-xs text-neutral-500 truncate">
-              {claim.company || <span className="text-neutral-400 italic">No company</span>}
-              {claim.startDate && ` | ${claim.startDate}${claim.endDate ? ` - ${claim.endDate}` : ' - Present'}`}
-            </p>
+    <div className="mt-3 space-y-3">
+      <dl className="grid gap-2 sm:grid-cols-2">
+        {rows.map(([label, value]) => (
+          <div key={label} className="rounded border border-neutral-200 bg-white p-2">
+            <dt className="text-[11px] text-neutral-500">{label}</dt>
+            <dd className="text-xs font-medium text-neutral-800">{value}</dd>
           </div>
-        </button>
-      </div>
-
-      {/* Expanded detail */}
-      {expanded && claim.included && (
-        <div className="px-4 pb-4 space-y-3 border-t border-neutral-100 pt-3">
-          {/* Editable Role & Company */}
-          <div className="grid grid-cols-2 gap-3">
-            <EditableField
-              label="Role"
-              icon={<Briefcase size={12} className="text-neutral-400" />}
-              value={claim.role}
-              editing={editingField === 'role'}
-              onStartEdit={() => setEditingField('role')}
-              onSave={(v) => { onUpdate({ role: v }); setEditingField(null); }}
-              onCancel={() => setEditingField(null)}
-            />
-            <EditableField
-              label="Company"
-              icon={<Target size={12} className="text-neutral-400" />}
-              value={claim.company}
-              editing={editingField === 'company'}
-              onStartEdit={() => setEditingField('company')}
-              onSave={(v) => { onUpdate({ company: v }); setEditingField(null); }}
-              onCancel={() => setEditingField(null)}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <EditableField
-              label="Start Date"
-              value={claim.startDate}
-              editing={editingField === 'startDate'}
-              onStartEdit={() => setEditingField('startDate')}
-              onSave={(v) => { onUpdate({ startDate: v }); setEditingField(null); }}
-              onCancel={() => setEditingField(null)}
-            />
-            <EditableField
-              label="End Date"
-              value={claim.endDate}
-              placeholder="Present"
-              editing={editingField === 'endDate'}
-              onStartEdit={() => setEditingField('endDate')}
-              onSave={(v) => { onUpdate({ endDate: v }); setEditingField(null); }}
-              onCancel={() => setEditingField(null)}
-            />
-          </div>
-
-          {/* Responsibilities */}
-          {claim.responsibilities.length > 0 && (
-            <div>
-              <p className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-1.5">
-                Responsibilities ({claim.responsibilities.length})
-              </p>
-              <ul className="space-y-1">
-                {claim.responsibilities.map((r, i) => (
-                  <li key={i} className="flex items-start gap-1.5 group">
-                    <span className="text-xs text-neutral-600 flex-1">- {r}</span>
-                    <button
-                      onClick={() => {
-                        onUpdate({
-                          responsibilities: claim.responsibilities.filter((_, idx) => idx !== i),
-                        });
-                      }}
-                      className="opacity-0 group-hover:opacity-100 p-0.5 text-neutral-400 hover:text-red-500 shrink-0"
-                      aria-label="Remove responsibility"
-                    >
-                      <Minus size={12} />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* Outcomes */}
-          {claim.outcomes.length > 0 && (
-            <div>
-              <p className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-1.5">
-                Outcomes ({claim.outcomes.length})
-              </p>
-              <div className="space-y-1">
-                {claim.outcomes.map((o, i) => (
-                  <div key={i} className="flex items-start gap-1.5 group">
-                    <span className="text-xs text-neutral-600 flex-1">
-                      <span className="inline-flex items-center gap-1">
-                        {o.metric && (
-                          <span className="text-[11px] font-medium text-green-700 bg-green-50 px-1 py-0.5 rounded">
-                            {o.metric}
-                          </span>
-                        )}
-                        {o.description}
-                      </span>
-                    </span>
-                    <button
-                      onClick={() => {
-                        onUpdate({
-                          outcomes: claim.outcomes.filter((_, idx) => idx !== i),
-                        });
-                      }}
-                      className="opacity-0 group-hover:opacity-100 p-0.5 text-neutral-400 hover:text-red-500 shrink-0"
-                      aria-label="Remove outcome"
-                    >
-                      <Minus size={12} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Tools */}
-          <div>
-            <p className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-              <Wrench size={11} />
-              Tools ({claim.tools.length})
-            </p>
-            {claim.tools.length > 0 ? (
-              <div className="flex flex-wrap gap-1">
-                {claim.tools.map((tool, i) => (
-                  <span
-                    key={i}
-                    className="text-[11px] bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded-md inline-flex items-center gap-1 group"
-                  >
-                    {tool}
-                    <button
-                      onClick={() => {
-                        onUpdate({
-                          tools: claim.tools.filter((_, idx) => idx !== i),
-                        });
-                      }}
-                      className="opacity-0 group-hover:opacity-100 text-blue-400 hover:text-red-500"
-                      aria-label={`Remove ${tool}`}
-                    >
-                      <X size={10} />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <p className="text-[11px] text-neutral-400 italic">No tools detected</p>
-            )}
-          </div>
-
-          {/* Warning if incomplete */}
-          {(!claim.role || !claim.company) && (
-            <div className="flex items-center gap-1.5 text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
-              <AlertTriangle size={12} />
-              <span className="text-[11px]">
-                {!claim.role && !claim.company
-                  ? 'Missing role and company — edit above before importing.'
-                  : !claim.role
-                  ? 'Missing role — edit above before importing.'
-                  : 'Missing company — edit above before importing.'}
-              </span>
-            </div>
-          )}
+        ))}
+      </dl>
+      {diagnostics.previewLines.length > 0 && (
+        <div className="rounded border border-neutral-200 bg-white p-2">
+          <p className="text-[11px] text-neutral-500 mb-1">Preview lines (first 30)</p>
+          <pre className="text-[11px] text-neutral-700 whitespace-pre-wrap break-words max-h-40 overflow-auto">
+            {diagnostics.previewLines.join('\n')}
+          </pre>
         </div>
       )}
     </div>
   );
 }
 
-// ============================================================
-// Editable Field (inline edit)
-// ============================================================
-
-function EditableField({
+function TagInputField({
   label,
-  icon,
-  value,
+  helperText,
+  values,
+  onChange,
   placeholder,
-  editing,
-  onStartEdit,
-  onSave,
-  onCancel,
 }: {
   label: string;
-  icon?: React.ReactNode;
-  value: string;
-  placeholder?: string;
-  editing: boolean;
-  onStartEdit: () => void;
-  onSave: (value: string) => void;
-  onCancel: () => void;
+  helperText: string;
+  values: string[];
+  onChange: (next: string[]) => void;
+  placeholder: string;
 }) {
-  const [draft, setDraft] = useState(value);
+  const [draft, setDraft] = useState('');
 
-  if (editing) {
-    return (
-      <div>
-        <label className="text-[11px] font-medium text-neutral-500 mb-0.5 block flex items-center gap-1">
-          {icon}
-          {label}
-        </label>
-        <div className="flex gap-1">
-          <input
-            autoFocus
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') onSave(draft);
-              if (e.key === 'Escape') onCancel();
-            }}
-            className="flex-1 px-2 py-1 border border-brand-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-brand-500"
-          />
-          <button onClick={() => onSave(draft)} className="p-1 text-brand-600 hover:text-brand-700">
-            <Check size={12} />
-          </button>
-          <button onClick={onCancel} className="p-1 text-neutral-400 hover:text-neutral-600">
-            <X size={12} />
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const addTag = useCallback(() => {
+    const normalized = draft.trim();
+    if (!normalized) return;
+    if (values.some((value) => value.toLowerCase() === normalized.toLowerCase())) {
+      setDraft('');
+      return;
+    }
+    onChange([...values, normalized]);
+    setDraft('');
+  }, [draft, onChange, values]);
+
+  const removeTag = useCallback((valueToRemove: string) => {
+    onChange(values.filter((value) => value !== valueToRemove));
+  }, [onChange, values]);
 
   return (
     <div>
-      <label className="text-[11px] font-medium text-neutral-500 mb-0.5 block flex items-center gap-1">
-        {icon}
-        {label}
-      </label>
-      <button
-        onClick={() => {
-          setDraft(value);
-          onStartEdit();
-        }}
-        className="w-full text-left px-2 py-1 rounded text-xs text-neutral-800 hover:bg-neutral-50 border border-transparent hover:border-neutral-200 flex items-center justify-between group"
-      >
-        <span className={value ? '' : 'text-neutral-400 italic'}>{value || placeholder || 'Empty'}</span>
-        <Pencil size={10} className="text-neutral-300 opacity-0 group-hover:opacity-100" />
-      </button>
+      <label className="text-xs font-medium text-neutral-600 mb-1 block">{label}</label>
+      <p className="text-[11px] text-neutral-500 mb-2">{helperText}</p>
+      <div className="flex flex-wrap gap-1.5 mb-2">
+        {values.map((value) => (
+          <span key={value} className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] rounded-md bg-neutral-100 text-neutral-700">
+            {value}
+            <button
+              type="button"
+              onClick={() => removeTag(value)}
+              className="text-neutral-500 hover:text-red-600"
+              aria-label={`Remove ${value}`}
+            >
+              ×
+            </button>
+          </span>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        <input
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ',') {
+              event.preventDefault();
+              addTag();
+            }
+          }}
+          placeholder={placeholder}
+          className="flex-1 px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+        />
+        <button
+          type="button"
+          onClick={addTag}
+          className="px-3 py-2 text-xs border border-neutral-300 rounded-lg text-neutral-700 hover:bg-neutral-50"
+        >
+          Add
+        </button>
+      </div>
     </div>
   );
 }
-
-// ============================================================
-// Data Section
-// ============================================================
 
 function DataSection({ refreshData }: { refreshData: () => Promise<void> }) {
   const [confirmClear, setConfirmClear] = useState(false);

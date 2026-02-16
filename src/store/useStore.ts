@@ -7,6 +7,8 @@ import { db, generateId, seedDefaultProfile } from '../db';
 import { scoreJob } from '../lib/scoring';
 import { parseCompFromText } from '../lib/scoring';
 import { isClosedWonDemotionBlocked } from '../lib/stageTransitions';
+import { getAutoUsableClaims } from '../lib/claimAutoUse';
+import { buildProfileEvidenceClaim } from '../lib/profileEvidence';
 import type {
   Job,
   Company,
@@ -254,8 +256,9 @@ export const useStore = create<AppState>((set, get) => ({
     const profile = get().profile;
     if (!job || !profile) return;
 
-    const claims = get().claims;
-    const result = scoreJob(job, profile, claims);
+    const claims = getAutoUsableClaims(get().claims);
+    const profileEvidence = buildProfileEvidenceClaim(profile);
+    const result = scoreJob(job, profile, [...claims, ...profileEvidence]);
     const now = new Date().toISOString();
 
     const updates: Partial<Job> = {
@@ -439,6 +442,11 @@ export const useStore = create<AppState>((set, get) => ({
       role: claimData.role || '',
       startDate: claimData.startDate || '',
       endDate: claimData.endDate,
+      claimText: claimData.claimText,
+      rawSnippet: claimData.rawSnippet,
+      reviewStatus: claimData.reviewStatus,
+      autoUse: claimData.autoUse,
+      metric: claimData.metric,
       responsibilities: claimData.responsibilities || [],
       tools: claimData.tools || [],
       outcomes: claimData.outcomes || [],

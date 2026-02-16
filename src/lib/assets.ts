@@ -390,7 +390,9 @@ interface ClaimSummary {
 function getTopClaims(claims: Claim[], count: number): ClaimSummary[] {
   return claims.slice(0, count).map((claim) => {
     const topOutcome = claim.outcomes[0];
-    const summary = topOutcome
+    const summary = claim.claimText
+      ? claim.claimText
+      : topOutcome
       ? topOutcome.description
       : claim.responsibilities[0] || 'led growth initiatives';
     const shortSummary = summary.length > 60 ? summary.substring(0, 57) + '...' : summary;

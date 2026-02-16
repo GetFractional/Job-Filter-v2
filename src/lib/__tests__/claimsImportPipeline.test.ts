@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   getClaimsImportAcceptValue,
+  parseClaimsImport,
   parseClaimsImportText,
   validateClaimsImportFile,
 } from '../claimsImportPipeline';
@@ -56,6 +57,28 @@ describe('claimsImportPipeline', () => {
     );
     expect(claims.length).toBeGreaterThan(0);
     expect(claims[0].company).toContain('Company');
+  });
+
+  it('returns diagnostics and preserves parse metadata', () => {
+    const result = parseClaimsImport(
+      'Role at Company\nJan 2021 - Present\n- Increased pipeline by 40%',
+      { pageCount: 2 },
+    );
+
+    expect(result.claims.length).toBeGreaterThan(0);
+    expect(result.diagnostics.pageCount).toBe(2);
+    expect(result.diagnostics.detectedLinesCount).toBeGreaterThan(0);
+    expect(result.lowConfidence).toBe(false);
+  });
+
+  it('supports alternate segmentation mode retries', () => {
+    const text = 'Role at Company\nJan 2021 - Present\n● first bullet ● second bullet';
+    const defaultResult = parseClaimsImport(text, { segmentationMode: 'default' });
+    const bulletModeResult = parseClaimsImport(text, { segmentationMode: 'bullets' });
+
+    expect(bulletModeResult.diagnostics.bulletsCount).toBeGreaterThanOrEqual(
+      defaultResult.diagnostics.bulletsCount,
+    );
   });
 
   it('exposes accept string for file picker', () => {

@@ -245,7 +245,13 @@ export interface Outcome {
 export interface Profile {
   id: string;
   name: string;
+  headline?: string;
+  location?: string;
+  yearsExperience?: number;
   targetRoles: string[];
+  skills: string[];
+  tools: string[];
+  digitalResume?: DigitalResume;
   compFloor: number;
   compTarget: number;
   requiredBenefits: string[];
@@ -255,12 +261,93 @@ export interface Profile {
   updatedAt: string;
 }
 
+export type ClaimReviewStatus = 'active' | 'needs_review' | 'conflict';
+
+export type ParseReasonCode =
+  | 'TEXT_EMPTY'
+  | 'LAYOUT_COLLAPSE'
+  | 'BULLET_DETECT_FAIL'
+  | 'ROLE_DETECT_FAIL'
+  | 'FILTERED_ALL';
+
+export interface ParseDiagnostics {
+  extractedTextLength: number;
+  pageCount: number;
+  detectedLinesCount: number;
+  bulletCandidatesCount: number;
+  sectionHeadersDetected: number;
+  companyCandidatesDetected: number;
+  roleCandidatesDetected: number;
+  finalCompaniesCount: number;
+  rolesCount: number;
+  bulletsCount: number;
+  reasonCodes: ParseReasonCode[];
+  previewLines: string[];
+}
+
+export interface ResumeHighlight {
+  id: string;
+  text: string;
+  status: ClaimReviewStatus;
+  confidence?: number;
+  rawEvidenceRefs?: string[];
+}
+
+export interface ResumeOutcome {
+  id: string;
+  text: string;
+  metricValue?: string;
+  metricUnit?: string;
+  metricContext?: string;
+  status: ClaimReviewStatus;
+  confidence?: number;
+  rawEvidenceRefs?: string[];
+}
+
+export interface ResumeRole {
+  roleId: string;
+  title: string;
+  startDate: string;
+  endDate?: string;
+  highlights: ResumeHighlight[];
+  outcomes: ResumeOutcome[];
+  tools: string[];
+  skills: string[];
+  rawEvidenceRefs?: string[];
+}
+
+export interface ResumeCompany {
+  companyId: string;
+  companyName: string;
+  companySummary?: string;
+  roles: ResumeRole[];
+}
+
+export interface DigitalResume {
+  companies: ResumeCompany[];
+  globalSkills: string[];
+  globalTools: string[];
+  source?: string;
+  lastImportedAt?: string;
+}
+
+export interface ClaimMetric {
+  value?: string;
+  unit?: string;
+  context?: string;
+}
+
 export interface Claim {
   id: string;
   company: string;
   role: string;
   startDate: string;
   endDate?: string;
+  claimText?: string;
+  rawSnippet?: string;
+  reviewStatus?: ClaimReviewStatus;
+  autoUse?: boolean;
+  metric?: ClaimMetric;
   responsibilities: string[];
   tools: string[];
   outcomes: ClaimOutcome[];
