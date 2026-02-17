@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { buildImportDraftFromText, hasUsableImportDraft } from '../importDraftBuilder';
+import { buildBestImportDraftFromText, buildImportDraftFromText, hasUsableImportDraft } from '../importDraftBuilder';
+import marketingFixture from './fixtures/matt_marketing_director_sanitized.txt?raw';
+import profileFixture from './fixtures/profile_linkedin_export_sanitized.txt?raw';
 
 describe('importDraftBuilder', () => {
   it('builds a company-first draft with confidence/status/source refs', () => {
@@ -46,5 +48,57 @@ describe('importDraftBuilder', () => {
     const retryItemCount = retryResult.diagnostics.bulletsCount;
 
     expect(retryItemCount).toBeGreaterThanOrEqual(defaultItemCount);
+  });
+
+  it('strips zero-width characters and merges bullet-only continuation lines', () => {
+    const input = [
+      'Acme Corp',
+      'Growth Lead',
+      'Jan 2021 - Present',
+      '●\u200b',
+      'Built lifecycle strategy across paid and owned channels',
+      '+ Coordinated launch planning with sales and CS leaders',
+      '(lifted conversion 12%)',
+    ].join('\n');
+
+    const result = buildImportDraftFromText(input, { mode: 'default' });
+    const mergedItemsText = result.draft.companies
+      .flatMap((company) => company.roles)
+      .flatMap((role) => [...role.highlights, ...role.outcomes])
+      .map((item) => item.text)
+      .join(' ');
+    const statuses = result.draft.companies
+      .flatMap((company) => company.roles)
+      .flatMap((role) => [role.status, ...role.highlights.map((item) => item.status), ...role.outcomes.map((item) => item.status)]);
+
+    expect(result.diagnostics.bulletCandidatesCount).toBeGreaterThan(0);
+    expect(mergedItemsText).toContain('Built lifecycle strategy across paid and owned channels');
+    expect(mergedItemsText).toContain('Coordinated launch planning with sales and CS leaders');
+    expect(statuses).not.toContain('rejected');
+  });
+
+  it('never auto-rejects low-confidence parsed items', () => {
+    const input = ['●\u200b', 'short proof line'].join('\n');
+    const result = buildImportDraftFromText(input, { mode: 'default' });
+    const statuses = result.draft.companies.flatMap((company) =>
+      company.roles.flatMap((role) => [
+        role.status,
+        ...role.highlights.map((item) => item.status),
+        ...role.outcomes.map((item) => item.status),
+      ]),
+    );
+
+    expect(statuses.length).toBeGreaterThan(0);
+    expect(statuses).not.toContain('rejected');
+  });
+
+  it('auto-selects the strongest segmentation candidate for known fixtures', () => {
+    const marketingResult = buildBestImportDraftFromText(marketingFixture);
+    const profileResult = buildBestImportDraftFromText(profileFixture);
+
+    expect(marketingResult.diagnostics.selectedMode).toBeDefined();
+    expect(profileResult.diagnostics.selectedMode).toBeDefined();
+    expect(marketingResult.diagnostics.candidateModes?.length).toBe(4);
+    expect(profileResult.diagnostics.candidateModes?.length).toBe(4);
   });
 });

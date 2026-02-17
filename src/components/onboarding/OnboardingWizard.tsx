@@ -3,8 +3,10 @@ import {
   AlertTriangle,
   Briefcase,
   Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   DollarSign,
   FileText,
   MapPin,
@@ -22,7 +24,7 @@ import {
   getClaimsImportAcceptValue,
   validateClaimsImportFile,
 } from '../../lib/claimsImportPipeline';
-import { buildImportDraftFromText, hasUsableImportDraft } from '../../lib/importDraftBuilder';
+import { buildBestImportDraftFromText, buildImportDraftFromText, hasUsableImportDraft } from '../../lib/importDraftBuilder';
 import { inferProfilePrefillSuggestion } from '../../lib/profileInference';
 import { getImportSessionStorageNotice } from '../../lib/importSessionStorage';
 import type {
@@ -31,6 +33,7 @@ import type {
   ImportDraftRole,
   ImportItemStatus,
   ImportSession,
+  ParseReasonCode,
   SegmentationMode,
 } from '../../types';
 
@@ -48,12 +51,13 @@ const STEPS: { id: Step; label: string }[] = [
   { id: 'ready', label: 'Ready' },
 ];
 
-const SEGMENTATION_MODES: { id: SegmentationMode; label: string }[] = [
-  { id: 'default', label: 'Default' },
-  { id: 'newlines', label: 'Newlines' },
-  { id: 'bullets', label: 'List markers' },
-  { id: 'headings', label: 'Headings' },
-];
+const SEGMENTATION_MODE_ORDER: SegmentationMode[] = ['default', 'newlines', 'bullets', 'headings'];
+const LOW_QUALITY_REASON_CODES = new Set<ParseReasonCode>([
+  'FILTERED_ALL',
+  'LAYOUT_COLLAPSE',
+  'ROLE_DETECT_FAIL',
+  'COMPANY_DETECT_FAIL',
+]);
 
 function statusLabel(status: ImportItemStatus): string {
   if (status === 'accepted') return 'Accepted';
@@ -119,14 +123,20 @@ function toClaimPayload(role: ImportDraftRole, companyName: string): Partial<Cla
 }
 
 function createParsedSession(
-  mode: SegmentationMode,
   draft: ImportDraft,
   diagnostics: ImportSession['diagnostics'],
   profileSuggestion: ImportSession['profileSuggestion'],
 ): ImportSession {
+  const selectedMode = diagnostics.selectedMode ?? diagnostics.mode ?? 'default';
+  const itemsCount = diagnostics.mappingStage?.finalItemsCount ?? diagnostics.bulletsCount;
+  const hasCollapseCode = diagnostics.reasonCodes.some((code) => LOW_QUALITY_REASON_CODES.has(code));
+
   return {
     id: crypto.randomUUID(),
-    mode,
+    mode: selectedMode,
+    selectedMode,
+    lowQuality: itemsCount < 20 || hasCollapseCode,
+    troubleshootAvailableModes: SEGMENTATION_MODE_ORDER,
     draft,
     diagnostics,
     profileSuggestion,
@@ -230,12 +240,12 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
   const [resumeText, setResumeText] = useState('');
   const [extractionDiagnostics, setExtractionDiagnostics] = useState<ClaimsImportExtractionDiagnostics | null>(null);
-  const [parseMode, setParseMode] = useState<SegmentationMode>(importSession?.mode || 'default');
   const [importedClaimsCount, setImportedClaimsCount] = useState(0);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [readingFile, setReadingFile] = useState(false);
   const [fileImportError, setFileImportError] = useState<string | null>(null);
   const [suggestionsDismissed, setSuggestionsDismissed] = useState(false);
+  const [troubleshootOpen, setTroubleshootOpen] = useState(false);
 
   useEffect(() => {
     hydrateImportSession();
@@ -247,7 +257,6 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
       return;
     }
 
-    setParseMode(importSession.mode);
     setStorageNotice(getImportSessionStorageNotice(importSession.storage));
   }, [importSession]);
 
@@ -257,16 +266,21 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     () => (importSession ? countDraftItems(importSession.draft) : { companies: 0, roles: 0, highlights: 0, outcomes: 0 }),
     [importSession],
   );
-  const showImportDebug =
-    import.meta.env.DEV &&
-    typeof window !== 'undefined' &&
-    new URLSearchParams(window.location.search).get('debugImport') === '1';
 
   const hasUsableDraft = importSession ? hasUsableImportDraft(importSession.draft) : false;
   const draftItemCount = draftCounts.highlights + draftCounts.outcomes;
-  const parseLooksCollapsed = importSession
-    ? (importSession.diagnostics.mappingStage?.finalItemsCount ?? draftItemCount) < 10
+  const hasCollapseCode = importSession
+    ? importSession.diagnostics.reasonCodes.some((code) => LOW_QUALITY_REASON_CODES.has(code))
     : false;
+  const parseLooksLowQuality = importSession
+    ? (importSession.diagnostics.mappingStage?.finalItemsCount ?? draftItemCount) < 20 || hasCollapseCode
+    : false;
+  const bulletDotCount = importSession
+    ? (importSession.diagnostics.topBulletGlyphs ?? []).find((entry) => entry.glyph === '•')?.count ?? 0
+    : 0;
+  const bulletCircleCount = importSession
+    ? (importSession.diagnostics.topBulletGlyphs ?? []).find((entry) => entry.glyph === '●')?.count ?? 0
+    : 0;
 
   const handleSaveProfile = useCallback(async () => {
     setSaving(true);
@@ -323,18 +337,22 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     setSuggestionsDismissed(true);
   }, [compFloor, compTarget, importSession, locationPref, targetRoles]);
 
-  const handleParseResume = useCallback(() => {
+  const handleParseResume = useCallback((forcedMode?: SegmentationMode) => {
     if (!resumeText.trim()) {
       setFileImportError('Paste text or upload a file before parsing.');
       return;
     }
 
-    const result = buildImportDraftFromText(resumeText, {
-      mode: parseMode,
-      extractionDiagnostics: extractionDiagnostics || undefined,
-    });
+    const result = forcedMode
+      ? buildImportDraftFromText(resumeText, {
+          mode: forcedMode,
+          extractionDiagnostics: extractionDiagnostics || undefined,
+        })
+      : buildBestImportDraftFromText(resumeText, {
+          extractionDiagnostics: extractionDiagnostics || undefined,
+        });
     const suggestion = inferProfilePrefillSuggestion(result.diagnostics, result.draft);
-    const session = createParsedSession(parseMode, result.draft, result.diagnostics, suggestion);
+    const session = createParsedSession(result.draft, result.diagnostics, suggestion);
 
     setImportSession(session);
     const persisted = useStore.getState().importSession;
@@ -343,7 +361,22 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     setSuggestionsDismissed(false);
     setImportedClaimsCount(0);
     setFileImportError(null);
-  }, [extractionDiagnostics, parseMode, resumeText, setImportSession]);
+    setTroubleshootOpen(false);
+  }, [extractionDiagnostics, resumeText, setImportSession]);
+
+  const handleTryAnotherMethod = useCallback(() => {
+    if (!importSession || !resumeText.trim()) return;
+
+    const currentMode = importSession.selectedMode ?? importSession.mode ?? 'default';
+    const candidateModes = (importSession.diagnostics.candidateModes ?? [])
+      .map((candidate) => candidate.mode)
+      .filter((mode, index, list) => list.indexOf(mode) === index);
+    const modeOrder = [...candidateModes, ...SEGMENTATION_MODE_ORDER];
+    const nextMode = modeOrder.find((mode) => mode !== currentMode);
+
+    if (!nextMode) return;
+    handleParseResume(nextMode);
+  }, [handleParseResume, importSession, resumeText]);
 
   const handleImportFile = useCallback(async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -413,13 +446,13 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const handleResetImport = useCallback(() => {
     setImportSession(null);
     setResumeText('');
-    setParseMode('default');
     setImportedClaimsCount(0);
     setSelectedFileName(null);
     setFileImportError(null);
     setSuggestionsDismissed(false);
     setStorageNotice(null);
     setExtractionDiagnostics(null);
+    setTroubleshootOpen(false);
   }, [setImportSession]);
 
   const markSkipped = useCallback(() => {
@@ -635,8 +668,8 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                 </div>
 
                 <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3 text-xs text-neutral-600">
-                  <p>Your resume is parsed locally in your browser by default.</p>
-                  <p className="mt-1">AI-assisted parsing, if enabled later, requires explicit opt-in.</p>
+                  <p>Your resume is parsed locally in your browser.</p>
+                  <p className="mt-1">AI parsing requires explicit opt-in.</p>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
@@ -667,29 +700,15 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                   className="w-full px-3.5 py-2.5 bg-white border border-neutral-200 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
                 />
 
-                <div className="flex flex-wrap gap-2">
-                  <span className="text-xs text-neutral-500 mt-1">Segmentation mode:</span>
-                  {SEGMENTATION_MODES.map((mode) => (
-                    <button
-                      key={mode.id}
-                      type="button"
-                      onClick={() => setParseMode(mode.id)}
-                      className={`px-3 py-1.5 text-xs rounded-full border ${
-                        parseMode === mode.id
-                          ? 'bg-brand-50 border-brand-300 text-brand-700'
-                          : 'border-neutral-200 text-neutral-600 hover:bg-neutral-50'
-                      }`}
-                    >
-                      {mode.label}
-                    </button>
-                  ))}
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-neutral-500">We automatically choose the best parsing method.</p>
                   <button
                     type="button"
-                    onClick={handleParseResume}
+                    onClick={() => handleParseResume()}
                     disabled={!resumeText.trim() || readingFile}
                     className="px-3 py-1.5 text-xs rounded-full border border-neutral-200 text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
                   >
-                    {importSession ? 'Retry parse' : 'Parse now'}
+                    {importSession ? 'Parse again' : 'Parse now'}
                   </button>
                 </div>
               </div>
@@ -717,7 +736,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                         onClick={handleResetImport}
                         className="px-3 py-1.5 text-xs border border-neutral-200 rounded-lg text-neutral-600 hover:bg-neutral-50"
                       >
-                        Reset import
+                        Reset import session
                       </button>
                     </div>
                   </div>
@@ -803,45 +822,81 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                         <div>
                           <p className="text-sm font-medium text-amber-800">No structured draft yet</p>
                           <p className="text-xs text-amber-700 mt-1">
-                            Try another segmentation mode, upload a different format, or skip and continue manually.
+                            Open Troubleshoot to try another method, upload a different format, or skip and continue manually.
                           </p>
                         </div>
                       </div>
                     </div>
                   )}
 
-                  {parseLooksCollapsed && (
+                  {parseLooksLowQuality && (
                     <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
                       We imported {draftCounts.companies} companies, {draftCounts.roles} roles, and {draftItemCount} highlights/outcomes.
-                      If this looks incomplete, retry parsing with another segmentation mode, or create from scratch and continue.
+                      If this looks incomplete, open Troubleshoot, try another method, or continue manually.
                     </div>
                   )}
 
-                  {showImportDebug && (
-                    <div className="rounded-lg border border-neutral-300 bg-neutral-50 p-3 text-xs text-neutral-700 space-y-2">
-                      <p className="font-semibold text-neutral-800">Import Debug (dev-only)</p>
-                      <p>
-                        Extraction: pages={importSession.diagnostics.extractionStage?.pageCount ?? 'n/a'}, chars={importSession.diagnostics.extractionStage?.extractedChars ?? 'n/a'}, lines={importSession.diagnostics.extractionStage?.detectedLinesCount ?? 'n/a'}, list-candidates={importSession.diagnostics.extractionStage?.bulletCandidatesCount ?? 'n/a'}
-                      </p>
-                      <p>
-                        Segmentation: mode={importSession.diagnostics.mode ?? parseMode}, lines={importSession.diagnostics.segmentationStage?.detectedLinesCount ?? importSession.diagnostics.detectedLinesCount}, list-candidates={importSession.diagnostics.segmentationStage?.bulletCandidatesCount ?? importSession.diagnostics.bulletCandidatesCount}
-                      </p>
-                      <p>
-                        Mapping: company-candidates={importSession.diagnostics.mappingStage?.companyCandidatesCount ?? importSession.diagnostics.companyCandidatesDetected}, role-candidates={importSession.diagnostics.mappingStage?.roleCandidatesCount ?? importSession.diagnostics.roleCandidatesDetected}, timeframe-candidates={importSession.diagnostics.mappingStage?.timeframeCandidatesCount ?? importSession.diagnostics.timeframeCandidatesCount ?? 0}, final={importSession.diagnostics.finalCompaniesCount} companies / {importSession.diagnostics.rolesCount} roles / {importSession.diagnostics.mappingStage?.finalItemsCount ?? importSession.diagnostics.bulletsCount} items
-                      </p>
-                      <p>
-                        Top bullet glyphs: {(importSession.diagnostics.topBulletGlyphs ?? importSession.diagnostics.segmentationStage?.topBulletGlyphs ?? [])
-                          .map((entry) => `${entry.glyph}:${entry.count}`)
-                          .join(', ') || 'none'}
-                      </p>
-                      <p>Reason codes: {importSession.diagnostics.reasonCodes.join(', ') || 'none'}</p>
-                      <div className="max-h-56 overflow-y-auto rounded border border-neutral-200 bg-white p-2 font-mono text-[11px] text-neutral-700">
-                        {(importSession.diagnostics.previewLinesWithNumbers ?? []).map((line) => (
-                          <div key={line.line}>{line.line}. {line.text}</div>
-                        ))}
+                  <div className="rounded-lg border border-neutral-200">
+                    <button
+                      type="button"
+                      onClick={() => setTroubleshootOpen((open) => !open)}
+                      className="w-full px-3 py-2.5 flex items-center justify-between text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+                    >
+                      Troubleshoot
+                      {troubleshootOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                    </button>
+
+                    {troubleshootOpen && (
+                      <div className="border-t border-neutral-200 p-3 space-y-3 text-xs text-neutral-700">
+                        <p className="font-semibold text-neutral-800">Parse Summary</p>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          <div>pageCount: {importSession.diagnostics.pageCount ?? 'n/a'}</div>
+                          <div>extractedChars: {importSession.diagnostics.extractedTextLength}</div>
+                          <div>detectedLinesCount: {importSession.diagnostics.detectedLinesCount}</div>
+                          <div>bulletCandidatesCount: {importSession.diagnostics.bulletCandidatesCount}</div>
+                          <div>glyph(•): {bulletDotCount}</div>
+                          <div>glyph(●): {bulletCircleCount}</div>
+                          <div>bulletOnlyLineCount: {importSession.diagnostics.bulletOnlyLineCount}</div>
+                          <div>mode: {importSession.selectedMode ?? importSession.mode}</div>
+                          <div>companies: {draftCounts.companies}</div>
+                          <div>roles: {draftCounts.roles}</div>
+                          <div>highlights: {draftCounts.highlights}</div>
+                          <div>outcomes: {draftCounts.outcomes}</div>
+                        </div>
+                        <div>
+                          reasonCodes: {importSession.diagnostics.reasonCodes.length > 0 ? importSession.diagnostics.reasonCodes.join(', ') : 'none'}
+                        </div>
+                        {importSession.diagnostics.candidateModes && importSession.diagnostics.candidateModes.length > 0 && (
+                          <div>
+                            <p className="font-medium text-neutral-800 mb-1">Candidate methods</p>
+                            <ul className="space-y-1">
+                              {importSession.diagnostics.candidateModes.map((candidate) => (
+                                <li key={candidate.mode} className="text-neutral-600">
+                                  {candidate.mode}: score {candidate.score.toFixed(1)}, {candidate.counts.companies} companies, {candidate.counts.roles} roles, {candidate.counts.items} items
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {parseLooksLowQuality && (
+                          <button
+                            type="button"
+                            onClick={handleTryAnotherMethod}
+                            className="px-3 py-1.5 text-xs rounded-lg border border-neutral-200 text-neutral-700 hover:bg-neutral-50"
+                          >
+                            Try another method
+                          </button>
+                        )}
+                        <div className="rounded border border-neutral-200 bg-white p-2 font-mono text-[11px] text-neutral-700 max-h-56 overflow-y-auto">
+                          {(importSession.diagnostics.previewLinesWithNumbers ?? []).map((line) => (
+                            <div key={line.line}>
+                              {line.line}. {line.text}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
 
                   {importedClaimsCount > 0 && (
                     <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">

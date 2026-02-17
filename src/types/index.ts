@@ -312,10 +312,12 @@ export interface ImportDraft {
 
 export interface ParseDiagnostics {
   mode?: SegmentationMode;
+  selectedMode?: SegmentationMode;
   extractedTextLength: number;
   pageCount?: number;
   detectedLinesCount: number;
   bulletCandidatesCount: number;
+  bulletOnlyLineCount: number;
   topBulletGlyphs?: { glyph: string; count: number }[];
   sectionHeadersDetected: number;
   companyCandidatesDetected: number;
@@ -327,16 +329,29 @@ export interface ParseDiagnostics {
   reasonCodes: ParseReasonCode[];
   previewLines: string[];
   previewLinesWithNumbers?: { line: number; text: string }[];
+  candidateModes?: Array<{
+    mode: SegmentationMode;
+    score: number;
+    reasonCodes: ParseReasonCode[];
+    counts: {
+      companies: number;
+      roles: number;
+      items: number;
+      bulletCandidates: number;
+    };
+  }>;
   extractionStage?: {
     pageCount?: number;
     extractedChars: number;
     detectedLinesCount: number;
     bulletCandidatesCount: number;
+    bulletOnlyLineCount: number;
     topBulletGlyphs: { glyph: string; count: number }[];
   };
   segmentationStage?: {
     detectedLinesCount: number;
     bulletCandidatesCount: number;
+    bulletOnlyLineCount: number;
     topBulletGlyphs: { glyph: string; count: number }[];
     sectionHeadersDetected: number;
   };
@@ -375,6 +390,9 @@ export interface ProfilePrefillSuggestion {
 export interface ImportSession {
   id: string;
   mode: SegmentationMode;
+  selectedMode?: SegmentationMode;
+  lowQuality?: boolean;
+  troubleshootAvailableModes?: SegmentationMode[];
   draft: ImportDraft;
   diagnostics: ParseDiagnostics;
   profileSuggestion: ProfilePrefillSuggestion;

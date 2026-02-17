@@ -178,6 +178,7 @@ const DATE_PATTERNS: RegExp[] = [
 
 // Bullet point prefixes
 const BULLET_RE = /^[\s]*[-–—*\u2022\u25CF\u25E6\u25AA\u25AB\u25B8\u25BA\u2023\u27A2\u2219\u2043✅✔➤➔]\s*/u;
+const ZERO_WIDTH_RE = /\u200B|\u200C|\u200D|\uFEFF/g;
 
 // Metric indicators for outcome classification
 const METRIC_RE =
@@ -579,11 +580,29 @@ function buildRawBlocks(classified: ClassifiedLine[]): RawClaimBlock[] {
         continue;
       }
 
-      // Handle bullet-only line where content is on the next text line.
-      const nextLine = classified[i + 1];
-      if (nextLine && nextLine.kind === 'text' && nextLine.trimmed) {
-        current.bullets.push(nextLine.trimmed);
-        i += 2;
+      // Handle bullet-only line where content spans following continuation lines.
+      const continuation: string[] = [];
+      let nextIndex = i + 1;
+      while (nextIndex < classified.length) {
+        const nextLine = classified[nextIndex];
+        if (
+          nextLine.kind === 'blank' ||
+          nextLine.kind === 'section_header' ||
+          nextLine.kind === 'role_header' ||
+          nextLine.kind === 'date_line' ||
+          nextLine.kind === 'bullet'
+        ) {
+          break;
+        }
+        if (nextLine.kind === 'text' && nextLine.trimmed) {
+          continuation.push(nextLine.trimmed);
+        }
+        nextIndex += 1;
+      }
+
+      if (continuation.length > 0) {
+        current.bullets.push(continuation.join(' ').replace(/\s+/g, ' ').trim());
+        i = nextIndex;
         continue;
       }
 
@@ -750,7 +769,9 @@ export function parseResumeStructured(text: string): ParsedClaim[] {
   // Reset key counter each invocation for deterministic keys
   _keyCounter = 0;
 
-  const lines = text.split('\n');
+  const lines = text
+    .replace(ZERO_WIDTH_RE, '')
+    .split('\n');
 
   // Pass 1: Classify every line
   const classified = classifyLines(lines);

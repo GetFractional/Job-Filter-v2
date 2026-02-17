@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildImportDraftFromText } from '../importDraftBuilder';
+import { buildBestImportDraftFromText, buildImportDraftFromText } from '../importDraftBuilder';
 import marketingFixture from './fixtures/matt_marketing_director_sanitized.txt?raw';
 import profileFixture from './fixtures/profile_linkedin_export_sanitized.txt?raw';
 
@@ -35,5 +35,23 @@ describe('import fixture thresholds', () => {
     expect(summary.roles).toBeGreaterThanOrEqual(5);
     expect(summary.items).toBeGreaterThanOrEqual(30);
     expect(result.diagnostics.bulletCandidatesCount).toBeGreaterThanOrEqual(30);
+  });
+
+  it('auto-mode chooser returns scored candidates and selected winner for marketing fixture', () => {
+    const result = buildBestImportDraftFromText(marketingFixture);
+    const candidates = result.diagnostics.candidateModes ?? [];
+
+    expect(candidates.length).toBe(4);
+    expect(result.diagnostics.selectedMode).toBeDefined();
+    expect(candidates[0].score).toBeGreaterThanOrEqual(candidates[candidates.length - 1].score);
+  });
+
+  it('auto-mode chooser returns scored candidates and selected winner for profile fixture', () => {
+    const result = buildBestImportDraftFromText(profileFixture);
+    const candidates = result.diagnostics.candidateModes ?? [];
+
+    expect(candidates.length).toBe(4);
+    expect(result.diagnostics.selectedMode).toBeDefined();
+    expect(candidates[0].score).toBeGreaterThanOrEqual(candidates[candidates.length - 1].score);
   });
 });

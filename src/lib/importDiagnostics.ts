@@ -7,10 +7,12 @@ export interface TextStageMetrics {
   extractedChars: number;
   detectedLinesCount: number;
   bulletCandidatesCount: number;
+  bulletOnlyLineCount: number;
   topBulletGlyphs: BulletGlyphCount[];
 }
 
 const BULLET_GLYPH_RE = /^[\s]*([•●◦▪▫‣⁃\-–—*✅✔➤➔])/u;
+const BULLET_ONLY_RE = /^[\s]*[•●◦▪▫‣⁃\-–—*✅✔➤➔]+[\s]*$/u;
 
 export function countTopBulletGlyphs(lines: string[], max = 8): BulletGlyphCount[] {
   const counts = new Map<string, number>();
@@ -33,11 +35,13 @@ export function summarizeTextStage(lines: string[]): TextStageMetrics {
   const nonEmptyLines = lines.map((line) => line.trim()).filter(Boolean);
   const topBulletGlyphs = countTopBulletGlyphs(nonEmptyLines);
   const bulletCandidatesCount = topBulletGlyphs.reduce((total, item) => total + item.count, 0);
+  const bulletOnlyLineCount = nonEmptyLines.filter((line) => BULLET_ONLY_RE.test(line)).length;
 
   return {
     extractedChars: nonEmptyLines.join('\n').length,
     detectedLinesCount: nonEmptyLines.length,
     bulletCandidatesCount,
+    bulletOnlyLineCount,
     topBulletGlyphs,
   };
 }
