@@ -17,7 +17,8 @@ import {
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import {
-  extractClaimsImportText,
+  type ClaimsImportExtractionDiagnostics,
+  extractClaimsImportTextWithMetrics,
   getClaimsImportAcceptValue,
   validateClaimsImportFile,
 } from '../../lib/claimsImportPipeline';
@@ -228,6 +229,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const [disqualifiers, setDisqualifiers] = useState(profile?.disqualifiers?.join('\n') || '');
 
   const [resumeText, setResumeText] = useState('');
+  const [extractionDiagnostics, setExtractionDiagnostics] = useState<ClaimsImportExtractionDiagnostics | null>(null);
   const [parseMode, setParseMode] = useState<SegmentationMode>(importSession?.mode || 'default');
   const [importedClaimsCount, setImportedClaimsCount] = useState(0);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
@@ -255,8 +257,16 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     () => (importSession ? countDraftItems(importSession.draft) : { companies: 0, roles: 0, highlights: 0, outcomes: 0 }),
     [importSession],
   );
+  const showImportDebug =
+    import.meta.env.DEV &&
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).get('debugImport') === '1';
 
   const hasUsableDraft = importSession ? hasUsableImportDraft(importSession.draft) : false;
+  const draftItemCount = draftCounts.highlights + draftCounts.outcomes;
+  const parseLooksCollapsed = importSession
+    ? (importSession.diagnostics.mappingStage?.finalItemsCount ?? draftItemCount) < 10
+    : false;
 
   const handleSaveProfile = useCallback(async () => {
     setSaving(true);
@@ -319,7 +329,10 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
       return;
     }
 
-    const result = buildImportDraftFromText(resumeText, { mode: parseMode });
+    const result = buildImportDraftFromText(resumeText, {
+      mode: parseMode,
+      extractionDiagnostics: extractionDiagnostics || undefined,
+    });
     const suggestion = inferProfilePrefillSuggestion(result.diagnostics, result.draft);
     const session = createParsedSession(parseMode, result.draft, result.diagnostics, suggestion);
 
@@ -330,7 +343,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     setSuggestionsDismissed(false);
     setImportedClaimsCount(0);
     setFileImportError(null);
-  }, [parseMode, resumeText, setImportSession]);
+  }, [extractionDiagnostics, parseMode, resumeText, setImportSession]);
 
   const handleImportFile = useCallback(async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -349,12 +362,14 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     setSelectedFileName(file.name);
 
     try {
-      const extractedText = await extractClaimsImportText(file);
-      setResumeText(extractedText);
+      const extraction = await extractClaimsImportTextWithMetrics(file);
+      setResumeText(extraction.text);
+      setExtractionDiagnostics(extraction.diagnostics);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to read the selected file.';
       setFileImportError(message);
       setSelectedFileName(null);
+      setExtractionDiagnostics(null);
     } finally {
       setReadingFile(false);
     }
@@ -392,6 +407,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     setImportSession(null);
     setImportedClaimsCount(0);
     setSuggestionsDismissed(false);
+    setExtractionDiagnostics(null);
   }, [setImportSession]);
 
   const handleResetImport = useCallback(() => {
@@ -403,6 +419,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     setFileImportError(null);
     setSuggestionsDismissed(false);
     setStorageNotice(null);
+    setExtractionDiagnostics(null);
   }, [setImportSession]);
 
   const markSkipped = useCallback(() => {
@@ -640,7 +657,11 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
                 <textarea
                   value={resumeText}
-                  onChange={(event) => setResumeText(event.target.value)}
+                  onChange={(event) => {
+                    setResumeText(event.target.value);
+                    setSelectedFileName(null);
+                    setExtractionDiagnostics(null);
+                  }}
                   placeholder="Paste your resume text if you prefer manual input"
                   rows={10}
                   className="w-full px-3.5 py-2.5 bg-white border border-neutral-200 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
@@ -789,11 +810,38 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     </div>
                   )}
 
-                  <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3 text-xs text-neutral-600">
-                    <p>
-                      Diagnostics: {importSession.diagnostics.detectedLinesCount} lines, {importSession.diagnostics.bulletCandidatesCount} list-marker candidates, reason codes: {importSession.diagnostics.reasonCodes.join(', ') || 'none'}.
-                    </p>
-                  </div>
+                  {parseLooksCollapsed && (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                      We imported {draftCounts.companies} companies, {draftCounts.roles} roles, and {draftItemCount} highlights/outcomes.
+                      If this looks incomplete, retry parsing with another segmentation mode, or create from scratch and continue.
+                    </div>
+                  )}
+
+                  {showImportDebug && (
+                    <div className="rounded-lg border border-neutral-300 bg-neutral-50 p-3 text-xs text-neutral-700 space-y-2">
+                      <p className="font-semibold text-neutral-800">Import Debug (dev-only)</p>
+                      <p>
+                        Extraction: pages={importSession.diagnostics.extractionStage?.pageCount ?? 'n/a'}, chars={importSession.diagnostics.extractionStage?.extractedChars ?? 'n/a'}, lines={importSession.diagnostics.extractionStage?.detectedLinesCount ?? 'n/a'}, list-candidates={importSession.diagnostics.extractionStage?.bulletCandidatesCount ?? 'n/a'}
+                      </p>
+                      <p>
+                        Segmentation: mode={importSession.diagnostics.mode ?? parseMode}, lines={importSession.diagnostics.segmentationStage?.detectedLinesCount ?? importSession.diagnostics.detectedLinesCount}, list-candidates={importSession.diagnostics.segmentationStage?.bulletCandidatesCount ?? importSession.diagnostics.bulletCandidatesCount}
+                      </p>
+                      <p>
+                        Mapping: company-candidates={importSession.diagnostics.mappingStage?.companyCandidatesCount ?? importSession.diagnostics.companyCandidatesDetected}, role-candidates={importSession.diagnostics.mappingStage?.roleCandidatesCount ?? importSession.diagnostics.roleCandidatesDetected}, timeframe-candidates={importSession.diagnostics.mappingStage?.timeframeCandidatesCount ?? importSession.diagnostics.timeframeCandidatesCount ?? 0}, final={importSession.diagnostics.finalCompaniesCount} companies / {importSession.diagnostics.rolesCount} roles / {importSession.diagnostics.mappingStage?.finalItemsCount ?? importSession.diagnostics.bulletsCount} items
+                      </p>
+                      <p>
+                        Top bullet glyphs: {(importSession.diagnostics.topBulletGlyphs ?? importSession.diagnostics.segmentationStage?.topBulletGlyphs ?? [])
+                          .map((entry) => `${entry.glyph}:${entry.count}`)
+                          .join(', ') || 'none'}
+                      </p>
+                      <p>Reason codes: {importSession.diagnostics.reasonCodes.join(', ') || 'none'}</p>
+                      <div className="max-h-56 overflow-y-auto rounded border border-neutral-200 bg-white p-2 font-mono text-[11px] text-neutral-700">
+                        {(importSession.diagnostics.previewLinesWithNumbers ?? []).map((line) => (
+                          <div key={line.line}>{line.line}. {line.text}</div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {importedClaimsCount > 0 && (
                     <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">

@@ -311,18 +311,43 @@ export interface ImportDraft {
 }
 
 export interface ParseDiagnostics {
+  mode?: SegmentationMode;
   extractedTextLength: number;
   pageCount?: number;
   detectedLinesCount: number;
   bulletCandidatesCount: number;
+  topBulletGlyphs?: { glyph: string; count: number }[];
   sectionHeadersDetected: number;
   companyCandidatesDetected: number;
   roleCandidatesDetected: number;
+  timeframeCandidatesCount?: number;
   finalCompaniesCount: number;
   rolesCount: number;
   bulletsCount: number;
   reasonCodes: ParseReasonCode[];
   previewLines: string[];
+  previewLinesWithNumbers?: { line: number; text: string }[];
+  extractionStage?: {
+    pageCount?: number;
+    extractedChars: number;
+    detectedLinesCount: number;
+    bulletCandidatesCount: number;
+    topBulletGlyphs: { glyph: string; count: number }[];
+  };
+  segmentationStage?: {
+    detectedLinesCount: number;
+    bulletCandidatesCount: number;
+    topBulletGlyphs: { glyph: string; count: number }[];
+    sectionHeadersDetected: number;
+  };
+  mappingStage?: {
+    companyCandidatesCount: number;
+    roleCandidatesCount: number;
+    timeframeCandidatesCount: number;
+    finalCompaniesCount: number;
+    finalRolesCount: number;
+    finalItemsCount: number;
+  };
 }
 
 export interface CompensationSuggestion {

@@ -1,15 +1,25 @@
-import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
-import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { parseResumeStructured } from './claimParser';
 import type { ParsedClaim } from './claimParser';
-
-GlobalWorkerOptions.workerSrc = pdfWorker;
+import { summarizeTextStage, toNumberedPreview, type TextStageMetrics } from './importDiagnostics';
+import { reconstructPageLines, type PositionedTextToken } from './pdfTextLayout';
 
 const MAX_IMPORT_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 const DOCX_MIME =
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
 type ClaimsImportFileKind = 'pdf' | 'docx' | 'txt';
+
+export interface ClaimsImportExtractionDiagnostics extends TextStageMetrics {
+  pageCount?: number;
+  previewLines: string[];
+  previewLinesWithNumbers: { line: number; text: string }[];
+}
+
+export interface ClaimsImportExtractionResult {
+  text: string;
+  diagnostics: ClaimsImportExtractionDiagnostics;
+}
 
 const FILE_KIND_BY_EXTENSION: Record<string, ClaimsImportFileKind> = {
   pdf: 'pdf',
@@ -60,6 +70,17 @@ function normalizeClaimsImportText(text: string): string {
     .replace(/\r/g, '\n')
     .replaceAll('\u0000', '')
     .trim();
+}
+
+function buildExtractionDiagnostics(text: string, pageCount?: number): ClaimsImportExtractionDiagnostics {
+  const lines = text.split('\n');
+  const summary = summarizeTextStage(lines);
+  return {
+    ...summary,
+    pageCount,
+    previewLines: lines.map((line) => line.trim()).filter(Boolean).slice(0, 40),
+    previewLinesWithNumbers: toNumberedPreview(lines, 40),
+  };
 }
 
 function decodeXmlEntities(text: string): string {
@@ -152,7 +173,7 @@ async function unzipEntry(bytes: Uint8Array, entry: ZipEntry): Promise<Uint8Arra
   );
 }
 
-async function extractDocxText(file: File): Promise<string> {
+async function extractDocxText(file: File): Promise<ClaimsImportExtractionResult> {
   const bytes = new Uint8Array(await file.arrayBuffer());
   const entries = parseZipEntries(bytes).filter(
     (entry) => entry.fileName.startsWith('word/') && entry.fileName.endsWith('.xml'),
@@ -176,10 +197,14 @@ async function extractDocxText(file: File): Promise<string> {
     decodedSections.push(decodeXmlEntities(withoutTags));
   }
 
-  return normalizeClaimsImportText(decodedSections.join('\n'));
+  const text = normalizeClaimsImportText(decodedSections.join('\n'));
+  return {
+    text,
+    diagnostics: buildExtractionDiagnostics(text),
+  };
 }
 
-async function extractPdfText(file: File): Promise<string> {
+async function extractPdfText(file: File): Promise<ClaimsImportExtractionResult> {
   const bytes = new Uint8Array(await file.arrayBuffer());
   const pdf = await getDocument({ data: bytes }).promise;
   const pages: string[] = [];
@@ -187,18 +212,40 @@ async function extractPdfText(file: File): Promise<string> {
   for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
     const page = await pdf.getPage(pageNumber);
     const text = await page.getTextContent();
-    const pageLines = text.items
-      .map((item) => ('str' in item ? item.str : ''))
-      .join(' ')
-      .trim();
-    if (pageLines) pages.push(pageLines);
+    const tokens: PositionedTextToken[] = text.items
+      .map((item) => {
+        if (!('str' in item)) return null;
+        const raw = item.str?.toString() ?? '';
+        if (!raw.trim()) return null;
+        const transform = Array.isArray(item.transform) ? item.transform : [0, 0, 0, 0, 0, 0];
+        return {
+          text: raw,
+          x: Number(transform[4] ?? 0),
+          y: Number(transform[5] ?? 0),
+          width: Number(item.width ?? raw.length * 5),
+          height: Math.abs(Number(item.height ?? transform[3] ?? 10)),
+          page: pageNumber,
+        } as PositionedTextToken;
+      })
+      .filter((item): item is PositionedTextToken => item !== null);
+
+    const pageLines = reconstructPageLines(tokens);
+    if (pageLines.length > 0) pages.push(...pageLines);
   }
 
-  return normalizeClaimsImportText(pages.join('\n'));
+  const text = normalizeClaimsImportText(pages.join('\n'));
+  return {
+    text,
+    diagnostics: buildExtractionDiagnostics(text, pdf.numPages),
+  };
 }
 
-async function extractTxtText(file: File): Promise<string> {
-  return normalizeClaimsImportText(await file.text());
+async function extractTxtText(file: File): Promise<ClaimsImportExtractionResult> {
+  const text = normalizeClaimsImportText(await file.text());
+  return {
+    text,
+    diagnostics: buildExtractionDiagnostics(text),
+  };
 }
 
 export function validateClaimsImportFile(file: Pick<File, 'name' | 'type' | 'size'>): string | null {
@@ -215,7 +262,7 @@ export function validateClaimsImportFile(file: Pick<File, 'name' | 'type' | 'siz
   return null;
 }
 
-export async function extractClaimsImportText(file: File): Promise<string> {
+export async function extractClaimsImportTextWithMetrics(file: File): Promise<ClaimsImportExtractionResult> {
   const kind = detectFileKind(file);
   if (!kind) {
     throw new Error('Unsupported file type. Upload PDF, DOCX, or TXT.');
@@ -224,6 +271,11 @@ export async function extractClaimsImportText(file: File): Promise<string> {
   if (kind === 'pdf') return extractPdfText(file);
   if (kind === 'docx') return extractDocxText(file);
   return extractTxtText(file);
+}
+
+export async function extractClaimsImportText(file: File): Promise<string> {
+  const result = await extractClaimsImportTextWithMetrics(file);
+  return result.text;
 }
 
 export function parseClaimsImportText(rawText: string): ParsedClaim[] {
