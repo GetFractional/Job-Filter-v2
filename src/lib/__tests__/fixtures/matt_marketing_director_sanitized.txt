@@ -1,0 +1,37 @@
+PERSON NAME
+Metro City, ST | person@example.com | 555-555-0100
+
+EXPERIENCE
+
+Acme Growth Labs
+Marketing Director
+Remote | Sep 2023 – Nov 2025
+● Owned full-funnel growth strategy across paid, lifecycle, and partnerships
++ Built weekly operating cadence with sales and customer success leaders
+● Increased qualified pipeline by 48% year over year
+● Launched partner webinar program that produced 1,200 MQLs in 6 months
+● Improved landing-page conversion from 2.1% to 4.0% through testing
+● Standardized attribution model across Salesforce and HubSpot
+● Reduced CAC payback from 14 months to 9 months
+
+Northwind Software
+Senior Demand Generation Manager
+Hybrid | Jan 2021 – Aug 2023
+• Built demand engine for SMB and mid-market accounts
+• Introduced intent-based routing and lead scoring model
+• Drove $4.2M sourced pipeline in FY22
+• Scaled paid social and search to 3x qualified inbound
+• Implemented dashboarding in Looker and GA4 for weekly reviews
+• Partnered with product marketing on segmented messaging
+• Increased email reply rate from 1.8% to 4.7%
+
+Summit Commerce
+Growth Marketing Manager
+Onsite | Mar 2018 – Dec 2020
+▪ Managed acquisition campaigns across Meta Ads, Google Ads, and affiliates
+▪ Introduced lifecycle journeys for trial onboarding and expansion
+▪ Grew active trial-to-paid conversion by 22%
+▪ Built quarterly planning process and budget governance
+▪ Collaborated with content and SDR teams for campaign handoffs
+▪ Consolidated reporting into a single executive scorecard
+▪ Improved marketing-sourced revenue from $1.1M to $2.9M

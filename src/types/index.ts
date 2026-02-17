@@ -245,6 +245,8 @@ export interface Outcome {
 export interface Profile {
   id: string;
   name: string;
+  firstName?: string;
+  lastName?: string;
   targetRoles: string[];
   compFloor: number;
   compTarget: number;
@@ -253,6 +255,132 @@ export interface Profile {
   locationPreference: string;
   disqualifiers: string[];
   updatedAt: string;
+}
+
+export type ImportItemType = 'highlight' | 'outcome' | 'tool' | 'skill';
+export type ImportItemStatus = 'accepted' | 'needs_attention' | 'rejected';
+export type ParseReasonCode =
+  | 'TEXT_EMPTY'
+  | 'BULLET_DETECT_FAIL'
+  | 'LAYOUT_COLLAPSE'
+  | 'FILTERED_ALL'
+  | 'ROLE_DETECT_FAIL'
+  | 'COMPANY_DETECT_FAIL';
+
+export type SegmentationMode = 'default' | 'newlines' | 'bullets' | 'headings';
+
+export interface SourceRef {
+  lineIndex: number;
+}
+
+export interface ImportDraftItem {
+  id: string;
+  type: ImportItemType;
+  text: string;
+  confidence: number;
+  status: ImportItemStatus;
+  sourceRefs: SourceRef[];
+  metric?: string;
+}
+
+export interface ImportDraftRole {
+  id: string;
+  title: string;
+  startDate: string;
+  endDate?: string;
+  confidence: number;
+  status: ImportItemStatus;
+  sourceRefs: SourceRef[];
+  highlights: ImportDraftItem[];
+  outcomes: ImportDraftItem[];
+  tools: ImportDraftItem[];
+  skills: ImportDraftItem[];
+}
+
+export interface ImportDraftCompany {
+  id: string;
+  name: string;
+  confidence: number;
+  status: ImportItemStatus;
+  sourceRefs: SourceRef[];
+  roles: ImportDraftRole[];
+}
+
+export interface ImportDraft {
+  companies: ImportDraftCompany[];
+}
+
+export interface ParseDiagnostics {
+  mode?: SegmentationMode;
+  extractedTextLength: number;
+  pageCount?: number;
+  detectedLinesCount: number;
+  bulletCandidatesCount: number;
+  topBulletGlyphs?: { glyph: string; count: number }[];
+  sectionHeadersDetected: number;
+  companyCandidatesDetected: number;
+  roleCandidatesDetected: number;
+  timeframeCandidatesCount?: number;
+  finalCompaniesCount: number;
+  rolesCount: number;
+  bulletsCount: number;
+  reasonCodes: ParseReasonCode[];
+  previewLines: string[];
+  previewLinesWithNumbers?: { line: number; text: string }[];
+  extractionStage?: {
+    pageCount?: number;
+    extractedChars: number;
+    detectedLinesCount: number;
+    bulletCandidatesCount: number;
+    topBulletGlyphs: { glyph: string; count: number }[];
+  };
+  segmentationStage?: {
+    detectedLinesCount: number;
+    bulletCandidatesCount: number;
+    topBulletGlyphs: { glyph: string; count: number }[];
+    sectionHeadersDetected: number;
+  };
+  mappingStage?: {
+    companyCandidatesCount: number;
+    roleCandidatesCount: number;
+    timeframeCandidatesCount: number;
+    finalCompaniesCount: number;
+    finalRolesCount: number;
+    finalItemsCount: number;
+  };
+}
+
+export interface CompensationSuggestion {
+  floor?: number;
+  target?: number;
+}
+
+export interface HardFilterSuggestion {
+  requiresVisaSponsorship?: boolean;
+  minBaseSalary?: number;
+  maxOnsiteDaysPerWeek?: number;
+  maxTravelPercent?: number;
+  employmentType?: 'full_time_only' | 'exclude_contract';
+}
+
+export interface ProfilePrefillSuggestion {
+  firstName?: string;
+  lastName?: string;
+  targetRoles: string[];
+  locationHints: string[];
+  compensation?: CompensationSuggestion;
+  hardFilterHints?: HardFilterSuggestion;
+}
+
+export interface ImportSession {
+  id: string;
+  mode: SegmentationMode;
+  draft: ImportDraft;
+  diagnostics: ParseDiagnostics;
+  profileSuggestion: ProfilePrefillSuggestion;
+  state: 'parsed' | 'saved' | 'skipped';
+  updatedAt: string;
+  storage: 'localStorage' | 'sessionStorage' | 'memory';
 }
 
 export interface Claim {

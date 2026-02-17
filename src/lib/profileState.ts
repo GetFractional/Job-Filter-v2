@@ -8,6 +8,8 @@ export function createEmptyProfile(timestamp = new Date().toISOString()): Profil
   return {
     id: DEFAULT_PROFILE_ID,
     name: '',
+    firstName: '',
+    lastName: '',
     targetRoles: [],
     compFloor: 0,
     compTarget: 0,

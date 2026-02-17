@@ -177,7 +177,7 @@ const DATE_PATTERNS: RegExp[] = [
 ];
 
 // Bullet point prefixes
-const BULLET_RE = /^[-*\u2022\u25E6\u25AA\u25B8\u25BA\u2023\u27A2\u2219]\s*/;
+const BULLET_RE = /^[\s]*[-–—*\u2022\u25CF\u25E6\u25AA\u25AB\u25B8\u25BA\u2023\u27A2\u2219\u2043✅✔➤➔]\s*/u;
 
 // Metric indicators for outcome classification
 const METRIC_RE =
@@ -233,9 +233,25 @@ const HEADER_PATTERNS: {
 /** Common role-title keywords used to disambiguate "Company — Role" vs "Role — Company". */
 const ROLE_KEYWORDS_RE =
   /\b(director|manager|engineer|developer|lead|head|chief|vp|vice president|analyst|coordinator|specialist|consultant|architect|designer|scientist|officer|associate|senior|junior|principal|staff|intern)\b/i;
+const CONTACT_NOISE_RE =
+  /(@|https?:\/\/|www\.|linkedin\.com|github\.com|portfolio|^\+?\d[\d\s().-]{6,}|[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})/i;
+const LOCATION_LINE_RE =
+  /\b(remote|hybrid|onsite|on-site|in office)\b|^[A-Z][a-zA-Z\s]+,\s*[A-Z]{2}(?:\s+\d{5})?$/i;
+const METRIC_LINE_RE =
+  /^[$€£]?\d[\d,]*(?:\.\d+)?\s*(?:%|x|k|m|b)?(?:\s*[-–—]\s*[$€£]?\d[\d,]*(?:\.\d+)?\s*(?:%|x|k|m|b)?)?$/i;
 
 function looksLikeRoleTitle(text: string): boolean {
   return ROLE_KEYWORDS_RE.test(text);
+}
+
+function isHeaderNoise(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) return true;
+  if (CONTACT_NOISE_RE.test(trimmed)) return true;
+  if (METRIC_LINE_RE.test(trimmed)) return true;
+  if (LOCATION_LINE_RE.test(trimmed)) return true;
+  if (/^[A-Z]{2,}\s+\d{5}(?:-\d{4})?$/.test(trimmed)) return true;
+  return false;
 }
 
 // ============================================================
@@ -293,12 +309,15 @@ function matchRoleHeader(
   }
 
   if (headerLine.length < 3 || headerLine.length > 120) return null;
+  if (isHeaderNoise(headerLine)) return null;
 
   for (const { re, extract } of HEADER_PATTERNS) {
     const m = headerLine.match(re);
     if (m) {
       const result = extract(m);
-      if (result) return result;
+      if (!result) continue;
+      if (isHeaderNoise(result.role) || isHeaderNoise(result.company)) continue;
+      return result;
     }
   }
 
@@ -351,7 +370,13 @@ function classifyLines(lines: string[]): ClassifiedLine[] {
       // Check whether the non-date portion looks like a role name
       const residual = trimmed.replace(dateInfo.matched, '').trim()
         .replace(/^[,|–—-]\s*|\s*[,|–—-]$/g, '').trim();
-      if (residual.length >= 3 && /^[A-Z]/.test(residual)) {
+      const residualLooksLikeLocation = /\b(remote|hybrid|onsite|on-site|in office)\b/i.test(residual);
+      if (
+        residual.length >= 3 &&
+        /^[A-Z]/.test(residual) &&
+        !residualLooksLikeLocation &&
+        !isHeaderNoise(residual)
+      ) {
         // Treat as a role header with unknown company
         return {
           index,
@@ -550,7 +575,18 @@ function buildRawBlocks(classified: ClassifiedLine[]): RawClaimBlock[] {
       const bulletText = cl.trimmed.replace(BULLET_RE, '').trim();
       if (bulletText) {
         current.bullets.push(bulletText);
+        i++;
+        continue;
       }
+
+      // Handle bullet-only line where content is on the next text line.
+      const nextLine = classified[i + 1];
+      if (nextLine && nextLine.kind === 'text' && nextLine.trimmed) {
+        current.bullets.push(nextLine.trimmed);
+        i += 2;
+        continue;
+      }
+
       i++;
       continue;
     }
@@ -558,7 +594,22 @@ function buildRawBlocks(classified: ClassifiedLine[]): RawClaimBlock[] {
     // Plain text line — attach to current block as context
     if (cl.kind === 'text') {
       if (current) {
-        current.textLines.push(cl.trimmed);
+        const previousBullet = current.bullets[current.bullets.length - 1];
+        const nextLine = classified[i + 1];
+        const continuationCandidate = /^[\s]*([+%(]|[a-z])/.test(cl.trimmed);
+        const nextLooksLikeBoundary = !!nextLine && (
+          nextLine.kind === 'role_header' ||
+          nextLine.kind === 'section_header' ||
+          nextLine.kind === 'date_line'
+        );
+
+        if (previousBullet && continuationCandidate && !nextLooksLikeBoundary) {
+          current.bullets[current.bullets.length - 1] = `${previousBullet} ${cl.trimmed}`
+            .replace(/\s+/g, ' ')
+            .trim();
+        } else {
+          current.textLines.push(cl.trimmed);
+        }
       }
       // If there's no current block, we discard stray text (not enough info
       // to start a claim).
@@ -713,8 +764,15 @@ export function parseResumeStructured(text: string): ParsedClaim[] {
   // Merge orphan fragments
   claims = mergeAdjacentRolelessClaims(claims);
 
-  // Drop claims that have neither role nor company (even after merging)
-  claims = claims.filter((c) => c.role || c.company);
+  // Keep unresolved claims when they still contain useful evidence.
+  claims = claims.filter(
+    (c) =>
+      c.role ||
+      c.company ||
+      c.responsibilities.length > 0 ||
+      c.outcomes.length > 0 ||
+      c.tools.length > 0,
+  );
 
   // Deduplicate responsibilities and outcomes
   deduplicateResponsibilities(claims);

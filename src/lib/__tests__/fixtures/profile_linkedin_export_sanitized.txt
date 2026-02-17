@@ -1,0 +1,64 @@
+PERSON NAME
+PROFILE
+
+EXPERIENCE
+
+Blue Ridge Technologies
+Head of Growth
+Jan 2022 - Present
+• Own growth strategy across lifecycle, paid, and partnerships
+• Built cross-functional growth pod spanning product, sales, and marketing
+• Increased SQL volume by 52% within 12 months
+• Reduced blended CAC by 28%
+• Launched expansion plays generating $3.6M pipeline
+• Implemented HubSpot, Segment, and Amplitude instrumentation
+
+Cascade Analytics
+Director of Demand Generation
+Mar 2020 - Dec 2021
+● Built account-based program for enterprise expansion
+● Increased enterprise meetings booked by 39%
+● Designed quarterly campaign planning framework
+● Managed $2.4M media budget with efficiency guardrails
+● Improved win-rate for sourced opportunities by 11 points
+● Rolled out Salesforce + Marketo lifecycle scoring updates
+
+Atlas Cloud Systems
+Senior Marketing Manager
+Jul 2018 - Feb 2020
+◦ Led product launch motions for two new platform modules
+◦ Produced 140% growth in partner-sourced leads
+◦ Expanded webinar program from 2 to 12 events per quarter
+◦ Built standardized performance reporting in Tableau
+◦ Introduced persona-based nurture tracks by segment
+◦ Increased trial activation by 17%
+
+Harbor Commerce
+Marketing Manager
+Jan 2016 - Jun 2018
+▪ Ran integrated campaigns for ecommerce and retail buyers
+▪ Improved organic traffic by 63% with content + technical SEO
+▪ Managed agency performance and quarterly planning cycles
+▪ Increased MQL to SQL conversion from 14% to 23%
+▪ Built customer-story program with product and CS teams
+▪ Standardized campaign QA and launch checklists
+
+Pioneer Media Group
+Demand Generation Specialist
+Apr 2014 - Dec 2015
+‣ Built outbound and inbound lead workflows
+‣ Increased response rates on outbound by 2.1x
+‣ Coordinated events, webinars, and follow-up cadences
+‣ Managed CRM hygiene and lead enrichment operations
+‣ Improved lead-to-opportunity conversion by 18%
+‣ Created monthly executive funnel reporting package
+
+Timberline Digital
+Marketing Operations Analyst
+Jun 2012 - Mar 2014
+⁃ Implemented attribution taxonomy and governance
+⁃ Reduced reporting lag from 10 days to 2 days
+⁃ Built QA checks for campaign tracking reliability
+⁃ Partnered with finance to align pipeline/revenue reporting
+⁃ Automated routine reporting tasks with SQL and scripts
+⁃ Improved forecast confidence through standardized definitions
