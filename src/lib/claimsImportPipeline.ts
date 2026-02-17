@@ -1,8 +1,17 @@
-import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
+import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist/legacy/build/pdf.mjs';
+import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { parseResumeStructured } from './claimParser';
 import type { ParsedClaim } from './claimParser';
 import { summarizeTextStage, toNumberedPreview, type TextStageMetrics } from './importDiagnostics';
 import { reconstructPageLines, type PositionedTextToken } from './pdfTextLayout';
+
+const IS_JSDOM =
+  typeof navigator !== 'undefined' &&
+  /jsdom/i.test(navigator.userAgent || '');
+
+if (typeof window !== 'undefined' && !IS_JSDOM) {
+  GlobalWorkerOptions.workerSrc = pdfWorker;
+}
 
 const MAX_IMPORT_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 const DOCX_MIME =
@@ -206,7 +215,16 @@ async function extractDocxText(file: File): Promise<ClaimsImportExtractionResult
 
 async function extractPdfText(file: File): Promise<ClaimsImportExtractionResult> {
   const bytes = new Uint8Array(await file.arrayBuffer());
-  const pdf = await getDocument({ data: bytes }).promise;
+  let pdf;
+  if (IS_JSDOM) {
+    pdf = await getDocument({ data: bytes, disableWorker: true } as { data: Uint8Array; disableWorker: true }).promise;
+  } else {
+    try {
+      pdf = await getDocument({ data: bytes }).promise;
+    } catch {
+      pdf = await getDocument({ data: bytes, disableWorker: true } as { data: Uint8Array; disableWorker: true }).promise;
+    }
+  }
   const pages: string[] = [];
 
   for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
