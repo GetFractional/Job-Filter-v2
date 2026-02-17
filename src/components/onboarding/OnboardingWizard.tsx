@@ -7,6 +7,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronUp,
+  Copy,
   DollarSign,
   FileText,
   MapPin,
@@ -27,6 +28,7 @@ import {
 import { buildBestImportDraftFromText, buildImportDraftFromText, hasUsableImportDraft } from '../../lib/importDraftBuilder';
 import { inferProfilePrefillSuggestion } from '../../lib/profileInference';
 import { getImportSessionStorageNotice } from '../../lib/importSessionStorage';
+import { BUILD_INFO } from '../../lib/buildInfo';
 import type {
   Claim,
   ImportDraft,
@@ -86,6 +88,50 @@ function countDraftItems(draft: ImportDraft): { companies: number; roles: number
   );
 }
 
+function isVisibleStatus(status: ImportItemStatus, includeRejected: boolean): boolean {
+  if (status === 'accepted' || status === 'needs_attention') return true;
+  return includeRejected;
+}
+
+function filterDraftForDisplay(draft: ImportDraft, includeRejected: boolean): ImportDraft {
+  const companies = draft.companies
+    .map((company) => {
+      const roles = company.roles
+        .map((role) => {
+          const highlights = role.highlights.filter((item) => isVisibleStatus(item.status, includeRejected));
+          const outcomes = role.outcomes.filter((item) => isVisibleStatus(item.status, includeRejected));
+          const tools = role.tools.filter((item) => isVisibleStatus(item.status, includeRejected));
+          const skills = role.skills.filter((item) => isVisibleStatus(item.status, includeRejected));
+
+          const hasVisibleItems = highlights.length + outcomes.length + tools.length + skills.length > 0;
+          if (!isVisibleStatus(role.status, includeRejected) && !hasVisibleItems) {
+            return null;
+          }
+
+          return {
+            ...role,
+            highlights,
+            outcomes,
+            tools,
+            skills,
+          };
+        })
+        .filter((role): role is NonNullable<typeof role> => role !== null);
+
+      if (!isVisibleStatus(company.status, includeRejected) && roles.length === 0) {
+        return null;
+      }
+
+      return {
+        ...company,
+        roles,
+      };
+    })
+    .filter((company): company is NonNullable<typeof company> => company !== null);
+
+  return { companies };
+}
+
 function toClaimPayload(role: ImportDraftRole, companyName: string): Partial<Claim> | null {
   const acceptedHighlights = role.highlights
     .filter((item) => item.status === 'accepted')
@@ -126,6 +172,7 @@ function createParsedSession(
   draft: ImportDraft,
   diagnostics: ImportSession['diagnostics'],
   profileSuggestion: ImportSession['profileSuggestion'],
+  sourceMeta?: ImportSession['sourceMeta'],
 ): ImportSession {
   const selectedMode = diagnostics.selectedMode ?? diagnostics.mode ?? 'default';
   const itemsCount = diagnostics.mappingStage?.finalItemsCount ?? diagnostics.bulletsCount;
@@ -137,6 +184,7 @@ function createParsedSession(
     selectedMode,
     lowQuality: itemsCount < 20 || hasCollapseCode,
     troubleshootAvailableModes: SEGMENTATION_MODE_ORDER,
+    sourceMeta,
     draft,
     diagnostics,
     profileSuggestion,
@@ -242,10 +290,13 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const [extractionDiagnostics, setExtractionDiagnostics] = useState<ClaimsImportExtractionDiagnostics | null>(null);
   const [importedClaimsCount, setImportedClaimsCount] = useState(0);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
+  const [selectedFileMeta, setSelectedFileMeta] = useState<{ name: string; size: number; type: string } | null>(null);
   const [readingFile, setReadingFile] = useState(false);
   const [fileImportError, setFileImportError] = useState<string | null>(null);
   const [suggestionsDismissed, setSuggestionsDismissed] = useState(false);
   const [troubleshootOpen, setTroubleshootOpen] = useState(false);
+  const [showRejectedItems, setShowRejectedItems] = useState(false);
+  const [debugReportNotice, setDebugReportNotice] = useState<string | null>(null);
 
   useEffect(() => {
     hydrateImportSession();
@@ -262,18 +313,27 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
   const stepIndex = STEPS.findIndex((s) => s.id === step);
 
-  const draftCounts = useMemo(
+  const fullDraftCounts = useMemo(
     () => (importSession ? countDraftItems(importSession.draft) : { companies: 0, roles: 0, highlights: 0, outcomes: 0 }),
     [importSession],
   );
+  const visibleDraft = useMemo(
+    () => (importSession ? filterDraftForDisplay(importSession.draft, showRejectedItems) : null),
+    [importSession, showRejectedItems],
+  );
+  const draftCounts = useMemo(
+    () => (visibleDraft ? countDraftItems(visibleDraft) : { companies: 0, roles: 0, highlights: 0, outcomes: 0 }),
+    [visibleDraft],
+  );
+  const hiddenItemCount =
+    fullDraftCounts.highlights + fullDraftCounts.outcomes - (draftCounts.highlights + draftCounts.outcomes);
 
-  const hasUsableDraft = importSession ? hasUsableImportDraft(importSession.draft) : false;
-  const draftItemCount = draftCounts.highlights + draftCounts.outcomes;
+  const hasVisibleDraft = visibleDraft ? hasUsableImportDraft(visibleDraft) : false;
   const hasCollapseCode = importSession
     ? importSession.diagnostics.reasonCodes.some((code) => LOW_QUALITY_REASON_CODES.has(code))
     : false;
   const parseLooksLowQuality = importSession
-    ? (importSession.diagnostics.mappingStage?.finalItemsCount ?? draftItemCount) < 20 || hasCollapseCode
+    ? (importSession.diagnostics.mappingStage?.finalItemsCount ?? fullDraftCounts.highlights + fullDraftCounts.outcomes) < 20 || hasCollapseCode
     : false;
   const bulletDotCount = importSession
     ? (importSession.diagnostics.topBulletGlyphs ?? []).find((entry) => entry.glyph === '•')?.count ?? 0
@@ -352,17 +412,30 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
           extractionDiagnostics: extractionDiagnostics || undefined,
         });
     const suggestion = inferProfilePrefillSuggestion(result.diagnostics, result.draft);
-    const session = createParsedSession(result.draft, result.diagnostics, suggestion);
+    const sourceMeta = selectedFileMeta
+      ? {
+          inputKind: 'upload' as const,
+          fileName: selectedFileMeta.name,
+          fileSizeBytes: selectedFileMeta.size,
+          mimeType: selectedFileMeta.type || undefined,
+        }
+      : {
+          inputKind: 'paste' as const,
+          fileSizeBytes: new Blob([resumeText]).size,
+        };
+    const session = createParsedSession(result.draft, result.diagnostics, suggestion, sourceMeta);
 
     setImportSession(session);
     const persisted = useStore.getState().importSession;
     setStorageNotice(persisted ? getImportSessionStorageNotice(persisted.storage) : null);
 
     setSuggestionsDismissed(false);
+    setShowRejectedItems(false);
     setImportedClaimsCount(0);
+    setDebugReportNotice(null);
     setFileImportError(null);
     setTroubleshootOpen(false);
-  }, [extractionDiagnostics, resumeText, setImportSession]);
+  }, [extractionDiagnostics, resumeText, selectedFileMeta, setImportSession]);
 
   const handleTryAnotherMethod = useCallback(() => {
     if (!importSession || !resumeText.trim()) return;
@@ -378,6 +451,64 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     handleParseResume(nextMode);
   }, [handleParseResume, importSession, resumeText]);
 
+  const handleCopyDebugReport = useCallback(async () => {
+    if (!importSession) return;
+
+    const report = {
+      build: {
+        sha: BUILD_INFO.buildSha,
+        env: BUILD_INFO.appEnv,
+        schemaVersion: BUILD_INFO.schemaVersion,
+      },
+      source: {
+        inputKind: importSession.sourceMeta?.inputKind ?? (selectedFileMeta ? 'upload' : 'paste'),
+        fileName: importSession.sourceMeta?.fileName ?? selectedFileMeta?.name ?? '(pasted text)',
+        fileSizeBytes: importSession.sourceMeta?.fileSizeBytes ?? selectedFileMeta?.size ?? new Blob([resumeText]).size,
+      },
+      parseSummary: {
+        pageCount: importSession.diagnostics.pageCount ?? null,
+        extractedChars: importSession.diagnostics.extractedTextLength,
+        detectedLinesCount: importSession.diagnostics.detectedLinesCount,
+        bulletCandidatesCount: importSession.diagnostics.bulletCandidatesCount,
+        bulletOnlyLineCount: importSession.diagnostics.bulletOnlyLineCount,
+        bulletGlyphCounts: {
+          '•': bulletDotCount,
+          '●': bulletCircleCount,
+        },
+        selectedMode: importSession.selectedMode ?? importSession.mode,
+        candidateScores: (importSession.diagnostics.candidateModes ?? []).map((candidate) => ({
+          mode: candidate.mode,
+          score: Number(candidate.score.toFixed(2)),
+          counts: candidate.counts,
+          reasonCodes: candidate.reasonCodes,
+        })),
+        reasonCodes: importSession.diagnostics.reasonCodes,
+      },
+      counts: {
+        visible: draftCounts,
+        total: fullDraftCounts,
+      },
+      generatedAt: new Date().toISOString(),
+    };
+
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(report, null, 2));
+      setDebugReportNotice('Debug report copied');
+      window.setTimeout(() => setDebugReportNotice(null), 2500);
+    } catch {
+      setDebugReportNotice('Copy failed');
+      window.setTimeout(() => setDebugReportNotice(null), 2500);
+    }
+  }, [
+    bulletCircleCount,
+    bulletDotCount,
+    draftCounts,
+    fullDraftCounts,
+    importSession,
+    resumeText,
+    selectedFileMeta,
+  ]);
+
   const handleImportFile = useCallback(async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = '';
@@ -387,12 +518,20 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     if (validationError) {
       setFileImportError(validationError);
       setSelectedFileName(null);
+      setSelectedFileMeta(null);
       return;
     }
 
+    setImportSession(null);
     setReadingFile(true);
     setFileImportError(null);
     setSelectedFileName(file.name);
+    setSelectedFileMeta({ name: file.name, size: file.size, type: file.type });
+    setImportedClaimsCount(0);
+    setSuggestionsDismissed(false);
+    setTroubleshootOpen(false);
+    setShowRejectedItems(false);
+    setDebugReportNotice(null);
 
     try {
       const extraction = await extractClaimsImportTextWithMetrics(file);
@@ -402,11 +541,12 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
       const message = error instanceof Error ? error.message : 'Failed to read the selected file.';
       setFileImportError(message);
       setSelectedFileName(null);
+      setSelectedFileMeta(null);
       setExtractionDiagnostics(null);
     } finally {
       setReadingFile(false);
     }
-  }, []);
+  }, [setImportSession]);
 
   const handleSaveParsedDraft = useCallback(async () => {
     if (!importSession || importSession.state === 'saved') return;
@@ -438,9 +578,17 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
   const handleDiscardDraft = useCallback(() => {
     setImportSession(null);
+    setResumeText('');
     setImportedClaimsCount(0);
+    setSelectedFileName(null);
+    setSelectedFileMeta(null);
+    setFileImportError(null);
     setSuggestionsDismissed(false);
+    setStorageNotice(null);
     setExtractionDiagnostics(null);
+    setTroubleshootOpen(false);
+    setShowRejectedItems(false);
+    setDebugReportNotice(null);
   }, [setImportSession]);
 
   const handleResetImport = useCallback(() => {
@@ -448,11 +596,15 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     setResumeText('');
     setImportedClaimsCount(0);
     setSelectedFileName(null);
+    setSelectedFileMeta(null);
+    setReadingFile(false);
     setFileImportError(null);
     setSuggestionsDismissed(false);
     setStorageNotice(null);
     setExtractionDiagnostics(null);
     setTroubleshootOpen(false);
+    setShowRejectedItems(false);
+    setDebugReportNotice(null);
   }, [setImportSession]);
 
   const markSkipped = useCallback(() => {
@@ -691,9 +843,16 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                 <textarea
                   value={resumeText}
                   onChange={(event) => {
+                    setImportSession(null);
                     setResumeText(event.target.value);
                     setSelectedFileName(null);
+                    setSelectedFileMeta(null);
                     setExtractionDiagnostics(null);
+                    setImportedClaimsCount(0);
+                    setSuggestionsDismissed(false);
+                    setTroubleshootOpen(false);
+                    setShowRejectedItems(false);
+                    setDebugReportNotice(null);
                   }}
                   placeholder="Paste your resume text if you prefer manual input"
                   rows={10}
@@ -776,9 +935,24 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     </div>
                   )}
 
-                  {hasUsableDraft ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowRejectedItems((current) => !current)}
+                      className="px-2.5 py-1 text-[11px] rounded-full border border-neutral-200 text-neutral-600 hover:bg-neutral-50"
+                    >
+                      {showRejectedItems ? 'Hide rejected items' : 'Show rejected items'}
+                    </button>
+                    {hiddenItemCount > 0 && !showRejectedItems && (
+                      <span className="text-[11px] text-neutral-500">
+                        {hiddenItemCount} item{hiddenItemCount === 1 ? '' : 's'} hidden
+                      </span>
+                    )}
+                  </div>
+
+                  {hasVisibleDraft ? (
                     <div className="space-y-3">
-                      {importSession.draft.companies.map((company) => (
+                      {visibleDraft?.companies.map((company) => (
                         <div key={company.id} className="rounded-lg border border-neutral-200 p-3">
                           <div className="flex items-center gap-2 mb-2">
                             <h4 className="text-sm font-semibold text-neutral-900">{company.name}</h4>
@@ -801,11 +975,23 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                                 </p>
                                 {(role.highlights.length > 0 || role.outcomes.length > 0) && (
                                   <ul className="mt-2 text-xs text-neutral-700 space-y-1">
-                                    {role.highlights.slice(0, 2).map((item) => (
-                                      <li key={item.id}>• {item.text}</li>
+                                    {role.highlights.map((item) => (
+                                      <li key={item.id} className="flex items-start gap-2">
+                                        <span className="text-neutral-400 mt-0.5">•</span>
+                                        <span className="flex-1">{item.text}</span>
+                                        <span className={`shrink-0 text-[10px] px-2 py-0.5 rounded-full border ${statusClassName(item.status)}`}>
+                                          {statusLabel(item.status)}
+                                        </span>
+                                      </li>
                                     ))}
-                                    {role.outcomes.slice(0, 2).map((item) => (
-                                      <li key={item.id}>• {item.text}</li>
+                                    {role.outcomes.map((item) => (
+                                      <li key={item.id} className="flex items-start gap-2">
+                                        <span className="text-neutral-400 mt-0.5">•</span>
+                                        <span className="flex-1">{item.text}</span>
+                                        <span className={`shrink-0 text-[10px] px-2 py-0.5 rounded-full border ${statusClassName(item.status)}`}>
+                                          {statusLabel(item.status)}
+                                        </span>
+                                      </li>
                                     ))}
                                   </ul>
                                 )}
@@ -831,7 +1017,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
                   {parseLooksLowQuality && (
                     <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-                      We imported {draftCounts.companies} companies, {draftCounts.roles} roles, and {draftItemCount} highlights/outcomes.
+                      We imported {fullDraftCounts.companies} companies, {fullDraftCounts.roles} roles, and {fullDraftCounts.highlights + fullDraftCounts.outcomes} highlights/outcomes.
                       If this looks incomplete, open Troubleshoot, try another method, or continue manually.
                     </div>
                   )}
@@ -887,6 +1073,17 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                             Try another method
                           </button>
                         )}
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={handleCopyDebugReport}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-neutral-200 text-neutral-700 hover:bg-neutral-50"
+                          >
+                            <Copy size={13} />
+                            Copy debug report
+                          </button>
+                          {debugReportNotice && <span className="text-[11px] text-neutral-500">{debugReportNotice}</span>}
+                        </div>
                         <div className="rounded border border-neutral-200 bg-white p-2 font-mono text-[11px] text-neutral-700 max-h-56 overflow-y-auto">
                           {(importSession.diagnostics.previewLinesWithNumbers ?? []).map((line) => (
                             <div key={line.line}>

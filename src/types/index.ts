@@ -387,12 +387,20 @@ export interface ProfilePrefillSuggestion {
   hardFilterHints?: HardFilterSuggestion;
 }
 
+export interface ImportSourceMeta {
+  inputKind: 'upload' | 'paste';
+  fileName?: string;
+  fileSizeBytes?: number;
+  mimeType?: string;
+}
+
 export interface ImportSession {
   id: string;
   mode: SegmentationMode;
   selectedMode?: SegmentationMode;
   lowQuality?: boolean;
   troubleshootAvailableModes?: SegmentationMode[];
+  sourceMeta?: ImportSourceMeta;
   draft: ImportDraft;
   diagnostics: ParseDiagnostics;
   profileSuggestion: ProfilePrefillSuggestion;
