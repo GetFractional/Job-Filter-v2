@@ -54,7 +54,7 @@ export function SettingsPage() {
                 : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
             }`}
           >
-            {section === 'claims' ? 'Claim Ledger' : section}
+            {section === 'claims' ? 'Experience Ledger' : section}
           </button>
         ))}
       </div>
@@ -182,7 +182,7 @@ function ProfileSection({ profile, updateProfile }: {
 }
 
 // ============================================================
-// Claims Section — Structured Parser + Review Step
+// Experience Section — Structured Parser + Review Step
 // ============================================================
 
 type ClaimStep = 'input' | 'review' | 'done';
@@ -310,7 +310,7 @@ function ClaimsSection({ claims, addClaim }: {
             className="w-full bg-brand-600 text-white py-2.5 rounded-lg text-sm font-medium disabled:opacity-50 hover:bg-brand-700 flex items-center justify-center gap-2"
           >
             <FileText size={14} />
-            Parse & Review Claims
+            Parse & Review Experience
           </button>
         </div>
       )}
@@ -322,10 +322,10 @@ function ClaimsSection({ claims, addClaim }: {
             <div>
               <h3 className="text-h3 text-neutral-900 flex items-center gap-2">
                 <Pencil size={14} />
-                Review Parsed Claims
+                Review Parsed Experience
               </h3>
               <p className="text-xs text-neutral-500 mt-0.5">
-                {parsedClaims.length} claim{parsedClaims.length !== 1 ? 's' : ''} found.
+                {parsedClaims.length} role record{parsedClaims.length !== 1 ? 's' : ''} found.
                 Edit fields, toggle inclusion, then import.
               </p>
             </div>
@@ -340,10 +340,10 @@ function ClaimsSection({ claims, addClaim }: {
           {parsedClaims.length === 0 ? (
             <div className="bg-amber-50 rounded-lg border border-amber-200 p-4 text-center">
               <AlertTriangle size={20} className="text-amber-500 mx-auto mb-2" />
-              <p className="text-sm text-amber-700">No claims could be parsed from the text.</p>
+              <p className="text-sm text-amber-700">No experience records could be parsed from the text.</p>
               <p className="text-xs text-amber-600 mt-1">
                 Make sure your text has role headers (e.g. "Role at Company")
-                followed by bullet points.
+                followed by concrete role details.
               </p>
             </div>
           ) : (
@@ -376,7 +376,7 @@ function ClaimsSection({ claims, addClaim }: {
                   ) : (
                     <>
                       <Check size={14} />
-                      Import {includedCount} Claim{includedCount !== 1 ? 's' : ''}
+                      Import {includedCount} Role Record{includedCount !== 1 ? 's' : ''}
                     </>
                   )}
                 </button>
@@ -391,16 +391,16 @@ function ClaimsSection({ claims, addClaim }: {
         <div className="bg-green-50 rounded-lg border border-green-200 p-5 text-center">
           <Check size={24} className="text-green-600 mx-auto mb-2" />
           <p className="text-sm font-medium text-green-800">
-            {importCount} claim{importCount !== 1 ? 's' : ''} imported to ledger
+            {importCount} role record{importCount !== 1 ? 's' : ''} imported to your evidence ledger
           </p>
         </div>
       )}
 
       {/* Existing Claims List */}
       <div>
-        <h3 className="text-h3 text-neutral-900 mb-2">Claims ({claims.length})</h3>
+        <h3 className="text-h3 text-neutral-900 mb-2">Experience Records ({claims.length})</h3>
         {claims.length === 0 && (
-          <p className="text-xs text-neutral-400 text-center py-4">No claims in ledger. Import from resume above.</p>
+          <p className="text-xs text-neutral-400 text-center py-4">No experience records in your ledger yet. Import from resume above.</p>
         )}
         {claims.map((claim) => (
           <div key={claim.id} className="bg-white rounded-lg border border-neutral-200 p-3 mb-2 shadow-sm">
@@ -444,7 +444,7 @@ function ClaimsSection({ claims, addClaim }: {
 }
 
 // ============================================================
-// Review Card — editable parsed claim
+// Review Card — editable parsed record
 // ============================================================
 
 function ReviewCard({
@@ -476,7 +476,7 @@ function ReviewCard({
               ? 'bg-brand-600 border-brand-600 text-white'
               : 'border-neutral-300 bg-white'
           }`}
-          aria-label={claim.included ? 'Exclude claim' : 'Include claim'}
+          aria-label={claim.included ? 'Exclude record' : 'Include record'}
         >
           {claim.included && <Check size={12} />}
         </button>
@@ -801,7 +801,7 @@ function DataSection({ refreshData }: { refreshData: () => Promise<void> }) {
 
       <div className="bg-white rounded-lg border border-red-200 p-5 shadow-sm">
         <h3 className="text-h3 text-red-700 mb-2">Reset / Clear all data</h3>
-        <p className="text-xs text-neutral-500 mb-3">Permanently delete all local jobs, contacts, claims, profile data, and onboarding state. This cannot be undone.</p>
+        <p className="text-xs text-neutral-500 mb-3">Permanently delete all local jobs, contacts, experience records, profile data, and onboarding state. This cannot be undone.</p>
         {!confirmClear ? (
           <button
             onClick={() => setConfirmClear(true)}

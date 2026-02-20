@@ -40,7 +40,7 @@ export function AppShell({ children }: AppShellProps) {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA]">
+    <div className="min-h-screen bg-[var(--app-bg)]">
       {/* ── Desktop / Tablet Sidebar ── */}
       <aside className="hidden md:flex fixed inset-y-0 left-0 z-20 md:w-16 lg:w-60 bg-white border-r border-neutral-200 flex-col">
         {/* Logo */}

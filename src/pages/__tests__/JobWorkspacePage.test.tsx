@@ -42,7 +42,7 @@ describe('JobWorkspacePage mobile overflow guardrails', () => {
   it('keeps tabs scrollable and content container clipped on x-axis', () => {
     const state = {
       jobs: [makeJob()],
-      activeTab: 'score' as const,
+      activeTab: 'requirements' as const,
       setActiveTab: vi.fn(),
       setSelectedJob: vi.fn(),
       scoreAndUpdateJob: vi.fn(),
@@ -66,5 +66,41 @@ describe('JobWorkspacePage mobile overflow guardrails', () => {
     expect(tabsScroll.className).toContain('overflow-x-auto');
     expect(content.className).toContain('overflow-x-hidden');
     expect(requirementsTab.className).toContain('shrink-0');
+  });
+
+  it('keeps user-facing terminology aligned to evidence language', () => {
+    const state = {
+      jobs: [makeJob({
+        requirementsExtracted: [
+          {
+            type: 'experience' as const,
+            description: 'Own growth strategy',
+            priority: 'Must' as const,
+            match: 'Missing' as const,
+          },
+        ],
+      })],
+      activeTab: 'score' as const,
+      setActiveTab: vi.fn(),
+      setSelectedJob: vi.fn(),
+      scoreAndUpdateJob: vi.fn(),
+      moveJobToStage: vi.fn(),
+    };
+
+    mockUseStore.mockImplementation((selector: (store: typeof state) => unknown) => selector(state));
+
+    render(
+      <MemoryRouter initialEntries={['/job/job-1']}>
+        <Routes>
+          <Route path="/job/:jobId" element={<JobWorkspacePage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    const visibleText = document.body.textContent?.toLowerCase() || '';
+    expect(/\bclaims?\b/.test(visibleText)).toBe(false);
+    expect(/\bbullets?\b/.test(visibleText)).toBe(false);
+    expect(/\bnormalized\b/.test(visibleText)).toBe(false);
+    expect(/\bautouse\b/.test(visibleText)).toBe(false);
   });
 });
