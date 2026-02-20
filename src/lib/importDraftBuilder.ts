@@ -31,11 +31,19 @@ const BULLET_ONLY_RE = /^[\s]*[•●◦▪▫‣⁃\-–—*✅✔➤➔]+[\s]*
 const BULLET_LINE_RE = /^[\s]*[•●◦▪▫‣⁃\-–—*✅✔➤➔][\s\t]+/u;
 const CONTINUATION_PREFIX_RE = /^[\s]*([+%(|[a-z])/;
 const LOCAL_MAX_PREVIEW_LINES = 40;
+const AUTO_SEGMENTATION_MODES: SegmentationMode[] = ['default', 'newlines', 'bullets', 'headings'];
+const QUALITY_PENALTY_CODES = new Set<ParseReasonCode>([
+  'FILTERED_ALL',
+  'LAYOUT_COLLAPSE',
+  'ROLE_DETECT_FAIL',
+  'COMPANY_DETECT_FAIL',
+]);
 
 export function normalizeImportText(text: string): string {
   return text
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n')
+    .replace(/\u200B|\u200C|\u200D|\uFEFF/g, '')
     .replaceAll('\u0000', '')
     .trim();
 }
@@ -93,7 +101,7 @@ function findSourceRefs(lines: string[], snippets: string[]): SourceRef[] {
 function toStatus(confidence: number): ImportItemStatus {
   if (confidence >= 0.75) return 'accepted';
   if (confidence >= 0.4) return 'needs_attention';
-  return 'rejected';
+  return 'needs_attention';
 }
 
 function clampConfidence(value: number): number {
@@ -159,11 +167,26 @@ function mergeBulletContinuation(lines: string[]): string[] {
   for (let i = 0; i < lines.length; i += 1) {
     const current = lines[i];
     const trimmed = current.trim();
-    const next = lines[i + 1]?.trim() || '';
 
-    if (BULLET_ONLY_RE.test(trimmed) && next && !looksLikeBoundary(next)) {
-      merged.push(`${trimmed} ${next}`);
-      i += 1;
+    if (BULLET_ONLY_RE.test(trimmed)) {
+      const continuation: string[] = [];
+      let j = i + 1;
+
+      while (j < lines.length) {
+        const next = lines[j].trim();
+        if (!next || looksLikeBoundary(next) || BULLET_ONLY_RE.test(next) || BULLET_LINE_RE.test(next)) {
+          break;
+        }
+        continuation.push(next);
+        j += 1;
+      }
+
+      if (continuation.length > 0) {
+        merged.push(`${trimmed} ${continuation.join(' ')}`.replace(/\s+/g, ' ').trim());
+        i = j - 1;
+      } else {
+        merged.push(current);
+      }
       continue;
     }
 
@@ -259,9 +282,11 @@ function buildRole(
 function buildDiagnostics(
   extractionDiagnostics: ClaimsImportExtractionDiagnostics | null,
   segmentedLines: string[],
+  inputLines: string[],
   draft: ImportDraft,
   claims: ParsedClaim[],
   mode: SegmentationMode,
+  selectedMode: SegmentationMode = mode,
 ): ParseDiagnostics {
   const segmentationSummary = summarizeTextStage(segmentedLines);
   const finalItemsCount = draft.companies.reduce((sumCompanies, company) => {
@@ -310,20 +335,22 @@ function buildDiagnostics(
   }
 
   const extractionStage = extractionDiagnostics ?? {
-    ...summarizeTextStage(segmentedLines),
+    ...summarizeTextStage(inputLines),
     pageCount: undefined,
-    previewLines: segmentedLines.slice(0, LOCAL_MAX_PREVIEW_LINES),
-    previewLinesWithNumbers: toNumberedPreview(segmentedLines, LOCAL_MAX_PREVIEW_LINES),
+    previewLines: inputLines.slice(0, LOCAL_MAX_PREVIEW_LINES),
+    previewLinesWithNumbers: toNumberedPreview(inputLines, LOCAL_MAX_PREVIEW_LINES),
   };
 
   const previewLinesWithNumbers = toNumberedPreview(segmentedLines, LOCAL_MAX_PREVIEW_LINES);
 
   return {
     mode,
+    selectedMode,
     extractedTextLength: extractionStage.extractedChars,
     pageCount: extractionStage.pageCount,
     detectedLinesCount: segmentationSummary.detectedLinesCount,
     bulletCandidatesCount: segmentationSummary.bulletCandidatesCount,
+    bulletOnlyLineCount: extractionStage.bulletOnlyLineCount,
     topBulletGlyphs: segmentationSummary.topBulletGlyphs,
     sectionHeadersDetected: segmentedLines.filter((line) => SECTION_HEADER_RE.test(line.trim())).length,
     companyCandidatesDetected: companyCandidatesCount,
@@ -340,11 +367,13 @@ function buildDiagnostics(
       extractedChars: extractionStage.extractedChars,
       detectedLinesCount: extractionStage.detectedLinesCount,
       bulletCandidatesCount: extractionStage.bulletCandidatesCount,
+      bulletOnlyLineCount: extractionStage.bulletOnlyLineCount,
       topBulletGlyphs: extractionStage.topBulletGlyphs,
     },
     segmentationStage: {
       detectedLinesCount: segmentationSummary.detectedLinesCount,
       bulletCandidatesCount: segmentationSummary.bulletCandidatesCount,
+      bulletOnlyLineCount: segmentationSummary.bulletOnlyLineCount,
       topBulletGlyphs: segmentationSummary.topBulletGlyphs,
       sectionHeadersDetected: segmentedLines.filter((line) => SECTION_HEADER_RE.test(line.trim())).length,
     },
@@ -359,22 +388,93 @@ function buildDiagnostics(
   };
 }
 
-export function buildImportDraftFromText(rawText: string, options: BuildImportDraftOptions = {}): ImportDraftParseResult {
-  const mode = options.mode ?? 'default';
+function toOutcomeMetric(text: string): string | undefined {
+  const match = text.match(/([$€£]?\d[\d,.]*(?:\.\d+)?(?:[%xXkKmMbB])?)/);
+  return match?.[1];
+}
+
+function buildFallbackClaimsFromLines(lines: string[]): ParsedClaim[] {
+  const items: string[] = [];
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const trimmed = lines[i].trim();
+    if (!trimmed) continue;
+
+    if (BULLET_LINE_RE.test(trimmed)) {
+      const value = trimmed.replace(BULLET_LINE_RE, '').trim();
+      if (value) items.push(value);
+      continue;
+    }
+
+    if (!BULLET_ONLY_RE.test(trimmed)) continue;
+
+    const continuation: string[] = [];
+    let j = i + 1;
+    while (j < lines.length) {
+      const next = lines[j].trim();
+      if (!next || looksLikeBoundary(next) || BULLET_ONLY_RE.test(next) || BULLET_LINE_RE.test(next)) {
+        break;
+      }
+      continuation.push(next);
+      j += 1;
+    }
+
+    if (continuation.length > 0) {
+      items.push(continuation.join(' ').replace(/\s+/g, ' ').trim());
+      i = j - 1;
+    }
+  }
+
+  if (items.length === 0) return [];
+
+  const responsibilities = items.filter((item) => !/[$€£]?\d/.test(item));
+  const outcomes = items
+    .filter((item) => /[$€£]?\d/.test(item))
+    .map((description) => ({
+      description,
+      metric: toOutcomeMetric(description),
+      isNumeric: /\d/.test(description),
+    }));
+  const tools = detectTools(items.join(' '));
+
+  return [
+    {
+      _key: 'fallback-unassigned',
+      role: '',
+      company: '',
+      startDate: '',
+      endDate: '',
+      responsibilities,
+      outcomes,
+      tools,
+      included: true,
+    },
+  ];
+}
+
+function buildImportDraftForMode(
+  rawText: string,
+  mode: SegmentationMode,
+  extractionDiagnostics?: ClaimsImportExtractionDiagnostics,
+): ImportDraftParseResult {
   const normalizedInput = normalizeImportText(rawText);
+  const inputLines = normalizedInput.split('\n');
   const normalizedText = normalizeForParser(normalizedInput, mode);
 
   if (!normalizedText.trim()) {
     const emptyDraft: ImportDraft = { companies: [] };
     return {
       draft: emptyDraft,
-      diagnostics: buildDiagnostics(options.extractionDiagnostics || null, [], emptyDraft, [], mode),
+      diagnostics: buildDiagnostics(extractionDiagnostics || null, [], inputLines, emptyDraft, [], mode),
       normalizedText,
     };
   }
 
   const lines = normalizedText.split('\n').map((line) => line.trim()).filter(Boolean);
-  const claims = parseResumeStructured(normalizedText);
+  let claims = parseResumeStructured(normalizedText);
+  if (claims.length === 0) {
+    claims = buildFallbackClaimsFromLines(lines);
+  }
 
   const grouped = new Map<string, ImportDraftCompany>();
   let roleCounter = 0;
@@ -412,7 +512,7 @@ export function buildImportDraftFromText(rawText: string, options: BuildImportDr
 
   return {
     draft,
-    diagnostics: buildDiagnostics(options.extractionDiagnostics || null, lines, draft, claims, mode),
+    diagnostics: buildDiagnostics(extractionDiagnostics || null, lines, inputLines, draft, claims, mode),
     normalizedText,
   };
 }
@@ -423,4 +523,73 @@ export function hasUsableImportDraft(draft: ImportDraft): boolean {
       (role) => role.highlights.length + role.outcomes.length + role.tools.length + role.skills.length > 0,
     ),
   );
+}
+
+function scoreCandidate(result: ImportDraftParseResult): number {
+  const companies = result.diagnostics.finalCompaniesCount;
+  const roles = result.diagnostics.rolesCount;
+  const items = result.diagnostics.mappingStage?.finalItemsCount ?? result.diagnostics.bulletsCount;
+  const bulletCandidates = result.diagnostics.bulletCandidatesCount;
+  const hasUsableDraft = hasUsableImportDraft(result.draft);
+  const unresolvedCompanyCount = result.draft.companies.filter((company) => company.name === 'Unassigned').length;
+
+  let score = items * 1 + roles * 4 + companies * 3 + bulletCandidates * 0.2;
+  if (!hasUsableDraft) score -= 6;
+  score -= result.diagnostics.reasonCodes.filter((code) => QUALITY_PENALTY_CODES.has(code)).length * 2;
+  score -= Math.max(0, unresolvedCompanyCount - 1);
+
+  return score;
+}
+
+export function buildBestImportDraftFromText(
+  rawText: string,
+  options: Omit<BuildImportDraftOptions, 'mode'> = {},
+): ImportDraftParseResult {
+  const candidates = AUTO_SEGMENTATION_MODES.map((mode) => ({
+    mode,
+    result: buildImportDraftForMode(rawText, mode, options.extractionDiagnostics),
+  }));
+
+  const scored = candidates
+    .map((candidate) => ({
+      ...candidate,
+      score: scoreCandidate(candidate.result),
+      counts: {
+        companies: candidate.result.diagnostics.finalCompaniesCount,
+        roles: candidate.result.diagnostics.rolesCount,
+        items: candidate.result.diagnostics.mappingStage?.finalItemsCount ?? candidate.result.diagnostics.bulletsCount,
+        bulletCandidates: candidate.result.diagnostics.bulletCandidatesCount,
+      },
+    }))
+    .sort((a, b) => b.score - a.score);
+
+  const winner = scored[0] ?? {
+    mode: 'default' as SegmentationMode,
+    result: buildImportDraftForMode(rawText, 'default', options.extractionDiagnostics),
+    score: 0,
+    counts: { companies: 0, roles: 0, items: 0, bulletCandidates: 0 },
+  };
+
+  return {
+    ...winner.result,
+    diagnostics: {
+      ...winner.result.diagnostics,
+      mode: winner.mode,
+      selectedMode: winner.mode,
+      candidateModes: scored.map((candidate) => ({
+        mode: candidate.mode,
+        score: candidate.score,
+        reasonCodes: candidate.result.diagnostics.reasonCodes,
+        counts: candidate.counts,
+      })),
+    },
+  };
+}
+
+export function buildImportDraftFromText(rawText: string, options: BuildImportDraftOptions = {}): ImportDraftParseResult {
+  if (options.mode) {
+    return buildImportDraftForMode(rawText, options.mode, options.extractionDiagnostics);
+  }
+
+  return buildBestImportDraftFromText(rawText, options);
 }

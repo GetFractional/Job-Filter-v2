@@ -10,6 +10,7 @@ import {
   X,
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
+import { BUILD_INFO_LABEL } from '../../lib/buildInfo';
 
 interface AppShellProps {
   children: ReactNode;
@@ -189,6 +190,12 @@ export function AppShell({ children }: AppShellProps) {
           {children}
         </div>
       </main>
+
+      <div className="fixed bottom-2 right-2 z-30 pointer-events-none">
+        <span className="inline-flex rounded-full border border-neutral-200 bg-white/90 px-2.5 py-1 text-[10px] font-medium text-neutral-500 shadow-sm">
+          {BUILD_INFO_LABEL}
+        </span>
+      </div>
     </div>
   );
 }

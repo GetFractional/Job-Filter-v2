@@ -26,6 +26,30 @@ function createMemoryStorage(): Storage {
   };
 }
 
+function createFailingStorage(): Storage {
+  const values = new Map<string, string>();
+  return {
+    get length() {
+      return values.size;
+    },
+    clear() {
+      values.clear();
+    },
+    getItem(key: string) {
+      return values.get(key) ?? null;
+    },
+    key(index: number) {
+      return [...values.keys()][index] ?? null;
+    },
+    removeItem(key: string) {
+      values.delete(key);
+    },
+    setItem() {
+      throw new Error('Storage write failed');
+    },
+  };
+}
+
 function makeSession(text = 'Built lifecycle engine'): ImportSession {
   return {
     id: 'session-1',
@@ -41,6 +65,7 @@ function makeSession(text = 'Built lifecycle engine'): ImportSession {
       extractedTextLength: text.length,
       detectedLinesCount: 10,
       bulletCandidatesCount: 3,
+      bulletOnlyLineCount: 0,
       sectionHeadersDetected: 1,
       companyCandidatesDetected: 1,
       roleCandidatesDetected: 1,
@@ -127,5 +152,23 @@ describe('importSessionStorage', () => {
 
     expect(loadImportSession()).toBeNull();
     expect(localStorage.getItem('jf2-import-session-v1')).toBeNull();
+    expect(localStorage.getItem('jf2-import-session-storage')).toBeNull();
+  });
+
+  it('clears pointer and in-memory fallback session', () => {
+    Object.defineProperty(globalThis, 'sessionStorage', {
+      value: createFailingStorage(),
+      configurable: true,
+    });
+
+    const storage = saveImportSession(makeSession('B'.repeat(260 * 1024)));
+    expect(storage).toBe('memory');
+    expect(localStorage.getItem('jf2-import-session-storage')).toBe('memory');
+    expect(loadImportSession()?.id).toBe('session-1');
+
+    clearImportSession();
+
+    expect(localStorage.getItem('jf2-import-session-storage')).toBeNull();
+    expect(loadImportSession()).toBeNull();
   });
 });

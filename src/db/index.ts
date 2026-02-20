@@ -19,6 +19,8 @@ import type {
 } from '../types';
 import { createEmptyProfile } from '../lib/profileState';
 
+export const DB_SCHEMA_VERSION = 3;
+
 export class JobFilterDB extends Dexie {
   jobs!: Table<Job, string>;
   companies!: Table<Company, string>;
@@ -63,7 +65,7 @@ export class JobFilterDB extends Dexie {
       });
     });
 
-    this.version(3).stores({
+    this.version(DB_SCHEMA_VERSION).stores({
       applicationAnswers: 'id, jobId, createdAt',
     });
   }

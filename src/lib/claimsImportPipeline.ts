@@ -77,6 +77,7 @@ function normalizeClaimsImportText(text: string): string {
   return text
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n')
+    .replace(/\u200B|\u200C|\u200D|\uFEFF/g, '')
     .replaceAll('\u0000', '')
     .trim();
 }
