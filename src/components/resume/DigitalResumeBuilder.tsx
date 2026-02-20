@@ -1,4 +1,4 @@
-import { useMemo, useState, type KeyboardEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { AlertTriangle, ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
 import type { ImportDraft, ImportDraftItem, ImportDraftRole, ImportItemStatus } from '../../types';
 import {
@@ -32,6 +32,34 @@ interface ItemLocation {
   item: ImportDraftItem;
   roleTitle: string;
   companyName: string;
+}
+
+interface PendingDeleteConfirm {
+  kind: 'company' | 'role';
+  title: string;
+  details: string;
+  dontAskAgain: boolean;
+  onConfirm: () => void;
+}
+
+interface ToastState {
+  message: string;
+  actionLabel?: string;
+  onAction?: () => void;
+}
+
+interface ItemFilterState {
+  showAccepted: boolean;
+  query: string;
+}
+
+const CONTAINER_DELETE_CONFIRM_KEY = 'jf2-confirm-container-delete-v1';
+
+function canUseLocalStorage(): boolean {
+  return typeof window !== 'undefined'
+    && typeof window.localStorage !== 'undefined'
+    && typeof window.localStorage.getItem === 'function'
+    && typeof window.localStorage.setItem === 'function';
 }
 
 function statusBadgeClass(status: ImportItemStatus): string {
@@ -68,6 +96,23 @@ function itemKey(companyId: string, roleId: string, collection: RoleItemCollecti
 
 function asDestinationValue(companyId: string, roleId: string): string {
   return `${companyId}::${roleId}`;
+}
+
+function countRoleItems(role: ImportDraftRole): number {
+  return role.highlights.length + role.outcomes.length + role.tools.length + role.skills.length;
+}
+
+function matchesItemFilters(item: ImportDraftItem, filters: ItemFilterState): boolean {
+  if (!filters.showAccepted && item.status !== 'needs_attention') {
+    return false;
+  }
+
+  const query = filters.query.trim().toLowerCase();
+  if (!query) {
+    return true;
+  }
+
+  return item.text.toLowerCase().includes(query) || (item.metric ?? '').toLowerCase().includes(query);
 }
 
 function TagEditor({
@@ -138,11 +183,14 @@ function TagEditor({
 function ItemEditor({
   item,
   roleLabel,
-  showAllStatuses,
+  showAccepted,
   collection,
   moveDestination,
   onMoveDestinationChange,
   destinationOptions,
+  selected,
+  onSelectedChange,
+  focusTarget,
   onTextChange,
   onMetricChange,
   onMove,
@@ -150,11 +198,14 @@ function ItemEditor({
 }: {
   item: ImportDraftItem;
   roleLabel: string;
-  showAllStatuses: boolean;
+  showAccepted: boolean;
   collection: Extract<RoleItemCollection, 'highlights' | 'outcomes'>;
   moveDestination: string;
   onMoveDestinationChange: (value: string) => void;
   destinationOptions: Array<{ value: string; label: string }>;
+  selected: boolean;
+  onSelectedChange: (checked: boolean) => void;
+  focusTarget?: 'item' | null;
   onTextChange: (value: string) => void;
   onMetricChange?: (value: string) => void;
   onMove: () => void;
@@ -163,9 +214,15 @@ function ItemEditor({
   return (
     <div className="space-y-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-bg)] p-3" data-testid={`item-editor-${item.id}`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">{collection === 'highlights' ? 'Highlight' : 'Outcome'}</p>
         <div className="flex items-center gap-2">
-          {shouldShowBadge(item.status, showAllStatuses) && (
+          <label className="inline-flex items-center gap-1.5 text-[11px] text-[var(--text-secondary)]">
+            <input type="checkbox" checked={selected} onChange={(event) => onSelectedChange(event.target.checked)} />
+            Select
+          </label>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">{collection === 'highlights' ? 'Highlight' : 'Outcome'}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          {shouldShowBadge(item.status, showAccepted) && (
             <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${statusBadgeClass(item.status)}`}>
               {statusLabel(item.status)}
             </span>
@@ -181,10 +238,11 @@ function ItemEditor({
       </div>
 
       <textarea
+        data-item-input-id={item.id}
         value={item.text}
         onChange={(event) => onTextChange(event.target.value)}
         rows={2}
-        className="w-full rounded-lg border border-[var(--border-subtle)] bg-white px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-soft)]"
+        className={`w-full rounded-lg border border-[var(--border-subtle)] bg-white px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-soft)] ${focusTarget === 'item' ? 'ring-2 ring-[var(--accent-soft)]' : ''}`}
         placeholder={collection === 'highlights' ? 'Describe the work delivered' : 'Describe measurable impact'}
       />
 
@@ -227,8 +285,50 @@ function ItemEditor({
 export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatusesChange, onDraftChange }: DigitalResumeBuilderProps) {
   const [unassignedOpen, setUnassignedOpen] = useState(false);
   const [moveDestinations, setMoveDestinations] = useState<Record<string, string>>({});
-  const [selectedUnassignedItems, setSelectedUnassignedItems] = useState<Record<string, boolean>>({});
+  const [selectedItemIds, setSelectedItemIds] = useState<Record<string, boolean>>({});
   const [bulkDestination, setBulkDestination] = useState('');
+  const [filterQuery, setFilterQuery] = useState('');
+  const [toast, setToast] = useState<ToastState | null>(null);
+  const [pendingDeleteConfirm, setPendingDeleteConfirm] = useState<PendingDeleteConfirm | null>(null);
+  const [focusTarget, setFocusTarget] = useState<{ type: 'company' | 'role' | 'item'; id: string } | null>(null);
+  const [highlightTarget, setHighlightTarget] = useState<{ type: 'company' | 'role'; id: string } | null>(null);
+  const [askBeforeContainerDelete, setAskBeforeContainerDelete] = useState<boolean>(() => {
+    if (!canUseLocalStorage()) return true;
+    return window.localStorage.getItem(CONTAINER_DELETE_CONFIRM_KEY) !== 'skip';
+  });
+  const undoTimeoutRef = useRef<number | null>(null);
+
+  const itemFilters = useMemo<ItemFilterState>(() => ({
+    showAccepted: showAllStatuses,
+    query: filterQuery,
+  }), [filterQuery, showAllStatuses]);
+
+  useEffect(() => () => {
+    if (undoTimeoutRef.current) {
+      window.clearTimeout(undoTimeoutRef.current);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!focusTarget) return;
+    const selector = focusTarget.type === 'company'
+      ? `[data-company-input-id="${focusTarget.id}"]`
+      : focusTarget.type === 'role'
+        ? `[data-role-input-id="${focusTarget.id}"]`
+        : `[data-item-input-id="${focusTarget.id}"]`;
+
+    const element = document.querySelector<HTMLInputElement | HTMLTextAreaElement>(selector);
+    if (element) {
+      if (typeof element.scrollIntoView === 'function') {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      element.focus();
+      if ('select' in element && typeof element.select === 'function') {
+        element.select();
+      }
+    }
+    setFocusTarget(null);
+  }, [draft, focusTarget]);
 
   const assignedCompanies = useMemo(
     () => draft.companies.filter((company) => company.name.trim().toLowerCase() !== 'unassigned'),
@@ -273,11 +373,88 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
     return items;
   }, [unassignedCompanies]);
 
-  const selectedUnassignedCount = Object.values(selectedUnassignedItems).filter(Boolean).length;
+  const allItemLocations = useMemo<ItemLocation[]>(() => {
+    const items: ItemLocation[] = [];
+    for (const company of draft.companies) {
+      for (const role of company.roles) {
+        for (const item of role.highlights) {
+          items.push({
+            companyId: company.id,
+            roleId: role.id,
+            collection: 'highlights',
+            item,
+            roleTitle: role.title,
+            companyName: company.name,
+          });
+        }
+        for (const item of role.outcomes) {
+          items.push({
+            companyId: company.id,
+            roleId: role.id,
+            collection: 'outcomes',
+            item,
+            roleTitle: role.title,
+            companyName: company.name,
+          });
+        }
+      }
+    }
+    return items;
+  }, [draft.companies]);
+
+  const selectedItems = useMemo(
+    () =>
+      allItemLocations.filter((location) =>
+        Boolean(selectedItemIds[itemKey(location.companyId, location.roleId, location.collection, location.item.id)]),
+      ),
+    [allItemLocations, selectedItemIds],
+  );
+
+  const selectedItemCount = selectedItems.length;
+  const selectedUnassignedCount = useMemo(
+    () =>
+      unassignedItems.filter((location) =>
+        Boolean(selectedItemIds[itemKey(location.companyId, location.roleId, location.collection, location.item.id)]),
+      ).length,
+    [selectedItemIds, unassignedItems],
+  );
 
   const applyMutation = (mutate: (current: ImportDraft) => ImportDraft) => {
     const next = mutate(draft);
     onDraftChange(next);
+  };
+
+  const clearUndoTimer = () => {
+    if (undoTimeoutRef.current) {
+      window.clearTimeout(undoTimeoutRef.current);
+      undoTimeoutRef.current = null;
+    }
+  };
+
+  const showToast = (nextToast: ToastState | null, timeoutMs = 3500) => {
+    clearUndoTimer();
+    setToast(nextToast);
+
+    if (!nextToast || timeoutMs <= 0) {
+      return;
+    }
+
+    undoTimeoutRef.current = window.setTimeout(() => {
+      setToast(null);
+      undoTimeoutRef.current = null;
+    }, timeoutMs);
+  };
+
+  const queueUndoDelete = (previousDraft: ImportDraft, label: string) => {
+    showToast({
+      message: label,
+      actionLabel: 'Undo',
+      onAction: () => {
+        onDraftChange(previousDraft);
+        setSelectedItemIds({});
+        showToast({ message: `${label} undone` });
+      },
+    }, 10000);
   };
 
   const resolveMoveValue = (key: string, fallback = destinationOptions[0]?.value ?? ''): string => {
@@ -294,10 +471,17 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
       return true;
     });
 
+    const visibleHighlights = role.highlights.filter((item) => matchesItemFilters(item, itemFilters));
+    const visibleOutcomes = role.outcomes.filter((item) => matchesItemFilters(item, itemFilters));
+
     return (
-      <div key={role.id} className="space-y-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-3">
+      <div
+        key={role.id}
+        className={`space-y-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-3 ${highlightTarget?.type === 'role' && highlightTarget.id === role.id ? 'ring-2 ring-[var(--accent-soft)]' : ''}`}
+      >
         <div className="grid gap-2 md:grid-cols-[2fr_1fr_1fr_auto]">
           <input
+            data-role-input-id={role.id}
             type="text"
             value={role.title}
             onChange={(event) => {
@@ -332,7 +516,26 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
             )}
             <button
               type="button"
-              onClick={() => applyMutation((current) => deleteRole(current, { companyId, roleId: role.id }))}
+              onClick={() => {
+                const execute = () => {
+                  applyMutation((current) => deleteRole(current, { companyId, roleId: role.id }));
+                  setSelectedItemIds({});
+                  showToast({ message: 'Role deleted' });
+                };
+
+                if (!askBeforeContainerDelete) {
+                  execute();
+                  return;
+                }
+
+                setPendingDeleteConfirm({
+                  kind: 'role',
+                  title: 'Delete role?',
+                  details: `This removes 1 role and ${countRoleItems(role)} items.`,
+                  dontAskAgain: false,
+                  onConfirm: execute,
+                });
+              }}
               className="rounded-md border border-[var(--border-subtle)] p-1.5 text-[var(--text-muted)] hover:bg-[var(--surface-bg)]"
               aria-label={`Delete role ${role.title || 'Untitled role'}`}
             >
@@ -346,14 +549,32 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={() => applyMutation((current) => addRoleItem(current, { companyId, roleId: role.id }, 'highlights'))}
+            onClick={() => {
+              const next = addRoleItem(draft, { companyId, roleId: role.id }, 'highlights');
+              const nextRole = next.companies.find((company) => company.id === companyId)?.roles.find((entry) => entry.id === role.id);
+              const nextItemId = nextRole?.highlights[0]?.id;
+              onDraftChange(next);
+              if (nextItemId) {
+                setFocusTarget({ type: 'item', id: nextItemId });
+              }
+              showToast({ message: 'Highlight added' });
+            }}
             className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-subtle)] px-2.5 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-bg)]"
           >
             <Plus size={12} /> Add Highlight
           </button>
           <button
             type="button"
-            onClick={() => applyMutation((current) => addRoleItem(current, { companyId, roleId: role.id }, 'outcomes'))}
+            onClick={() => {
+              const next = addRoleItem(draft, { companyId, roleId: role.id }, 'outcomes');
+              const nextRole = next.companies.find((company) => company.id === companyId)?.roles.find((entry) => entry.id === role.id);
+              const nextItemId = nextRole?.outcomes[0]?.id;
+              onDraftChange(next);
+              if (nextItemId) {
+                setFocusTarget({ type: 'item', id: nextItemId });
+              }
+              showToast({ message: 'Outcome added' });
+            }}
             className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-subtle)] px-2.5 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-bg)]"
           >
             <Plus size={12} /> Add Outcome
@@ -361,7 +582,7 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
         </div>
 
         <div className="space-y-2">
-          {role.highlights.map((item) => {
+          {visibleHighlights.map((item) => {
             const key = itemKey(companyId, role.id, 'highlights', item.id);
             const fallbackMoveValue = roleOptions[0]?.value ?? '';
 
@@ -370,9 +591,12 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
                 key={item.id}
                 item={item}
                 roleLabel={roleDestinationLabel}
-                showAllStatuses={showAllStatuses}
+                showAccepted={showAllStatuses}
                 collection="highlights"
                 destinationOptions={roleOptions}
+                selected={Boolean(selectedItemIds[key])}
+                onSelectedChange={(checked) => setSelectedItemIds((current) => ({ ...current, [key]: checked }))}
+                focusTarget={focusTarget?.type === 'item' && focusTarget.id === item.id ? 'item' : null}
                 moveDestination={resolveMoveValue(key, fallbackMoveValue)}
                 onMoveDestinationChange={(value) => setMoveDestinations((current) => ({ ...current, [key]: value }))}
                 onTextChange={(value) => {
@@ -395,18 +619,21 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
                   }, target));
                 }}
                 onDelete={() => {
+                  const previousDraft = draft;
                   applyMutation((current) => deleteRoleItem(current, {
                     companyId,
                     roleId: role.id,
                     collection: 'highlights',
                     itemId: item.id,
                   }));
+                  setSelectedItemIds((current) => ({ ...current, [key]: false }));
+                  queueUndoDelete(previousDraft, 'Highlight deleted');
                 }}
               />
             );
           })}
 
-          {role.outcomes.map((item) => {
+          {visibleOutcomes.map((item) => {
             const key = itemKey(companyId, role.id, 'outcomes', item.id);
             const fallbackMoveValue = roleOptions[0]?.value ?? '';
 
@@ -415,9 +642,12 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
                 key={item.id}
                 item={item}
                 roleLabel={roleDestinationLabel}
-                showAllStatuses={showAllStatuses}
+                showAccepted={showAllStatuses}
                 collection="outcomes"
                 destinationOptions={roleOptions}
+                selected={Boolean(selectedItemIds[key])}
+                onSelectedChange={(checked) => setSelectedItemIds((current) => ({ ...current, [key]: checked }))}
+                focusTarget={focusTarget?.type === 'item' && focusTarget.id === item.id ? 'item' : null}
                 moveDestination={resolveMoveValue(key, fallbackMoveValue)}
                 onMoveDestinationChange={(value) => setMoveDestinations((current) => ({ ...current, [key]: value }))}
                 onTextChange={(value) => {
@@ -448,16 +678,27 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
                   }, target));
                 }}
                 onDelete={() => {
+                  const previousDraft = draft;
                   applyMutation((current) => deleteRoleItem(current, {
                     companyId,
                     roleId: role.id,
                     collection: 'outcomes',
                     itemId: item.id,
                   }));
+                  setSelectedItemIds((current) => ({ ...current, [key]: false }));
+                  queueUndoDelete(previousDraft, 'Outcome deleted');
                 }}
               />
             );
           })}
+
+          {visibleHighlights.length + visibleOutcomes.length === 0 && (
+            <p className="rounded-lg border border-dashed border-[var(--border-subtle)] bg-white px-3 py-2 text-xs text-[var(--text-muted)]">
+              {showAllStatuses
+                ? 'No highlights or outcomes match this filter.'
+                : 'No needs-attention highlights or outcomes in this role. Toggle “Show accepted items” to review everything.'}
+            </p>
+          )}
         </div>
 
         <div className="grid gap-3 md:grid-cols-2">
@@ -509,16 +750,99 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
             onClick={() => onShowAllStatusesChange(!showAllStatuses)}
             className="rounded-full border border-[var(--border-subtle)] px-3 py-1 text-[11px] text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]"
           >
-            {showAllStatuses ? 'Show needs attention only' : 'Show all statuses'}
+            {showAllStatuses ? 'Show needs attention only' : 'Show accepted items'}
           </button>
           <button
             type="button"
-            onClick={() => applyMutation((current) => addCompany(current))}
+            onClick={() => {
+              const next = addCompany(draft);
+              const nextCompanyId = next.companies[0]?.id;
+              onDraftChange(next);
+              if (nextCompanyId) {
+                setHighlightTarget({ type: 'company', id: nextCompanyId });
+                setFocusTarget({ type: 'company', id: nextCompanyId });
+                window.setTimeout(() => setHighlightTarget(null), 1200);
+              }
+              showToast({ message: 'Company added' });
+            }}
             className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-subtle)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]"
           >
             <Plus size={13} /> Add Company
           </button>
         </div>
+      </div>
+
+      <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-bg)] px-3 py-2.5 space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="search"
+            value={filterQuery}
+            onChange={(event) => setFilterQuery(event.target.value)}
+            placeholder="Search highlights and outcomes"
+            className="min-w-[220px] flex-1 rounded-lg border border-[var(--border-subtle)] bg-white px-3 py-1.5 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
+          />
+          <select
+            value={bulkDestination || destinationOptions[0]?.value || ''}
+            onChange={(event) => setBulkDestination(event.target.value)}
+            className="min-w-[220px] rounded-lg border border-[var(--border-subtle)] bg-white px-2.5 py-1.5 text-xs text-[var(--text-primary)]"
+          >
+            {destinationOptions.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            disabled={selectedItemCount === 0}
+            onClick={() => {
+              applyMutation((current) => {
+                let next = current;
+                for (const selected of selectedItems) {
+                  next = updateRoleItem(next, {
+                    companyId: selected.companyId,
+                    roleId: selected.roleId,
+                    collection: selected.collection,
+                    itemId: selected.item.id,
+                  }, { status: 'accepted' });
+                }
+                return next;
+              });
+              setSelectedItemIds({});
+              showToast({ message: 'Selected items marked accepted' });
+            }}
+            className="rounded-lg border border-[var(--border-subtle)] px-2.5 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] disabled:opacity-50"
+          >
+            Mark selected accepted ({selectedItemCount})
+          </button>
+          <button
+            type="button"
+            disabled={selectedItemCount === 0 || destinationOptions.length === 0}
+            onClick={() => {
+              const target = destinationLookup.get(bulkDestination || destinationOptions[0]?.value || '');
+              if (!target) return;
+
+              applyMutation((current) => {
+                let next = current;
+                for (const selected of selectedItems) {
+                  next = moveRoleItem(next, {
+                    companyId: selected.companyId,
+                    roleId: selected.roleId,
+                    collection: selected.collection,
+                    itemId: selected.item.id,
+                  }, target);
+                }
+                return next;
+              });
+              setSelectedItemIds({});
+              showToast({ message: 'Selected items moved' });
+            }}
+            className="rounded-lg border border-[var(--border-subtle)] px-2.5 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] disabled:opacity-50"
+          >
+            Move selected to...
+          </button>
+        </div>
+        <p className="text-[11px] text-[var(--text-muted)]">
+          Default view shows needs-attention highlights and outcomes. Toggle accepted items when you want a full review.
+        </p>
       </div>
 
       {assignedCompanies.length === 0 && (
@@ -529,10 +853,14 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
 
       <div className="space-y-4">
         {assignedCompanies.map((company) => (
-          <section key={company.id} className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-bg)] p-4 space-y-3">
+          <section
+            key={company.id}
+            className={`rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-bg)] p-4 space-y-3 ${highlightTarget?.type === 'company' && highlightTarget.id === company.id ? 'ring-2 ring-[var(--accent-soft)]' : ''}`}
+          >
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex min-w-[240px] flex-1 items-center gap-2">
                 <input
+                  data-company-input-id={company.id}
                   type="text"
                   value={company.name}
                   onChange={(event) => applyMutation((current) => updateCompanyName(current, company.id, event.target.value))}
@@ -548,14 +876,45 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => applyMutation((current) => addRole(current, company.id))}
+                  onClick={() => {
+                    const next = addRole(draft, company.id);
+                    const newRoleId = next.companies.find((entry) => entry.id === company.id)?.roles[0]?.id;
+                    onDraftChange(next);
+                    if (newRoleId) {
+                      setHighlightTarget({ type: 'role', id: newRoleId });
+                      setFocusTarget({ type: 'role', id: newRoleId });
+                      window.setTimeout(() => setHighlightTarget(null), 1200);
+                    }
+                    showToast({ message: 'Role added' });
+                  }}
                   className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-subtle)] px-2.5 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]"
                 >
                   <Plus size={12} /> Add Role
                 </button>
                 <button
                   type="button"
-                  onClick={() => applyMutation((current) => deleteCompany(current, company.id))}
+                  onClick={() => {
+                    const execute = () => {
+                      applyMutation((current) => deleteCompany(current, company.id));
+                      setSelectedItemIds({});
+                      showToast({ message: 'Company deleted' });
+                    };
+
+                    if (!askBeforeContainerDelete) {
+                      execute();
+                      return;
+                    }
+
+                    const totalRoles = company.roles.length;
+                    const totalItems = company.roles.reduce((sum, role) => sum + countRoleItems(role), 0);
+                    setPendingDeleteConfirm({
+                      kind: 'company',
+                      title: 'Delete company?',
+                      details: `This removes ${totalRoles} role${totalRoles === 1 ? '' : 's'} and ${totalItems} items.`,
+                      dontAskAgain: false,
+                      onConfirm: execute,
+                    });
+                  }}
                   className="rounded-lg border border-[var(--border-subtle)] p-1.5 text-[var(--text-muted)] hover:bg-[var(--surface-muted)]"
                   aria-label={`Delete company ${company.name}`}
                 >
@@ -619,7 +978,7 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
                         let next = current;
                         for (const item of unassignedItems) {
                           const key = itemKey(item.companyId, item.roleId, item.collection, item.item.id);
-                          if (!selectedUnassignedItems[key]) continue;
+                          if (!selectedItemIds[key]) continue;
                           next = moveRoleItem(next, {
                             companyId: item.companyId,
                             roleId: item.roleId,
@@ -630,7 +989,8 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
                         return next;
                       });
 
-                      setSelectedUnassignedItems({});
+                      setSelectedItemIds({});
+                      showToast({ message: 'Selected unassigned items moved' });
                     }}
                     className="rounded-lg border border-[var(--border-subtle)] px-2.5 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] disabled:opacity-50"
                   >
@@ -645,7 +1005,9 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
                     <div key={role.id} className="space-y-2 rounded-lg border border-[var(--status-warn-border)] bg-white p-3">
                       <p className="text-xs font-medium text-[var(--status-warn-text)]">{company.name} • {role.title || 'Unassigned role'} ({formatRoleWindow(role)})</p>
 
-                      {[...role.highlights, ...role.outcomes].map((item) => {
+                      {[...role.highlights, ...role.outcomes]
+                        .filter((item) => matchesItemFilters(item, itemFilters))
+                        .map((item) => {
                         const collection: RoleItemCollection = item.type === 'outcome' ? 'outcomes' : 'highlights';
                         const key = itemKey(company.id, role.id, collection, item.id);
                         const optionValue = resolveMoveValue(key, destinationOptions[0]?.value ?? '');
@@ -656,8 +1018,8 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
                               <label className="inline-flex items-center gap-2 text-xs text-[var(--text-secondary)]">
                                 <input
                                   type="checkbox"
-                                  checked={Boolean(selectedUnassignedItems[key])}
-                                  onChange={(event) => setSelectedUnassignedItems((current) => ({
+                                  checked={Boolean(selectedItemIds[key])}
+                                  onChange={(event) => setSelectedItemIds((current) => ({
                                     ...current,
                                     [key]: event.target.checked,
                                   }))}
@@ -705,16 +1067,17 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
                                     collection,
                                     itemId: item.id,
                                   }, target));
-                                  setSelectedUnassignedItems((current) => ({ ...current, [key]: false }));
+                                  setSelectedItemIds((current) => ({ ...current, [key]: false }));
+                                  showToast({ message: 'Item assigned' });
                                 }}
-                                className="rounded-lg border border-[var(--border-subtle)] px-2.5 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]"
+                              className="rounded-lg border border-[var(--border-subtle)] px-2.5 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]"
                               >
                                 Assign to...
                               </button>
                             </div>
                           </div>
                         );
-                      })}
+                        })}
                     </div>
                   ))}
                 </div>
@@ -722,6 +1085,85 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
             </div>
           )}
         </section>
+      )}
+
+      {pendingDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl border border-[var(--border-subtle)] bg-white p-4 shadow-lg space-y-3">
+            <h5 className="text-sm font-semibold text-[var(--text-primary)]">{pendingDeleteConfirm.title}</h5>
+            <p className="text-xs text-[var(--text-secondary)]">{pendingDeleteConfirm.details}</p>
+            <label className="inline-flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+              <input
+                type="checkbox"
+                checked={pendingDeleteConfirm.dontAskAgain}
+                onChange={(event) =>
+                  setPendingDeleteConfirm((current) =>
+                    current
+                      ? {
+                          ...current,
+                          dontAskAgain: event.target.checked,
+                        }
+                      : current,
+                  )
+                }
+              />
+              Don&apos;t ask again on this device
+            </label>
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setPendingDeleteConfirm(null)}
+                className="rounded-lg border border-[var(--border-subtle)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  pendingDeleteConfirm.onConfirm();
+                  if (pendingDeleteConfirm.dontAskAgain) {
+                    setAskBeforeContainerDelete(false);
+                    if (canUseLocalStorage()) {
+                      window.localStorage.setItem(CONTAINER_DELETE_CONFIRM_KEY, 'skip');
+                    }
+                  }
+                  setPendingDeleteConfirm(null);
+                }}
+                className="rounded-lg bg-[var(--status-danger-text)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {toast && (
+        <div className="fixed bottom-4 right-4 z-40 rounded-lg border border-[var(--border-subtle)] bg-white px-3 py-2 shadow-lg">
+          <div className="flex items-center gap-3 text-xs text-[var(--text-primary)]">
+            <span>{toast.message}</span>
+            {toast.actionLabel && toast.onAction && (
+              <button
+                type="button"
+                onClick={() => {
+                  toast.onAction?.();
+                  setToast(null);
+                }}
+                className="font-medium text-[var(--accent-solid)] hover:underline"
+              >
+                {toast.actionLabel}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setToast(null)}
+              className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+              aria-label="Dismiss notice"
+            >
+              ×
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

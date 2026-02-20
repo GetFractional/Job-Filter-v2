@@ -38,7 +38,7 @@ describe('SettingsPage terminology guard', () => {
 
     render(<SettingsPage />);
 
-    fireEvent.click(screen.getByRole('button', { name: /Experience Ledger/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Digital Resume/i }));
 
     const visibleText = document.body.textContent?.toLowerCase() || '';
 

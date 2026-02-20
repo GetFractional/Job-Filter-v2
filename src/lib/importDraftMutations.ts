@@ -128,7 +128,7 @@ function setCollection(role: ImportDraftRole, collection: RoleItemCollection, va
 
 export function addCompany(draft: ImportDraft): ImportDraft {
   const next = cloneDraft(draft);
-  next.companies.push(createEmptyCompany());
+  next.companies.unshift(createEmptyCompany());
   return next;
 }
 
@@ -150,7 +150,7 @@ export function deleteCompany(draft: ImportDraft, companyId: string): ImportDraf
 
 export function addRole(draft: ImportDraft, companyId: string): ImportDraft {
   return withCompany(draft, companyId, (company) => {
-    company.roles.push(createEmptyRole());
+    company.roles.unshift(createEmptyRole());
   });
 }
 
@@ -179,7 +179,7 @@ export function addRoleItem(draft: ImportDraft, ref: RoleRef, collection: Extrac
   return withRole(draft, ref, (role) => {
     const nextItem = createDraftItem(collectionToItemType(collection), '');
     const current = getCollection(role, collection);
-    setCollection(role, collection, [...current, nextItem]);
+    setCollection(role, collection, [nextItem, ...current]);
   });
 }
 
@@ -264,7 +264,7 @@ export function moveRoleItem(draft: ImportDraft, source: ItemRef, destination: R
       confidence: Math.max(movedItem!.confidence, MANUAL_CONFIDENCE),
       status: movedItem!.status === 'rejected' ? 'needs_attention' : movedItem!.status,
     };
-    setCollection(role, source.collection, [...targetCollection, moved]);
+    setCollection(role, source.collection, [moved, ...targetCollection]);
   });
 }
 

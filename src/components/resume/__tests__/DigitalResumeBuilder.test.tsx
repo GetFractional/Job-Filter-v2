@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
 import { DigitalResumeBuilder } from '../DigitalResumeBuilder';
@@ -134,18 +134,21 @@ function renderBuilder(initialDraft = makeDraft()) {
 }
 
 describe('DigitalResumeBuilder', () => {
-  it('supports add and delete company actions', () => {
+  it('supports add at top and safe delete for companies', () => {
     const { getDraft } = renderBuilder();
 
     fireEvent.click(screen.getByRole('button', { name: /Add Company/i }));
     expect(getDraft().companies.length).toBe(4);
+    expect(getDraft().companies[0].name).toBe('New Company');
 
     fireEvent.click(screen.getByLabelText('Delete company New Company'));
+    fireEvent.click(screen.getByRole('button', { name: /^Delete$/i }));
     expect(getDraft().companies.length).toBe(3);
   });
 
   it('moves a highlight between assigned roles', () => {
     const { getDraft } = renderBuilder();
+    fireEvent.click(screen.getByRole('button', { name: /Show accepted items/i }));
 
     fireEvent.change(screen.getByTestId('move-select-highlight-acme-1'), {
       target: { value: 'company-beta::role-marketing' },
@@ -174,5 +177,27 @@ describe('DigitalResumeBuilder', () => {
 
     expect(unassignedHighlights).toHaveLength(0);
     expect(betaHighlights.some((item) => item.text.includes('Needs assignment item'))).toBe(true);
+  });
+
+  it('defaults to needs-attention items and allows showing accepted content', () => {
+    renderBuilder();
+
+    expect(screen.queryByText(/Built demand generation engine across paid and owned channels/i)).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: /Show accepted items/i }));
+    expect(screen.queryByText(/Built demand generation engine across paid and owned channels/i)).not.toBeNull();
+  });
+
+  it('supports undo for highlight deletion', () => {
+    const { getDraft } = renderBuilder();
+
+    fireEvent.click(screen.getByRole('button', { name: /Show accepted items/i }));
+
+    const itemEditor = screen.getByTestId('item-editor-highlight-acme-1');
+    fireEvent.click(within(itemEditor).getByRole('button', { name: /Delete/i }));
+
+    expect(getDraft().companies[0].roles[0].highlights).toHaveLength(0);
+    fireEvent.click(screen.getByRole('button', { name: /Undo/i }));
+    expect(getDraft().companies[0].roles[0].highlights).toHaveLength(1);
   });
 });
