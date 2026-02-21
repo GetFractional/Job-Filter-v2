@@ -1,11 +1,18 @@
 import { useEffect, useState } from 'react';
-import { Save, Trash2, Download, AlertTriangle } from 'lucide-react';
+import { Save, Trash2, Download, AlertTriangle, MapPin, DollarSign } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { db, generateId, seedDefaultProfile } from '../db';
 import { clearJobFilterLocalState } from '../lib/profileState';
+import {
+  createLocationPreference,
+  DEFAULT_HARD_FILTERS,
+  sanitizeHardFilters,
+  sanitizeLocationPreferences,
+  summarizeLocationPreferences,
+} from '../lib/profilePreferences';
 import { DigitalResumeBuilder } from '../components/resume/DigitalResumeBuilder';
 import { hasUsableImportDraft } from '../lib/importDraftBuilder';
-import type { Claim, ImportDraftRole, ImportSession, Profile } from '../types';
+import type { Claim, HardFilters, ImportDraftRole, ImportSession, LocationPreference, Profile } from '../types';
 
 export function SettingsPage() {
   const profile = useStore((s) => s.profile);
@@ -63,29 +70,94 @@ function ProfileSection({
   profile: Profile;
   updateProfile: (updates: Record<string, unknown>) => Promise<void>;
 }) {
+  const initialHardFilters = sanitizeHardFilters({
+    ...DEFAULT_HARD_FILTERS,
+    ...(profile.hardFilters ?? {}),
+    minBaseSalary: profile.hardFilters?.minBaseSalary ?? profile.compFloor ?? 0,
+  });
+
   const [form, setForm] = useState({
     name: profile.name,
-    compFloor: profile.compFloor,
     compTarget: profile.compTarget,
-    locationPreference: profile.locationPreference,
-    targetRoles: profile.targetRoles.join('\n'),
-    requiredBenefits: profile.requiredBenefits.join('\n'),
-    preferredBenefits: profile.preferredBenefits.join('\n'),
-    disqualifiers: profile.disqualifiers.join('\n'),
+    targetRoles: profile.targetRoles,
+    requiredBenefits: profile.requiredBenefits,
+    preferredBenefits: profile.preferredBenefits,
+    locationPreferences: profile.locationPreferences?.length ? profile.locationPreferences : [],
+    hardFilters: initialHardFilters,
   });
+  const [drafts, setDrafts] = useState({
+    targetRole: '',
+    requiredBenefit: '',
+    preferredBenefit: '',
+  });
+  const [errors, setErrors] = useState<string[]>([]);
   const [saved, setSaved] = useState(false);
 
+  const addTag = (field: 'targetRoles' | 'requiredBenefits' | 'preferredBenefits', key: keyof typeof drafts) => {
+    const value = drafts[key].trim();
+    if (!value) return;
+    setForm((prev) => ({
+      ...prev,
+      [field]: prev[field].includes(value) ? prev[field] : [...prev[field], value],
+    }));
+    setDrafts((prev) => ({ ...prev, [key]: '' }));
+  };
+
+  const removeTag = (field: 'targetRoles' | 'requiredBenefits' | 'preferredBenefits', value: string) => {
+    setForm((prev) => ({ ...prev, [field]: prev[field].filter((entry) => entry !== value) }));
+  };
+
+  const updateLocationPreference = (id: string, updates: Partial<LocationPreference>) => {
+    setForm((prev) => ({
+      ...prev,
+      locationPreferences: prev.locationPreferences.map((preference) => (
+        preference.id === id ? { ...preference, ...updates } : preference
+      )),
+    }));
+  };
+
+  const validate = () => {
+    const nextErrors: string[] = [];
+    if (form.hardFilters.minBaseSalary < 0) nextErrors.push('Minimum base salary must be 0 or higher.');
+    if (form.hardFilters.maxOnsiteDaysPerWeek < 0 || form.hardFilters.maxOnsiteDaysPerWeek > 5) {
+      nextErrors.push('Max onsite days per week must be between 0 and 5.');
+    }
+    if (form.hardFilters.maxTravelPercent < 0 || form.hardFilters.maxTravelPercent > 100) {
+      nextErrors.push('Max travel percent must be between 0 and 100.');
+    }
+
+    form.locationPreferences.forEach((preference, index) => {
+      if (preference.radiusMiles !== undefined && (preference.radiusMiles < 1 || preference.radiusMiles > 500)) {
+        nextErrors.push(`Location preference ${index + 1}: radius must be between 1 and 500 miles.`);
+      }
+      if ((preference.type === 'Hybrid' || preference.type === 'Onsite') && preference.radiusMiles && !preference.city?.trim()) {
+        nextErrors.push(`Location preference ${index + 1}: add a city when using a radius.`);
+      }
+    });
+
+    setErrors(nextErrors);
+    return nextErrors.length === 0;
+  };
+
   const handleSave = async () => {
+    if (!validate()) return;
+
+    const normalizedHardFilters = sanitizeHardFilters(form.hardFilters);
+    const normalizedLocations = sanitizeLocationPreferences(form.locationPreferences);
+
     await updateProfile({
       name: form.name,
-      compFloor: form.compFloor,
+      compFloor: normalizedHardFilters.minBaseSalary,
       compTarget: form.compTarget,
-      locationPreference: form.locationPreference,
-      targetRoles: form.targetRoles.split('\n').filter(Boolean).map((s) => s.trim()),
-      requiredBenefits: form.requiredBenefits.split('\n').filter(Boolean).map((s) => s.trim()),
-      preferredBenefits: form.preferredBenefits.split('\n').filter(Boolean).map((s) => s.trim()),
-      disqualifiers: form.disqualifiers.split('\n').filter(Boolean).map((s) => s.trim()),
+      locationPreference: summarizeLocationPreferences(normalizedLocations),
+      targetRoles: form.targetRoles.map((entry) => entry.trim()).filter(Boolean),
+      requiredBenefits: form.requiredBenefits.map((entry) => entry.trim()).filter(Boolean),
+      preferredBenefits: form.preferredBenefits.map((entry) => entry.trim()).filter(Boolean),
+      disqualifiers: [],
+      locationPreferences: normalizedLocations,
+      hardFilters: normalizedHardFilters,
     });
+    setErrors([]);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
@@ -100,70 +172,257 @@ function ProfileSection({
           className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
         />
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="text-xs font-medium text-neutral-600 mb-1 block">Comp Floor ($)</label>
+      <div className="space-y-2">
+        <label className="text-xs font-medium text-neutral-600 block">Target Roles</label>
+        <div className="rounded-lg border border-neutral-200 bg-white px-3 py-2">
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {form.targetRoles.map((value) => (
+              <span key={value} className="inline-flex items-center gap-1 rounded-full bg-brand-50 text-brand-700 text-xs px-2.5 py-1">
+                {value}
+                <button type="button" onClick={() => removeTag('targetRoles', value)} className="text-brand-700 hover:text-brand-900">×</button>
+              </span>
+            ))}
+          </div>
           <input
-            type="number"
-            value={form.compFloor}
-            onChange={(e) => setForm({ ...form, compFloor: parseInt(e.target.value, 10) || 0 })}
-            className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+            value={drafts.targetRole}
+            onChange={(event) => setDrafts((prev) => ({ ...prev, targetRole: event.target.value }))}
+            onBlur={() => addTag('targetRoles', 'targetRole')}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ',') {
+                event.preventDefault();
+                addTag('targetRoles', 'targetRole');
+              }
+            }}
+            placeholder="Add a role and press Enter"
+            className="w-full border-0 p-0 text-sm focus:outline-none"
           />
         </div>
-        <div>
-          <label className="text-xs font-medium text-neutral-600 mb-1 block">Comp Target ($)</label>
-          <input
-            type="number"
-            value={form.compTarget}
-            onChange={(e) => setForm({ ...form, compTarget: parseInt(e.target.value, 10) || 0 })}
-            className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-          />
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-xs font-medium text-neutral-600 block flex items-center gap-1">
+          <MapPin size={12} /> Location Preferences
+        </label>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => setForm((prev) => ({ ...prev, locationPreferences: [...prev.locationPreferences, createLocationPreference('Remote')] }))} className="rounded-full border border-neutral-200 px-3 py-1 text-xs text-neutral-700 hover:bg-neutral-50">+ Remote</button>
+          <button type="button" onClick={() => setForm((prev) => ({ ...prev, locationPreferences: [...prev.locationPreferences, createLocationPreference('Hybrid')] }))} className="rounded-full border border-neutral-200 px-3 py-1 text-xs text-neutral-700 hover:bg-neutral-50">+ Hybrid</button>
+          <button type="button" onClick={() => setForm((prev) => ({ ...prev, locationPreferences: [...prev.locationPreferences, createLocationPreference('Onsite')] }))} className="rounded-full border border-neutral-200 px-3 py-1 text-xs text-neutral-700 hover:bg-neutral-50">+ Onsite</button>
+        </div>
+
+        {form.locationPreferences.length === 0 && (
+          <p className="rounded-lg border border-dashed border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-neutral-500">
+            No location preferences added.
+          </p>
+        )}
+        <div className="space-y-2">
+          {form.locationPreferences.map((preference) => (
+            <div key={preference.id} className="rounded-lg border border-neutral-200 bg-neutral-50 p-3 space-y-2">
+              <div className="grid grid-cols-1 sm:grid-cols-[140px_1fr_auto] gap-2">
+                <select
+                  value={preference.type}
+                  onChange={(event) => updateLocationPreference(preference.id, {
+                    type: event.target.value as LocationPreference['type'],
+                    radiusMiles: event.target.value === 'Remote' ? undefined : (preference.radiusMiles ?? 25),
+                  })}
+                  className="px-3 py-2 bg-white border border-neutral-200 rounded-lg text-sm"
+                >
+                  <option value="Remote">Remote</option>
+                  <option value="Hybrid">Hybrid</option>
+                  <option value="Onsite">Onsite</option>
+                </select>
+                <input
+                  value={preference.city ?? ''}
+                  onChange={(event) => updateLocationPreference(preference.id, { city: event.target.value })}
+                  placeholder={preference.type === 'Remote' ? 'Optional city' : 'City'}
+                  className="px-3 py-2 bg-white border border-neutral-200 rounded-lg text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => setForm((prev) => ({
+                    ...prev,
+                    locationPreferences: prev.locationPreferences.filter((entry) => entry.id !== preference.id),
+                  }))}
+                  className="rounded-lg border border-neutral-200 px-3 py-2 text-xs text-neutral-600 hover:bg-neutral-100"
+                >
+                  Remove
+                </button>
+              </div>
+              {preference.type !== 'Remote' && (
+                <div className="grid grid-cols-1 sm:grid-cols-[140px_1fr] gap-2 items-center">
+                  <input
+                    type="number"
+                    min={1}
+                    max={500}
+                    value={preference.radiusMiles ?? ''}
+                    onChange={(event) => updateLocationPreference(preference.id, {
+                      radiusMiles: event.target.value ? Number(event.target.value) : undefined,
+                    })}
+                    placeholder="Radius miles"
+                    className="px-3 py-2 bg-white border border-neutral-200 rounded-lg text-sm"
+                  />
+                  <label className="inline-flex items-center gap-2 text-xs text-neutral-600">
+                    <input
+                      type="checkbox"
+                      checked={preference.willingToRelocate}
+                      onChange={(event) => updateLocationPreference(preference.id, { willingToRelocate: event.target.checked })}
+                    />
+                    Willing to relocate
+                  </label>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       </div>
-      <div>
-        <label className="text-xs font-medium text-neutral-600 mb-1 block">Location Preference</label>
-        <input
-          value={form.locationPreference}
-          onChange={(e) => setForm({ ...form, locationPreference: e.target.value })}
-          className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-        />
+
+      <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3 space-y-3">
+        <div className="text-sm font-semibold text-neutral-800">Hard Filters</div>
+        <label className="inline-flex items-center gap-2 text-xs text-neutral-700">
+          <input
+            type="checkbox"
+            checked={form.hardFilters.requiresVisaSponsorship}
+            onChange={(event) => setForm((prev) => ({
+              ...prev,
+              hardFilters: { ...prev.hardFilters, requiresVisaSponsorship: event.target.checked },
+            }))}
+          />
+          Require visa sponsorship
+        </label>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs font-medium text-neutral-600 mb-1 block flex items-center gap-1">
+              <DollarSign size={12} /> Minimum Base Salary
+            </label>
+            <input
+              type="number"
+              min={0}
+              value={form.hardFilters.minBaseSalary}
+              onChange={(event) => setForm((prev) => ({
+                ...prev,
+                hardFilters: { ...prev.hardFilters, minBaseSalary: Number(event.target.value) || 0 },
+              }))}
+              className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-neutral-600 mb-1 block">Comp Target ($)</label>
+            <input
+              type="number"
+              min={0}
+              value={form.compTarget}
+              onChange={(e) => setForm({ ...form, compTarget: parseInt(e.target.value, 10) || 0 })}
+              className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-neutral-600 mb-1 block">Employment Type</label>
+            <select
+              value={form.hardFilters.employmentType}
+              onChange={(event) => setForm((prev) => ({
+                ...prev,
+                hardFilters: { ...prev.hardFilters, employmentType: event.target.value as HardFilters['employmentType'] },
+              }))}
+              className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm"
+            >
+              <option value="ft_only">FT only</option>
+              <option value="exclude_contract">Exclude contract</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-neutral-600 mb-1 block">Max Onsite Days / Week</label>
+            <input
+              type="number"
+              min={0}
+              max={5}
+              value={form.hardFilters.maxOnsiteDaysPerWeek}
+              onChange={(event) => setForm((prev) => ({
+                ...prev,
+                hardFilters: { ...prev.hardFilters, maxOnsiteDaysPerWeek: Number(event.target.value) || 0 },
+              }))}
+              className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-neutral-600 mb-1 block">Max Travel Percent</label>
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={form.hardFilters.maxTravelPercent}
+              onChange={(event) => setForm((prev) => ({
+                ...prev,
+                hardFilters: { ...prev.hardFilters, maxTravelPercent: Number(event.target.value) || 0 },
+              }))}
+              className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm"
+            />
+          </div>
+        </div>
       </div>
-      <div>
-        <label className="text-xs font-medium text-neutral-600 mb-1 block">Target Roles (one per line)</label>
-        <textarea
-          value={form.targetRoles}
-          onChange={(e) => setForm({ ...form, targetRoles: e.target.value })}
-          rows={4}
-          className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm resize-y focus:outline-none focus:ring-2 focus:ring-brand-500"
-        />
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className="text-xs font-medium text-neutral-600 mb-1 block">Required Benefits</label>
+          <div className="rounded-lg border border-neutral-300 bg-white px-3 py-2">
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {form.requiredBenefits.map((value) => (
+                <span key={value} className="inline-flex items-center gap-1 rounded-full bg-neutral-100 text-neutral-700 text-xs px-2.5 py-1">
+                  {value}
+                  <button type="button" onClick={() => removeTag('requiredBenefits', value)} className="text-neutral-600 hover:text-neutral-900">×</button>
+                </span>
+              ))}
+            </div>
+            <input
+              value={drafts.requiredBenefit}
+              onChange={(event) => setDrafts((prev) => ({ ...prev, requiredBenefit: event.target.value }))}
+              onBlur={() => addTag('requiredBenefits', 'requiredBenefit')}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ',') {
+                  event.preventDefault();
+                  addTag('requiredBenefits', 'requiredBenefit');
+                }
+              }}
+              placeholder="Type and press Enter"
+              className="w-full border-0 p-0 text-sm focus:outline-none"
+            />
+          </div>
+        </div>
+        <div>
+          <label className="text-xs font-medium text-neutral-600 mb-1 block">Preferred Benefits</label>
+          <div className="rounded-lg border border-neutral-300 bg-white px-3 py-2">
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {form.preferredBenefits.map((value) => (
+                <span key={value} className="inline-flex items-center gap-1 rounded-full bg-neutral-100 text-neutral-700 text-xs px-2.5 py-1">
+                  {value}
+                  <button type="button" onClick={() => removeTag('preferredBenefits', value)} className="text-neutral-600 hover:text-neutral-900">×</button>
+                </span>
+              ))}
+            </div>
+            <input
+              value={drafts.preferredBenefit}
+              onChange={(event) => setDrafts((prev) => ({ ...prev, preferredBenefit: event.target.value }))}
+              onBlur={() => addTag('preferredBenefits', 'preferredBenefit')}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ',') {
+                  event.preventDefault();
+                  addTag('preferredBenefits', 'preferredBenefit');
+                }
+              }}
+              placeholder="Type and press Enter"
+              className="w-full border-0 p-0 text-sm focus:outline-none"
+            />
+          </div>
+        </div>
       </div>
-      <div>
-        <label className="text-xs font-medium text-neutral-600 mb-1 block">Required Benefits (one per line)</label>
-        <textarea
-          value={form.requiredBenefits}
-          onChange={(e) => setForm({ ...form, requiredBenefits: e.target.value })}
-          rows={2}
-          className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm resize-y focus:outline-none focus:ring-2 focus:ring-brand-500"
-        />
-      </div>
-      <div>
-        <label className="text-xs font-medium text-neutral-600 mb-1 block">Preferred Benefits (one per line)</label>
-        <textarea
-          value={form.preferredBenefits}
-          onChange={(e) => setForm({ ...form, preferredBenefits: e.target.value })}
-          rows={2}
-          className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm resize-y focus:outline-none focus:ring-2 focus:ring-brand-500"
-        />
-      </div>
-      <div>
-        <label className="text-xs font-medium text-neutral-600 mb-1 block">Disqualifiers (one per line)</label>
-        <textarea
-          value={form.disqualifiers}
-          onChange={(e) => setForm({ ...form, disqualifiers: e.target.value })}
-          rows={2}
-          className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm resize-y focus:outline-none focus:ring-2 focus:ring-brand-500"
-        />
-      </div>
+
+      {errors.length > 0 && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+          <ul className="text-xs text-red-700 list-disc pl-4 space-y-1">
+            {errors.map((error) => (
+              <li key={error}>{error}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       <button
         onClick={handleSave}
         className="w-full bg-brand-600 text-white py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-1.5 hover:bg-brand-700"

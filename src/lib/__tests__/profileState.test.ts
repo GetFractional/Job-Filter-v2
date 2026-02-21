@@ -36,6 +36,14 @@ describe('profileState', () => {
     expect(profile.requiredBenefits).toEqual([]);
     expect(profile.preferredBenefits).toEqual([]);
     expect(profile.disqualifiers).toEqual([]);
+    expect(profile.locationPreferences).toEqual([]);
+    expect(profile.hardFilters).toEqual({
+      requiresVisaSponsorship: false,
+      minBaseSalary: 0,
+      maxOnsiteDaysPerWeek: 5,
+      maxTravelPercent: 100,
+      employmentType: 'exclude_contract',
+    });
     expect(profile.updatedAt).toBe('2026-02-16T00:00:00.000Z');
   });
 

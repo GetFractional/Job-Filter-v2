@@ -28,13 +28,23 @@ import {
 } from '../../lib/claimsImportPipeline';
 import { buildBestImportDraftFromText, buildImportDraftFromText, hasUsableImportDraft } from '../../lib/importDraftBuilder';
 import { inferProfilePrefillSuggestion } from '../../lib/profileInference';
+import {
+  createLocationPreference,
+  DEFAULT_HARD_FILTERS,
+  locationPreferenceFromHint,
+  sanitizeHardFilters,
+  sanitizeLocationPreferences,
+  summarizeLocationPreferences,
+} from '../../lib/profilePreferences';
 import { getImportSessionStorageNotice } from '../../lib/importSessionStorage';
 import { BUILD_INFO } from '../../lib/buildInfo';
 import type {
   Claim,
+  HardFilters,
   ImportDraft,
   ImportDraftRole,
   ImportSession,
+  LocationPreference,
   ParseReasonCode,
   SegmentationMode,
 } from '../../types';
@@ -238,10 +248,18 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const [lastName, setLastName] = useState(profile?.lastName || profile?.name.split(' ').slice(1).join(' ') || '');
   const [targetRoles, setTargetRoles] = useState(profile?.targetRoles || []);
 
-  const [compFloor, setCompFloor] = useState(profile?.compFloor ? profile.compFloor.toString() : '');
   const [compTarget, setCompTarget] = useState(profile?.compTarget ? profile.compTarget.toString() : '');
-  const [locationPref, setLocationPref] = useState(profile?.locationPreference || '');
-  const [disqualifiers, setDisqualifiers] = useState(profile?.disqualifiers?.join('\n') || '');
+  const [locationPreferences, setLocationPreferences] = useState<LocationPreference[]>(
+    profile?.locationPreferences?.length ? profile.locationPreferences : [],
+  );
+  const [hardFilters, setHardFilters] = useState<HardFilters>(
+    sanitizeHardFilters({
+      ...DEFAULT_HARD_FILTERS,
+      ...(profile?.hardFilters ?? {}),
+      minBaseSalary: profile?.hardFilters?.minBaseSalary ?? profile?.compFloor ?? 0,
+    }),
+  );
+  const [preferenceErrors, setPreferenceErrors] = useState<string[]>([]);
 
   const [resumeText, setResumeText] = useState('');
   const [extractionDiagnostics, setExtractionDiagnostics] = useState<ClaimsImportExtractionDiagnostics | null>(null);
@@ -304,18 +322,46 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   }, [firstName, lastName, targetRoles, updateProfile]);
 
   const handleSavePreferences = useCallback(async () => {
+    const errors: string[] = [];
+    if (hardFilters.minBaseSalary < 0) errors.push('Minimum base salary must be 0 or higher.');
+    if (hardFilters.maxOnsiteDaysPerWeek < 0 || hardFilters.maxOnsiteDaysPerWeek > 5) {
+      errors.push('Max onsite days per week must be between 0 and 5.');
+    }
+    if (hardFilters.maxTravelPercent < 0 || hardFilters.maxTravelPercent > 100) {
+      errors.push('Max travel percent must be between 0 and 100.');
+    }
+    locationPreferences.forEach((preference, index) => {
+      if (preference.radiusMiles !== undefined && (preference.radiusMiles < 1 || preference.radiusMiles > 500)) {
+        errors.push(`Location preference ${index + 1}: radius must be between 1 and 500 miles.`);
+      }
+      if ((preference.type === 'Hybrid' || preference.type === 'Onsite') && preference.radiusMiles && !preference.city?.trim()) {
+        errors.push(`Location preference ${index + 1}: add a city when using a radius.`);
+      }
+    });
+
+    if (errors.length > 0) {
+      setPreferenceErrors(errors);
+      return;
+    }
+
+    const normalizedHardFilters = sanitizeHardFilters(hardFilters);
+    const normalizedLocations = sanitizeLocationPreferences(locationPreferences);
+
     setSaving(true);
     try {
       await updateProfile({
-        compFloor: parseInt(compFloor, 10) || 0,
+        compFloor: normalizedHardFilters.minBaseSalary,
         compTarget: parseInt(compTarget, 10) || 0,
-        locationPreference: locationPref.trim(),
-        disqualifiers: disqualifiers.split('\n').map((line) => line.trim()).filter(Boolean),
+        locationPreference: summarizeLocationPreferences(normalizedLocations),
+        disqualifiers: [],
+        locationPreferences: normalizedLocations,
+        hardFilters: normalizedHardFilters,
       });
+      setPreferenceErrors([]);
     } finally {
       setSaving(false);
     }
-  }, [compFloor, compTarget, locationPref, disqualifiers, updateProfile]);
+  }, [compTarget, hardFilters, locationPreferences, updateProfile]);
 
   const handleApplySuggestions = useCallback(() => {
     if (!importSession) return;
@@ -329,12 +375,12 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
       setTargetRoles(merged);
     }
 
-    if (suggestion.locationHints.length > 0 && !locationPref.trim()) {
-      setLocationPref(suggestion.locationHints[0]);
+    if (suggestion.locationHints.length > 0 && locationPreferences.length === 0) {
+      setLocationPreferences([locationPreferenceFromHint(suggestion.locationHints[0])]);
     }
 
-    if (suggestion.compensation?.floor && !compFloor.trim()) {
-      setCompFloor(String(suggestion.compensation.floor));
+    if (suggestion.compensation?.floor && hardFilters.minBaseSalary <= 0) {
+      setHardFilters((prev) => ({ ...prev, minBaseSalary: suggestion.compensation?.floor ?? prev.minBaseSalary }));
     }
 
     if (suggestion.compensation?.target && !compTarget.trim()) {
@@ -342,7 +388,21 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     }
 
     setSuggestionsDismissed(true);
-  }, [compFloor, compTarget, importSession, locationPref, targetRoles]);
+  }, [compTarget, hardFilters.minBaseSalary, importSession, locationPreferences.length, targetRoles]);
+
+  const addLocationPreference = useCallback((type: LocationPreference['type']) => {
+    setLocationPreferences((prev) => [...prev, createLocationPreference(type)]);
+  }, []);
+
+  const updateLocationPreference = useCallback((id: string, updates: Partial<LocationPreference>) => {
+    setLocationPreferences((prev) => prev.map((preference) => (
+      preference.id === id ? { ...preference, ...updates } : preference
+    )));
+  }, []);
+
+  const removeLocationPreference = useCallback((id: string) => {
+    setLocationPreferences((prev) => prev.filter((preference) => preference.id !== id));
+  }, []);
 
   const handleParseResume = useCallback((forcedMode?: SegmentationMode) => {
     if (!resumeText.trim()) {
@@ -631,7 +691,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     }
   };
 
-  const missingRequiredPrefs = !compFloor.trim() || !locationPref.trim();
+  const missingRequiredPrefs = hardFilters.minBaseSalary <= 0 || locationPreferences.length === 0;
 
   const primaryLabel = useMemo(() => {
     if (step === 'ready') return "Let's Go";
@@ -1030,58 +1090,188 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
               {missingRequiredPrefs && (
                 <div className="flex items-start gap-2 p-3 bg-amber-50 rounded-lg border border-amber-200">
                   <AlertTriangle size={14} className="text-amber-600 shrink-0 mt-0.5" />
-                  <p className="text-xs text-amber-700 leading-relaxed">Set compensation floor and location preference for better scoring quality.</p>
+                  <p className="text-xs text-amber-700 leading-relaxed">Add a minimum base salary and at least one location preference for more accurate scoring.</p>
                 </div>
               )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-neutral-700 mb-1.5 block flex items-center gap-1.5">
-                    <DollarSign size={14} className="text-neutral-400" /> Compensation floor
-                  </label>
-                  <input
-                    type="number"
-                    value={compFloor}
-                    onChange={(event) => setCompFloor(event.target.value)}
-                    placeholder="150000"
-                    className="w-full px-3.5 py-2.5 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
-                  />
+              {preferenceErrors.length > 0 && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+                  <p className="text-xs font-semibold text-red-700">Please fix the following:</p>
+                  <ul className="mt-1 space-y-1 text-xs text-red-700 list-disc pl-4">
+                    {preferenceErrors.map((error) => (
+                      <li key={error}>{error}</li>
+                    ))}
+                  </ul>
                 </div>
-                <div>
-                  <label className="text-sm font-medium text-neutral-700 mb-1.5 block flex items-center gap-1.5">
-                    <DollarSign size={14} className="text-neutral-400" /> Compensation target
-                  </label>
-                  <input
-                    type="number"
-                    value={compTarget}
-                    onChange={(event) => setCompTarget(event.target.value)}
-                    placeholder="180000"
-                    className="w-full px-3.5 py-2.5 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
-                  />
-                </div>
-              </div>
+              )}
 
-              <div>
-                <label className="text-sm font-medium text-neutral-700 mb-1.5 block flex items-center gap-1.5">
-                  <MapPin size={14} className="text-neutral-400" /> Location preference
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-neutral-700 flex items-center gap-1.5">
+                  <MapPin size={14} className="text-neutral-400" /> Location preferences
                 </label>
-                <input
-                  type="text"
-                  value={locationPref}
-                  onChange={(event) => setLocationPref(event.target.value)}
-                  placeholder="Remote preferred, hybrid in Nashville"
-                  className="w-full px-3.5 py-2.5 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
-                />
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => addLocationPreference('Remote')}
+                    className="rounded-full border border-neutral-200 px-3 py-1 text-xs text-neutral-700 hover:bg-neutral-50"
+                  >
+                    + Remote
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => addLocationPreference('Hybrid')}
+                    className="rounded-full border border-neutral-200 px-3 py-1 text-xs text-neutral-700 hover:bg-neutral-50"
+                  >
+                    + Hybrid
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => addLocationPreference('Onsite')}
+                    className="rounded-full border border-neutral-200 px-3 py-1 text-xs text-neutral-700 hover:bg-neutral-50"
+                  >
+                    + Onsite
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  {locationPreferences.length === 0 && (
+                    <p className="rounded-lg border border-dashed border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-neutral-500">
+                      No locations added yet. Add at least one preference.
+                    </p>
+                  )}
+                  {locationPreferences.map((preference) => (
+                    <div key={preference.id} className="rounded-lg border border-neutral-200 bg-neutral-50 p-3 space-y-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-[140px_1fr_auto] gap-2">
+                        <select
+                          value={preference.type}
+                          onChange={(event) => updateLocationPreference(preference.id, {
+                            type: event.target.value as LocationPreference['type'],
+                            radiusMiles: event.target.value === 'Remote' ? undefined : (preference.radiusMiles ?? 25),
+                          })}
+                          className="px-3 py-2 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                        >
+                          <option value="Remote">Remote</option>
+                          <option value="Hybrid">Hybrid</option>
+                          <option value="Onsite">Onsite</option>
+                        </select>
+                        <input
+                          type="text"
+                          value={preference.city ?? ''}
+                          onChange={(event) => updateLocationPreference(preference.id, { city: event.target.value })}
+                          placeholder={preference.type === 'Remote' ? 'Optional city' : 'City'}
+                          className="px-3 py-2 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeLocationPreference(preference.id)}
+                          className="rounded-lg border border-neutral-200 px-3 py-2 text-xs text-neutral-600 hover:bg-neutral-100"
+                        >
+                          Remove
+                        </button>
+                      </div>
+
+                      {preference.type !== 'Remote' && (
+                        <div className="grid grid-cols-1 sm:grid-cols-[140px_1fr] gap-2 items-center">
+                          <input
+                            type="number"
+                            min={1}
+                            max={500}
+                            value={preference.radiusMiles ?? ''}
+                            onChange={(event) => updateLocationPreference(preference.id, {
+                              radiusMiles: event.target.value ? Number(event.target.value) : undefined,
+                            })}
+                            placeholder="Radius miles"
+                            className="px-3 py-2 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                          />
+                          <label className="inline-flex items-center gap-2 text-xs text-neutral-600">
+                            <input
+                              type="checkbox"
+                              checked={preference.willingToRelocate}
+                              onChange={(event) => updateLocationPreference(preference.id, { willingToRelocate: event.target.checked })}
+                            />
+                            Willing to relocate
+                          </label>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
 
-              <div>
-                <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Disqualifiers (one per line)</label>
-                <textarea
-                  value={disqualifiers}
-                  onChange={(event) => setDisqualifiers(event.target.value)}
-                  rows={4}
-                  className="w-full px-3.5 py-2.5 bg-white border border-neutral-200 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
-                />
+              <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3 space-y-3">
+                <div className="text-sm font-medium text-neutral-800">Hard filters</div>
+                <label className="inline-flex items-center gap-2 text-sm text-neutral-700">
+                  <input
+                    type="checkbox"
+                    checked={hardFilters.requiresVisaSponsorship}
+                    onChange={(event) => setHardFilters((prev) => ({ ...prev, requiresVisaSponsorship: event.target.checked }))}
+                  />
+                  Require visa sponsorship
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-medium text-neutral-600 mb-1 block flex items-center gap-1.5">
+                      <DollarSign size={12} className="text-neutral-400" /> Minimum base salary
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={hardFilters.minBaseSalary}
+                      onChange={(event) => setHardFilters((prev) => ({ ...prev, minBaseSalary: Number(event.target.value) || 0 }))}
+                      placeholder="150000"
+                      className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-neutral-600 mb-1 block flex items-center gap-1.5">
+                      <DollarSign size={12} className="text-neutral-400" /> Compensation target
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={compTarget}
+                      onChange={(event) => setCompTarget(event.target.value)}
+                      placeholder="180000"
+                      className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-neutral-600 mb-1 block">Employment type filter</label>
+                    <select
+                      value={hardFilters.employmentType}
+                      onChange={(event) => setHardFilters((prev) => ({
+                        ...prev,
+                        employmentType: event.target.value as HardFilters['employmentType'],
+                      }))}
+                      className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                    >
+                      <option value="ft_only">FT only</option>
+                      <option value="exclude_contract">Exclude contract</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-neutral-600 mb-1 block">Max onsite days per week</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={5}
+                      value={hardFilters.maxOnsiteDaysPerWeek}
+                      onChange={(event) => setHardFilters((prev) => ({ ...prev, maxOnsiteDaysPerWeek: Number(event.target.value) || 0 }))}
+                      className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-neutral-600 mb-1 block">Max travel percent</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={hardFilters.maxTravelPercent}
+                      onChange={(event) => setHardFilters((prev) => ({ ...prev, maxTravelPercent: Number(event.target.value) || 0 }))}
+                      className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           )}

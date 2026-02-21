@@ -13,6 +13,14 @@ const baseProfile: Profile = {
   preferredBenefits: ['401(k)', 'Equity'],
   locationPreference: 'Remote',
   disqualifiers: [],
+  locationPreferences: [{ id: 'lp-1', type: 'Remote', city: '', willingToRelocate: false }],
+  hardFilters: {
+    requiresVisaSponsorship: false,
+    minBaseSalary: 150000,
+    maxOnsiteDaysPerWeek: 5,
+    maxTravelPercent: 100,
+    employmentType: 'exclude_contract',
+  },
   updatedAt: new Date().toISOString(),
 };
 
@@ -95,6 +103,33 @@ describe('scoreJob', () => {
     const result = scoreJob(lowCompJob, baseProfile);
     expect(result.fitScore).toBe(0);
     expect(result.disqualifiers.some((d) => d.includes('compensation'))).toBe(true);
+  });
+
+  it('applies employment type hard filter', () => {
+    const contractJob: Partial<Job> = {
+      ...baseJob,
+      employmentType: 'Contract',
+    };
+    const result = scoreJob(contractJob, baseProfile);
+    expect(result.fitScore).toBe(0);
+    expect(result.disqualifiers.some((d) => d.toLowerCase().includes('contract'))).toBe(true);
+  });
+
+  it('applies max travel hard filter', () => {
+    const travelJob: Partial<Job> = {
+      ...baseJob,
+      jobDescription: `${baseJob.jobDescription}\\nRequires 60% travel to client sites.`,
+    };
+    const strictProfile: Profile = {
+      ...baseProfile,
+      hardFilters: {
+        ...baseProfile.hardFilters,
+        maxTravelPercent: 25,
+      },
+    };
+    const result = scoreJob(travelJob, strictProfile);
+    expect(result.fitScore).toBe(0);
+    expect(result.disqualifiers.some((d) => d.toLowerCase().includes('travel'))).toBe(true);
   });
 
   it('extracts requirements from JD', () => {
