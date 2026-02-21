@@ -26,9 +26,10 @@ const state = {
     disqualifiers: [],
     updatedAt: new Date().toISOString(),
   },
-  claims: [],
+  importSession: null,
   updateProfile: vi.fn(async () => {}),
-  addClaim: vi.fn(async () => ({})),
+  setImportSession: vi.fn(),
+  hydrateImportSession: vi.fn(),
   refreshData: vi.fn(async () => {}),
 };
 

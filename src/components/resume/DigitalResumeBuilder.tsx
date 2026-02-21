@@ -115,6 +115,51 @@ function matchesItemFilters(item: ImportDraftItem, filters: ItemFilterState): bo
   return item.text.toLowerCase().includes(query) || (item.metric ?? '').toLowerCase().includes(query);
 }
 
+function textMatchesQuery(value: string | undefined, query: string): boolean {
+  if (!value) return false;
+  return value.toLowerCase().includes(query);
+}
+
+function itemMatchesQuery(item: ImportDraftItem, query: string): boolean {
+  return textMatchesQuery(item.text, query) || textMatchesQuery(item.metric, query);
+}
+
+function roleMatchesQuery(companyName: string, role: ImportDraftRole, query: string): { matches: boolean; count: number; containerMatch: boolean } {
+  if (!query) {
+    return { matches: true, count: 0, containerMatch: false };
+  }
+
+  let count = 0;
+  let containerMatch = false;
+
+  const checkContainer = [companyName, role.title, role.startDate, role.endDate ?? ''];
+  for (const value of checkContainer) {
+    if (textMatchesQuery(value, query)) {
+      containerMatch = true;
+      count += 1;
+    }
+  }
+
+  for (const item of role.highlights) {
+    if (itemMatchesQuery(item, query)) count += 1;
+  }
+  for (const item of role.outcomes) {
+    if (itemMatchesQuery(item, query)) count += 1;
+  }
+  for (const item of role.tools) {
+    if (textMatchesQuery(item.text, query)) count += 1;
+  }
+  for (const item of role.skills) {
+    if (textMatchesQuery(item.text, query)) count += 1;
+  }
+
+  return {
+    matches: count > 0,
+    count,
+    containerMatch,
+  };
+}
+
 function TagEditor({
   label,
   placeholder,
@@ -302,6 +347,8 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
     showAccepted: showAllStatuses,
     query: filterQuery,
   }), [filterQuery, showAllStatuses]);
+  const searchQuery = filterQuery.trim().toLowerCase();
+  const searchActive = searchQuery.length > 0;
 
   useEffect(() => () => {
     if (undoTimeoutRef.current) {
@@ -329,6 +376,11 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
     }
     setFocusTarget(null);
   }, [draft, focusTarget]);
+
+  useEffect(() => {
+    if (!searchActive) return;
+    setUnassignedOpen(true);
+  }, [searchActive]);
 
   const assignedCompanies = useMemo(
     () => draft.companies.filter((company) => company.name.trim().toLowerCase() !== 'unassigned'),
@@ -461,6 +513,17 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
     return moveDestinations[key] ?? fallback;
   };
 
+  const searchResultCount = useMemo(() => {
+    if (!searchActive) return 0;
+    let count = 0;
+    for (const company of draft.companies) {
+      for (const role of company.roles) {
+        count += roleMatchesQuery(company.name, role, searchQuery).count;
+      }
+    }
+    return count;
+  }, [draft.companies, searchActive, searchQuery]);
+
   const renderRoleBlock = (companyId: string, companyName: string, role: ImportDraftRole, unassigned = false) => {
     const roleDestinationLabel = `${companyName} • ${role.title || 'Untitled role'}`;
 
@@ -471,8 +534,21 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
       return true;
     });
 
-    const visibleHighlights = role.highlights.filter((item) => matchesItemFilters(item, itemFilters));
-    const visibleOutcomes = role.outcomes.filter((item) => matchesItemFilters(item, itemFilters));
+    const roleSearchMatch = roleMatchesQuery(companyName, role, searchQuery);
+    if (searchActive && !roleSearchMatch.matches) {
+      return null;
+    }
+
+    const visibleHighlights = role.highlights.filter((item) => {
+      if (!matchesItemFilters(item, itemFilters)) return false;
+      if (!searchActive) return true;
+      return itemMatchesQuery(item, searchQuery) || roleSearchMatch.containerMatch;
+    });
+    const visibleOutcomes = role.outcomes.filter((item) => {
+      if (!matchesItemFilters(item, itemFilters)) return false;
+      if (!searchActive) return true;
+      return itemMatchesQuery(item, searchQuery) || roleSearchMatch.containerMatch;
+    });
 
     return (
       <div
@@ -696,7 +772,7 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
             <p className="rounded-lg border border-dashed border-[var(--border-subtle)] bg-white px-3 py-2 text-xs text-[var(--text-muted)]">
               {showAllStatuses
                 ? 'No highlights or outcomes match this filter.'
-                : 'No needs-attention highlights or outcomes in this role. Toggle “Show accepted items” to review everything.'}
+                : 'No needs-attention highlights or outcomes in this role. Uncheck “Needs attention only” to review everything.'}
             </p>
           )}
         </div>
@@ -747,13 +823,6 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={() => onShowAllStatusesChange(!showAllStatuses)}
-            className="rounded-full border border-[var(--border-subtle)] px-3 py-1 text-[11px] text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]"
-          >
-            {showAllStatuses ? 'Show needs attention only' : 'Show accepted items'}
-          </button>
-          <button
-            type="button"
             onClick={() => {
               const next = addCompany(draft);
               const nextCompanyId = next.companies[0]?.id;
@@ -774,13 +843,33 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
 
       <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-bg)] px-3 py-2.5 space-y-2">
         <div className="flex flex-wrap items-center gap-2">
+          <label className="inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-white px-3 py-1 text-[11px] text-[var(--text-secondary)]">
+            <input
+              type="checkbox"
+              checked={!showAllStatuses}
+              onChange={(event) => onShowAllStatusesChange(!event.target.checked)}
+            />
+            Needs attention only
+          </label>
           <input
             type="search"
             value={filterQuery}
             onChange={(event) => setFilterQuery(event.target.value)}
-            placeholder="Search highlights and outcomes"
+            placeholder="Search companies, roles, highlights, outcomes, tools, skills"
             className="min-w-[220px] flex-1 rounded-lg border border-[var(--border-subtle)] bg-white px-3 py-1.5 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
           />
+          {searchActive && (
+            <span className="text-[11px] text-[var(--text-muted)]">{searchResultCount} results</span>
+          )}
+          {searchActive && (
+            <button
+              type="button"
+              onClick={() => setFilterQuery('')}
+              className="rounded-lg border border-[var(--border-subtle)] px-2 py-1 text-[11px] text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]"
+            >
+              Clear
+            </button>
+          )}
           <select
             value={bulkDestination || destinationOptions[0]?.value || ''}
             onChange={(event) => setBulkDestination(event.target.value)}
@@ -841,7 +930,7 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
           </button>
         </div>
         <p className="text-[11px] text-[var(--text-muted)]">
-          Default view shows needs-attention highlights and outcomes. Toggle accepted items when you want a full review.
+          Import controls are above. Review controls are here, then edit in the list below.
         </p>
       </div>
 
@@ -852,11 +941,21 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
       )}
 
       <div className="space-y-4">
-        {assignedCompanies.map((company) => (
-          <section
-            key={company.id}
-            className={`rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-bg)] p-4 space-y-3 ${highlightTarget?.type === 'company' && highlightTarget.id === company.id ? 'ring-2 ring-[var(--accent-soft)]' : ''}`}
-          >
+        {assignedCompanies.map((company) => {
+          const visibleRoles = company.roles.filter((role) => {
+            if (!searchActive) return true;
+            return roleMatchesQuery(company.name, role, searchQuery).matches;
+          });
+
+          if (searchActive && visibleRoles.length === 0) {
+            return null;
+          }
+
+          return (
+            <section
+              key={company.id}
+              className={`rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-bg)] p-4 space-y-3 ${highlightTarget?.type === 'company' && highlightTarget.id === company.id ? 'ring-2 ring-[var(--accent-soft)]' : ''}`}
+            >
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex min-w-[240px] flex-1 items-center gap-2">
                 <input
@@ -924,10 +1023,11 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
             </div>
 
             <div className="space-y-3">
-              {company.roles.map((role) => renderRoleBlock(company.id, company.name, role))}
+              {visibleRoles.map((role) => renderRoleBlock(company.id, company.name, role))}
             </div>
-          </section>
-        ))}
+            </section>
+          );
+        })}
       </div>
 
       {unassignedCompanies.length > 0 && (
@@ -1001,12 +1101,27 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
 
               {unassignedCompanies.map((company) => (
                 <div key={company.id} className="space-y-3">
-                  {company.roles.map((role) => (
-                    <div key={role.id} className="space-y-2 rounded-lg border border-[var(--status-warn-border)] bg-white p-3">
+                  {company.roles.map((role) => {
+                    const roleSearchMatch = roleMatchesQuery(company.name, role, searchQuery);
+                    if (searchActive && !roleSearchMatch.matches) {
+                      return null;
+                    }
+
+                    const visibleUnassignedItems = [...role.highlights, ...role.outcomes].filter((item) => {
+                      if (!matchesItemFilters(item, itemFilters)) return false;
+                      if (!searchActive) return true;
+                      return itemMatchesQuery(item, searchQuery) || roleSearchMatch.containerMatch;
+                    });
+
+                    if (searchActive && visibleUnassignedItems.length === 0 && !roleSearchMatch.containerMatch) {
+                      return null;
+                    }
+
+                    return (
+                      <div key={role.id} className="space-y-2 rounded-lg border border-[var(--status-warn-border)] bg-white p-3">
                       <p className="text-xs font-medium text-[var(--status-warn-text)]">{company.name} • {role.title || 'Unassigned role'} ({formatRoleWindow(role)})</p>
 
-                      {[...role.highlights, ...role.outcomes]
-                        .filter((item) => matchesItemFilters(item, itemFilters))
+                      {visibleUnassignedItems
                         .map((item) => {
                         const collection: RoleItemCollection = item.type === 'outcome' ? 'outcomes' : 'highlights';
                         const key = itemKey(company.id, role.id, collection, item.id);
@@ -1079,7 +1194,8 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
                         );
                         })}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ))}
             </div>
@@ -1139,8 +1255,8 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
       )}
 
       {toast && (
-        <div className="fixed bottom-4 right-4 z-40 rounded-lg border border-[var(--border-subtle)] bg-white px-3 py-2 shadow-lg">
-          <div className="flex items-center gap-3 text-xs text-[var(--text-primary)]">
+        <div className="fixed bottom-6 left-1/2 z-40 -translate-x-1/2 rounded-xl border border-neutral-800 bg-neutral-900 px-4 py-2.5 shadow-2xl">
+          <div className="flex items-center gap-3 text-xs text-neutral-100">
             <span>{toast.message}</span>
             {toast.actionLabel && toast.onAction && (
               <button
@@ -1149,7 +1265,7 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
                   toast.onAction?.();
                   setToast(null);
                 }}
-                className="font-medium text-[var(--accent-solid)] hover:underline"
+                className="rounded-md bg-white/10 px-2 py-1 font-semibold text-white hover:bg-white/20"
               >
                 {toast.actionLabel}
               </button>
@@ -1157,7 +1273,7 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
             <button
               type="button"
               onClick={() => setToast(null)}
-              className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+              className="text-neutral-300 hover:text-white"
               aria-label="Dismiss notice"
             >
               ×

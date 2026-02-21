@@ -148,7 +148,7 @@ describe('DigitalResumeBuilder', () => {
 
   it('moves a highlight between assigned roles', () => {
     const { getDraft } = renderBuilder();
-    fireEvent.click(screen.getByRole('button', { name: /Show accepted items/i }));
+    fireEvent.click(screen.getByLabelText(/Needs attention only/i));
 
     fireEvent.change(screen.getByTestId('move-select-highlight-acme-1'), {
       target: { value: 'company-beta::role-marketing' },
@@ -184,14 +184,14 @@ describe('DigitalResumeBuilder', () => {
 
     expect(screen.queryByText(/Built demand generation engine across paid and owned channels/i)).toBeNull();
 
-    fireEvent.click(screen.getByRole('button', { name: /Show accepted items/i }));
+    fireEvent.click(screen.getByLabelText(/Needs attention only/i));
     expect(screen.queryByText(/Built demand generation engine across paid and owned channels/i)).not.toBeNull();
   });
 
   it('supports undo for highlight deletion', () => {
     const { getDraft } = renderBuilder();
 
-    fireEvent.click(screen.getByRole('button', { name: /Show accepted items/i }));
+    fireEvent.click(screen.getByLabelText(/Needs attention only/i));
 
     const itemEditor = screen.getByTestId('item-editor-highlight-acme-1');
     fireEvent.click(within(itemEditor).getByRole('button', { name: /Delete/i }));
@@ -199,5 +199,17 @@ describe('DigitalResumeBuilder', () => {
     expect(getDraft().companies[0].roles[0].highlights).toHaveLength(0);
     fireEvent.click(screen.getByRole('button', { name: /Undo/i }));
     expect(getDraft().companies[0].roles[0].highlights).toHaveLength(1);
+  });
+
+  it('searches across company and role metadata and shows result count', () => {
+    renderBuilder();
+
+    fireEvent.change(screen.getByPlaceholderText(/Search companies, roles/i), {
+      target: { value: 'Acme' },
+    });
+
+    expect(screen.queryByText(/1 results/i)).not.toBeNull();
+    expect(screen.queryByDisplayValue('Acme Corp')).not.toBeNull();
+    expect(screen.queryByDisplayValue('Beta Inc')).toBeNull();
   });
 });

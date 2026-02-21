@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Save, Trash2, Download, AlertTriangle } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { db, generateId, seedDefaultProfile } from '../db';
@@ -12,9 +12,14 @@ export function SettingsPage() {
   const updateProfile = useStore((s) => s.updateProfile);
   const importSession = useStore((s) => s.importSession);
   const setImportSession = useStore((s) => s.setImportSession);
+  const hydrateImportSession = useStore((s) => s.hydrateImportSession);
   const refreshData = useStore((s) => s.refreshData);
 
   const [activeSection, setActiveSection] = useState<'profile' | 'resume' | 'data'>('profile');
+
+  useEffect(() => {
+    hydrateImportSession();
+  }, [hydrateImportSession]);
 
   return (
     <div className="space-y-5">
@@ -39,6 +44,8 @@ export function SettingsPage() {
       {activeSection === 'profile' && profile && <ProfileSection profile={profile} updateProfile={updateProfile} />}
       {activeSection === 'resume' && (
         <DigitalResumeSection
+          profile={profile}
+          updateProfile={updateProfile}
           importSession={importSession}
           setImportSession={setImportSession}
           refreshData={refreshData}
@@ -204,10 +211,14 @@ function roleToEvidenceRecord(role: ImportDraftRole, companyName: string): Claim
 }
 
 function DigitalResumeSection({
+  profile,
+  updateProfile,
   importSession,
   setImportSession,
   refreshData,
 }: {
+  profile: Profile | null;
+  updateProfile: (updates: Record<string, unknown>) => Promise<void>;
   importSession: ImportSession | null;
   setImportSession: (session: ImportSession | null) => void;
   refreshData: () => Promise<void>;
@@ -215,14 +226,27 @@ function DigitalResumeSection({
   const [showAllStatuses, setShowAllStatuses] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
+  const [localDraft, setLocalDraft] = useState(profile?.digitalResume ?? null);
+
+  useEffect(() => {
+    if (!importSession && profile?.digitalResume) {
+      setLocalDraft(profile.digitalResume);
+    }
+    if (!importSession && !profile?.digitalResume) {
+      setLocalDraft(null);
+    }
+  }, [importSession, profile?.digitalResume]);
+
+  const currentDraft = importSession?.draft ?? localDraft ?? profile?.digitalResume ?? null;
 
   const handleSave = async () => {
-    if (!importSession) return;
+    const draftToSave = currentDraft;
+    if (!draftToSave) return;
 
     setSaving(true);
     try {
       const records: Claim[] = [];
-      for (const company of importSession.draft.companies) {
+      for (const company of draftToSave.companies) {
         for (const role of company.roles) {
           const record = roleToEvidenceRecord(role, company.name);
           if (record) {
@@ -236,19 +260,23 @@ function DigitalResumeSection({
         await db.claims.bulkAdd(records);
       }
       await refreshData();
+      await updateProfile({ digitalResume: draftToSave });
 
-      setImportSession({
-        ...importSession,
-        state: 'saved',
-        updatedAt: new Date().toISOString(),
-      });
+      if (importSession) {
+        setImportSession({
+          ...importSession,
+          draft: draftToSave,
+          state: 'saved',
+          updatedAt: new Date().toISOString(),
+        });
+      }
       setSaveNotice(`Saved ${records.length} evidence record${records.length === 1 ? '' : 's'}.`);
     } finally {
       setSaving(false);
     }
   };
 
-  if (!importSession) {
+  if (!currentDraft) {
     return (
       <div className="bg-white rounded-lg border border-neutral-200 p-5 shadow-sm space-y-2">
         <h3 className="text-h3 text-neutral-900">Digital Resume</h3>
@@ -268,16 +296,18 @@ function DigitalResumeSection({
             <p className="text-xs text-neutral-500">Update companies, roles, highlights, outcomes, tools, and skills.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setImportSession(null);
-                setSaveNotice(null);
-              }}
-              className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs text-neutral-600 hover:bg-neutral-50"
-            >
-              Reset import session
-            </button>
+            {importSession && (
+              <button
+                type="button"
+                onClick={() => {
+                  setImportSession(null);
+                  setSaveNotice(null);
+                }}
+                className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs text-neutral-600 hover:bg-neutral-50"
+              >
+                Reset import session
+              </button>
+            )}
             <button
               type="button"
               onClick={handleSave}
@@ -295,7 +325,7 @@ function DigitalResumeSection({
           </p>
         )}
 
-        {!hasUsableImportDraft(importSession.draft) && (
+        {!hasUsableImportDraft(currentDraft) && (
           <div className="rounded border border-amber-200 bg-amber-50 px-2.5 py-2 text-xs text-amber-700 flex items-start gap-2">
             <AlertTriangle size={14} className="mt-0.5" />
             <span>Resume structure is empty. Re-run import in onboarding to populate your digital resume.</span>
@@ -303,17 +333,21 @@ function DigitalResumeSection({
         )}
 
         <DigitalResumeBuilder
-          draft={importSession.draft}
+          draft={currentDraft}
           showAllStatuses={showAllStatuses}
           onShowAllStatusesChange={setShowAllStatuses}
           onDraftChange={(nextDraft) => {
             setSaveNotice(null);
-            setImportSession({
-              ...importSession,
-              draft: nextDraft,
-              state: 'parsed',
-              updatedAt: new Date().toISOString(),
-            });
+            if (importSession) {
+              setImportSession({
+                ...importSession,
+                draft: nextDraft,
+                state: 'parsed',
+                updatedAt: new Date().toISOString(),
+              });
+              return;
+            }
+            setLocalDraft(nextDraft);
           }}
         />
       </div>

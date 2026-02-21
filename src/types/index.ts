@@ -254,6 +254,7 @@ export interface Profile {
   preferredBenefits: string[];
   locationPreference: string;
   disqualifiers: string[];
+  digitalResume?: ImportDraft;
   updatedAt: string;
 }
 

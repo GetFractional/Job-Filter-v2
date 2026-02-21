@@ -76,6 +76,19 @@ function countDraftItems(draft: ImportDraft): { companies: number; roles: number
   );
 }
 
+function hasProfileSuggestions(session: ImportSession | null): boolean {
+  if (!session) return false;
+  const suggestion = session.profileSuggestion;
+  return Boolean(
+    suggestion.firstName
+    || suggestion.lastName
+    || suggestion.targetRoles.length > 0
+    || suggestion.locationHints.length > 0
+    || suggestion.compensation?.floor
+    || suggestion.compensation?.target,
+  );
+}
+
 function toClaimPayload(role: ImportDraftRole, companyName: string): Partial<Claim> | null {
   const acceptedHighlights = role.highlights
     .filter((item) => item.status === 'accepted')
@@ -274,6 +287,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const bulletCircleCount = importSession
     ? (importSession.diagnostics.topBulletGlyphs ?? []).find((entry) => entry.glyph === '●')?.count ?? 0
     : 0;
+  const showSuggestionCard = !suggestionsDismissed && hasProfileSuggestions(importSession);
 
   const handleSaveProfile = useCallback(async () => {
     setSaving(true);
@@ -501,11 +515,14 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
         updatedAt: new Date().toISOString(),
       };
       setImportSession(nextSession);
+      await updateProfile({
+        digitalResume: importSession.draft,
+      });
       setImportedClaimsCount(imported);
     } finally {
       setSaving(false);
     }
-  }, [addClaim, importSession, setImportSession]);
+  }, [addClaim, importSession, setImportSession, updateProfile]);
 
   const handleDiscardDraft = useCallback(() => {
     setImportSession(null);
@@ -566,6 +583,12 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
       if (importSession?.state === 'parsed') {
         await handleSaveParsedDraft();
+        const nextIndex = stepIndex + 1;
+        if (nextIndex < STEPS.length) {
+          setStep(STEPS[nextIndex].id);
+        } else {
+          onComplete();
+        }
         return;
       }
 
@@ -831,20 +854,28 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     </div>
                   </div>
 
-                  {importSession.profileSuggestion && !suggestionsDismissed && (
+                  {showSuggestionCard && (
                     <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800">
-                      <p className="font-medium">Suggested profile updates from your import</p>
+                      <p className="font-medium">Suggested (review): profile updates from your import</p>
+                      <p className="mt-1 text-blue-700">Apply only if they look right. This does not overwrite fields that already have values.</p>
                       <ul className="mt-1 space-y-1 text-blue-700">
                         {importSession.profileSuggestion.firstName || importSession.profileSuggestion.lastName ? (
                           <li>
-                            Name: {importSession.profileSuggestion.firstName || '...'} {importSession.profileSuggestion.lastName || '...'}
+                            Will set name: {importSession.profileSuggestion.firstName || '...'} {importSession.profileSuggestion.lastName || '...'}
                           </li>
                         ) : null}
                         {importSession.profileSuggestion.targetRoles.length > 0 ? (
-                          <li>Target roles: {importSession.profileSuggestion.targetRoles.slice(0, 3).join(', ')}</li>
+                          <li>Will add target roles: {importSession.profileSuggestion.targetRoles.slice(0, 3).join(', ')}</li>
                         ) : null}
                         {importSession.profileSuggestion.locationHints.length > 0 ? (
-                          <li>Location hints: {importSession.profileSuggestion.locationHints.join(', ')}</li>
+                          <li>Will set location hint: {importSession.profileSuggestion.locationHints.join(', ')}</li>
+                        ) : null}
+                        {importSession.profileSuggestion.compensation?.floor || importSession.profileSuggestion.compensation?.target ? (
+                          <li>
+                            Will suggest compensation:
+                            {importSession.profileSuggestion.compensation?.floor ? ` floor ${importSession.profileSuggestion.compensation.floor}` : ''}
+                            {importSession.profileSuggestion.compensation?.target ? ` target ${importSession.profileSuggestion.compensation.target}` : ''}
+                          </li>
                         ) : null}
                       </ul>
                       <div className="mt-2 flex items-center gap-2">
@@ -853,7 +884,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                           onClick={handleApplySuggestions}
                           className="px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
                         >
-                          Apply suggestions
+                          Apply suggested fields
                         </button>
                         <button
                           type="button"
