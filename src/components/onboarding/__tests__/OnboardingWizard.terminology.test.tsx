@@ -46,9 +46,10 @@ describe('OnboardingWizard terminology guard', () => {
 
     const visibleText = document.body.textContent?.toLowerCase() || '';
 
-    expect(/\\bclaim\\b/.test(visibleText)).toBe(false);
-    expect(/\\bbullet\\b/.test(visibleText)).toBe(false);
+    expect(/\\bclaims?\\b/.test(visibleText)).toBe(false);
+    expect(/\\bbullets?\\b/.test(visibleText)).toBe(false);
     expect(/\\bnormalized\\b/.test(visibleText)).toBe(false);
     expect(/\\bautouse\\b/.test(visibleText)).toBe(false);
+    expect(/claim ledger/.test(visibleText)).toBe(false);
   });
 });

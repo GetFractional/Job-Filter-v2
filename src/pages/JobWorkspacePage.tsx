@@ -245,7 +245,7 @@ function RequirementsMatrix({ requirements }: { requirements: Requirement[] }) {
                       <span className="line-clamp-2 text-[11px]" title={req.evidence}>{req.evidence}</span>
                     ) : (
                       <span className="text-neutral-300 italic text-[11px]">
-                        {req.match === 'Missing' ? 'No matching claim' : '--'}
+                        {req.match === 'Missing' ? 'No matching evidence' : '--'}
                       </span>
                     )}
                   </td>

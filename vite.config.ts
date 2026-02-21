@@ -3,7 +3,11 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
-const buildSha = process.env.GITHUB_SHA?.slice(0, 7) ?? 'local'
+const buildSha =
+  process.env.CF_PAGES_COMMIT_SHA?.slice(0, 7) ??
+  process.env.GITHUB_SHA?.slice(0, 7) ??
+  process.env.COMMIT_SHA?.slice(0, 7) ??
+  'local'
 const appEnv = process.env.CF_PAGES_BRANCH
   ? 'preview'
   : (process.env.NODE_ENV ?? 'dev')

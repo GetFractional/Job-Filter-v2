@@ -53,9 +53,30 @@ html {
   font-variant-numeric: tabular-nums;
 }
 
+:root {
+  --app-bg: var(--color-neutral-50);
+  --surface-bg: #ffffff;
+  --surface-muted: var(--color-neutral-100);
+  --border-subtle: var(--color-neutral-200);
+  --text-primary: var(--color-neutral-900);
+  --text-secondary: var(--color-neutral-700);
+  --text-muted: var(--color-neutral-500);
+  --accent: var(--color-brand-600);
+  --accent-soft: rgba(79, 70, 229, 0.2);
+  --status-success-bg: #ecfdf5;
+  --status-success-border: #86efac;
+  --status-success-text: #166534;
+  --status-warn-bg: #fff7ed;
+  --status-warn-border: #fdba74;
+  --status-warn-text: #9a3412;
+  --status-danger-bg: #fef2f2;
+  --status-danger-border: #fca5a5;
+  --status-danger-text: #991b1b;
+}
+
 body {
-  background-color: var(--color-neutral-50);
-  color: var(--color-neutral-900);
+  background-color: var(--app-bg);
+  color: var(--text-primary);
   font-size: 14px;
   line-height: 1.5;
 }

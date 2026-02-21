@@ -19,6 +19,7 @@ import {
   X,
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
+import { DigitalResumeBuilder } from '../resume/DigitalResumeBuilder';
 import {
   type ClaimsImportExtractionDiagnostics,
   extractClaimsImportTextWithMetrics,
@@ -33,7 +34,6 @@ import type {
   Claim,
   ImportDraft,
   ImportDraftRole,
-  ImportItemStatus,
   ImportSession,
   ParseReasonCode,
   SegmentationMode,
@@ -61,18 +61,6 @@ const LOW_QUALITY_REASON_CODES = new Set<ParseReasonCode>([
   'COMPANY_DETECT_FAIL',
 ]);
 
-function statusLabel(status: ImportItemStatus): string {
-  if (status === 'accepted') return 'Accepted';
-  if (status === 'needs_attention') return 'Needs attention';
-  return 'Rejected';
-}
-
-function statusClassName(status: ImportItemStatus): string {
-  if (status === 'accepted') return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-  if (status === 'needs_attention') return 'bg-amber-50 text-amber-700 border-amber-200';
-  return 'bg-neutral-100 text-neutral-600 border-neutral-200';
-}
-
 function countDraftItems(draft: ImportDraft): { companies: number; roles: number; highlights: number; outcomes: number } {
   return draft.companies.reduce(
     (acc, company) => {
@@ -88,48 +76,17 @@ function countDraftItems(draft: ImportDraft): { companies: number; roles: number
   );
 }
 
-function isVisibleStatus(status: ImportItemStatus, includeRejected: boolean): boolean {
-  if (status === 'accepted' || status === 'needs_attention') return true;
-  return includeRejected;
-}
-
-function filterDraftForDisplay(draft: ImportDraft, includeRejected: boolean): ImportDraft {
-  const companies = draft.companies
-    .map((company) => {
-      const roles = company.roles
-        .map((role) => {
-          const highlights = role.highlights.filter((item) => isVisibleStatus(item.status, includeRejected));
-          const outcomes = role.outcomes.filter((item) => isVisibleStatus(item.status, includeRejected));
-          const tools = role.tools.filter((item) => isVisibleStatus(item.status, includeRejected));
-          const skills = role.skills.filter((item) => isVisibleStatus(item.status, includeRejected));
-
-          const hasVisibleItems = highlights.length + outcomes.length + tools.length + skills.length > 0;
-          if (!isVisibleStatus(role.status, includeRejected) && !hasVisibleItems) {
-            return null;
-          }
-
-          return {
-            ...role,
-            highlights,
-            outcomes,
-            tools,
-            skills,
-          };
-        })
-        .filter((role): role is NonNullable<typeof role> => role !== null);
-
-      if (!isVisibleStatus(company.status, includeRejected) && roles.length === 0) {
-        return null;
-      }
-
-      return {
-        ...company,
-        roles,
-      };
-    })
-    .filter((company): company is NonNullable<typeof company> => company !== null);
-
-  return { companies };
+function hasProfileSuggestions(session: ImportSession | null): boolean {
+  if (!session) return false;
+  const suggestion = session.profileSuggestion;
+  return Boolean(
+    suggestion.firstName
+    || suggestion.lastName
+    || suggestion.targetRoles.length > 0
+    || suggestion.locationHints.length > 0
+    || suggestion.compensation?.floor
+    || suggestion.compensation?.target,
+  );
 }
 
 function toClaimPayload(role: ImportDraftRole, companyName: string): Partial<Claim> | null {
@@ -295,7 +252,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const [fileImportError, setFileImportError] = useState<string | null>(null);
   const [suggestionsDismissed, setSuggestionsDismissed] = useState(false);
   const [troubleshootOpen, setTroubleshootOpen] = useState(false);
-  const [showRejectedItems, setShowRejectedItems] = useState(false);
+  const [showAllStatuses, setShowAllStatuses] = useState(false);
   const [debugReportNotice, setDebugReportNotice] = useState<string | null>(null);
 
   useEffect(() => {
@@ -317,18 +274,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     () => (importSession ? countDraftItems(importSession.draft) : { companies: 0, roles: 0, highlights: 0, outcomes: 0 }),
     [importSession],
   );
-  const visibleDraft = useMemo(
-    () => (importSession ? filterDraftForDisplay(importSession.draft, showRejectedItems) : null),
-    [importSession, showRejectedItems],
-  );
-  const draftCounts = useMemo(
-    () => (visibleDraft ? countDraftItems(visibleDraft) : { companies: 0, roles: 0, highlights: 0, outcomes: 0 }),
-    [visibleDraft],
-  );
-  const hiddenItemCount =
-    fullDraftCounts.highlights + fullDraftCounts.outcomes - (draftCounts.highlights + draftCounts.outcomes);
-
-  const hasVisibleDraft = visibleDraft ? hasUsableImportDraft(visibleDraft) : false;
+  const hasVisibleDraft = importSession ? hasUsableImportDraft(importSession.draft) : false;
   const hasCollapseCode = importSession
     ? importSession.diagnostics.reasonCodes.some((code) => LOW_QUALITY_REASON_CODES.has(code))
     : false;
@@ -341,6 +287,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const bulletCircleCount = importSession
     ? (importSession.diagnostics.topBulletGlyphs ?? []).find((entry) => entry.glyph === '●')?.count ?? 0
     : 0;
+  const showSuggestionCard = !suggestionsDismissed && hasProfileSuggestions(importSession);
 
   const handleSaveProfile = useCallback(async () => {
     setSaving(true);
@@ -430,7 +377,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     setStorageNotice(persisted ? getImportSessionStorageNotice(persisted.storage) : null);
 
     setSuggestionsDismissed(false);
-    setShowRejectedItems(false);
+    setShowAllStatuses(false);
     setImportedClaimsCount(0);
     setDebugReportNotice(null);
     setFileImportError(null);
@@ -485,7 +432,6 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
         reasonCodes: importSession.diagnostics.reasonCodes,
       },
       counts: {
-        visible: draftCounts,
         total: fullDraftCounts,
       },
       generatedAt: new Date().toISOString(),
@@ -502,7 +448,6 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   }, [
     bulletCircleCount,
     bulletDotCount,
-    draftCounts,
     fullDraftCounts,
     importSession,
     resumeText,
@@ -530,7 +475,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     setImportedClaimsCount(0);
     setSuggestionsDismissed(false);
     setTroubleshootOpen(false);
-    setShowRejectedItems(false);
+    setShowAllStatuses(false);
     setDebugReportNotice(null);
 
     try {
@@ -570,11 +515,14 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
         updatedAt: new Date().toISOString(),
       };
       setImportSession(nextSession);
+      await updateProfile({
+        digitalResume: importSession.draft,
+      });
       setImportedClaimsCount(imported);
     } finally {
       setSaving(false);
     }
-  }, [addClaim, importSession, setImportSession]);
+  }, [addClaim, importSession, setImportSession, updateProfile]);
 
   const handleDiscardDraft = useCallback(() => {
     setImportSession(null);
@@ -587,7 +535,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     setStorageNotice(null);
     setExtractionDiagnostics(null);
     setTroubleshootOpen(false);
-    setShowRejectedItems(false);
+    setShowAllStatuses(false);
     setDebugReportNotice(null);
   }, [setImportSession]);
 
@@ -603,7 +551,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     setStorageNotice(null);
     setExtractionDiagnostics(null);
     setTroubleshootOpen(false);
-    setShowRejectedItems(false);
+    setShowAllStatuses(false);
     setDebugReportNotice(null);
   }, [setImportSession]);
 
@@ -635,6 +583,12 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
       if (importSession?.state === 'parsed') {
         await handleSaveParsedDraft();
+        const nextIndex = stepIndex + 1;
+        if (nextIndex < STEPS.length) {
+          setStep(STEPS[nextIndex].id);
+        } else {
+          onComplete();
+        }
         return;
       }
 
@@ -851,7 +805,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     setImportedClaimsCount(0);
                     setSuggestionsDismissed(false);
                     setTroubleshootOpen(false);
-                    setShowRejectedItems(false);
+                    setShowAllStatuses(false);
                     setDebugReportNotice(null);
                   }}
                   placeholder="Paste your resume text if you prefer manual input"
@@ -878,7 +832,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     <div>
                       <h3 className="text-sm font-semibold text-neutral-900">Import draft</h3>
                       <p className="text-xs text-neutral-500 mt-1">
-                        {draftCounts.companies} companies, {draftCounts.roles} roles, {draftCounts.highlights} highlights, {draftCounts.outcomes} outcomes
+                        {fullDraftCounts.companies} companies, {fullDraftCounts.roles} roles, {fullDraftCounts.highlights} highlights, {fullDraftCounts.outcomes} outcomes
                       </p>
                       {storageNotice && <p className="text-xs text-amber-700 mt-1">{storageNotice}</p>}
                     </div>
@@ -900,20 +854,28 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     </div>
                   </div>
 
-                  {importSession.profileSuggestion && !suggestionsDismissed && (
+                  {showSuggestionCard && (
                     <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800">
-                      <p className="font-medium">Suggested profile updates from your import</p>
+                      <p className="font-medium">Suggested (review): profile updates from your import</p>
+                      <p className="mt-1 text-blue-700">Apply only if they look right. This does not overwrite fields that already have values.</p>
                       <ul className="mt-1 space-y-1 text-blue-700">
                         {importSession.profileSuggestion.firstName || importSession.profileSuggestion.lastName ? (
                           <li>
-                            Name: {importSession.profileSuggestion.firstName || '...'} {importSession.profileSuggestion.lastName || '...'}
+                            Will set name: {importSession.profileSuggestion.firstName || '...'} {importSession.profileSuggestion.lastName || '...'}
                           </li>
                         ) : null}
                         {importSession.profileSuggestion.targetRoles.length > 0 ? (
-                          <li>Target roles: {importSession.profileSuggestion.targetRoles.slice(0, 3).join(', ')}</li>
+                          <li>Will add target roles: {importSession.profileSuggestion.targetRoles.slice(0, 3).join(', ')}</li>
                         ) : null}
                         {importSession.profileSuggestion.locationHints.length > 0 ? (
-                          <li>Location hints: {importSession.profileSuggestion.locationHints.join(', ')}</li>
+                          <li>Will set location hint: {importSession.profileSuggestion.locationHints.join(', ')}</li>
+                        ) : null}
+                        {importSession.profileSuggestion.compensation?.floor || importSession.profileSuggestion.compensation?.target ? (
+                          <li>
+                            Will suggest compensation:
+                            {importSession.profileSuggestion.compensation?.floor ? ` floor ${importSession.profileSuggestion.compensation.floor}` : ''}
+                            {importSession.profileSuggestion.compensation?.target ? ` target ${importSession.profileSuggestion.compensation.target}` : ''}
+                          </li>
                         ) : null}
                       </ul>
                       <div className="mt-2 flex items-center gap-2">
@@ -922,7 +884,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                           onClick={handleApplySuggestions}
                           className="px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
                         >
-                          Apply suggestions
+                          Apply suggested fields
                         </button>
                         <button
                           type="button"
@@ -935,72 +897,20 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     </div>
                   )}
 
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowRejectedItems((current) => !current)}
-                      className="px-2.5 py-1 text-[11px] rounded-full border border-neutral-200 text-neutral-600 hover:bg-neutral-50"
-                    >
-                      {showRejectedItems ? 'Hide rejected items' : 'Show rejected items'}
-                    </button>
-                    {hiddenItemCount > 0 && !showRejectedItems && (
-                      <span className="text-[11px] text-neutral-500">
-                        {hiddenItemCount} item{hiddenItemCount === 1 ? '' : 's'} hidden
-                      </span>
-                    )}
-                  </div>
-
                   {hasVisibleDraft ? (
-                    <div className="space-y-3">
-                      {visibleDraft?.companies.map((company) => (
-                        <div key={company.id} className="rounded-lg border border-neutral-200 p-3">
-                          <div className="flex items-center gap-2 mb-2">
-                            <h4 className="text-sm font-semibold text-neutral-900">{company.name}</h4>
-                            <span className={`text-[11px] px-2 py-0.5 rounded-full border ${statusClassName(company.status)}`}>
-                              {statusLabel(company.status)}
-                            </span>
-                          </div>
-                          <div className="space-y-2">
-                            {company.roles.map((role) => (
-                              <div key={role.id} className="rounded-md border border-neutral-100 p-2.5 bg-neutral-50">
-                                <div className="flex items-center gap-2">
-                                  <p className="text-sm font-medium text-neutral-800">{role.title}</p>
-                                  <span className={`text-[11px] px-2 py-0.5 rounded-full border ${statusClassName(role.status)}`}>
-                                    {statusLabel(role.status)}
-                                  </span>
-                                </div>
-                                <p className="text-[11px] text-neutral-500 mt-0.5">
-                                  {role.startDate || 'No start date'}
-                                  {role.endDate ? ` - ${role.endDate}` : role.startDate ? ' - Present' : ''}
-                                </p>
-                                {(role.highlights.length > 0 || role.outcomes.length > 0) && (
-                                  <ul className="mt-2 text-xs text-neutral-700 space-y-1">
-                                    {role.highlights.map((item) => (
-                                      <li key={item.id} className="flex items-start gap-2">
-                                        <span className="text-neutral-400 mt-0.5">•</span>
-                                        <span className="flex-1">{item.text}</span>
-                                        <span className={`shrink-0 text-[10px] px-2 py-0.5 rounded-full border ${statusClassName(item.status)}`}>
-                                          {statusLabel(item.status)}
-                                        </span>
-                                      </li>
-                                    ))}
-                                    {role.outcomes.map((item) => (
-                                      <li key={item.id} className="flex items-start gap-2">
-                                        <span className="text-neutral-400 mt-0.5">•</span>
-                                        <span className="flex-1">{item.text}</span>
-                                        <span className={`shrink-0 text-[10px] px-2 py-0.5 rounded-full border ${statusClassName(item.status)}`}>
-                                          {statusLabel(item.status)}
-                                        </span>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                    <DigitalResumeBuilder
+                      draft={importSession.draft}
+                      showAllStatuses={showAllStatuses}
+                      onShowAllStatusesChange={setShowAllStatuses}
+                      onDraftChange={(nextDraft) => {
+                        setImportedClaimsCount(0);
+                        setImportSession({
+                          ...importSession,
+                          draft: nextDraft,
+                          updatedAt: new Date().toISOString(),
+                        });
+                      }}
+                    />
                   ) : (
                     <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
                       <div className="flex items-start gap-2">
@@ -1044,10 +954,10 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                           <div>glyph(●): {bulletCircleCount}</div>
                           <div>bulletOnlyLineCount: {importSession.diagnostics.bulletOnlyLineCount}</div>
                           <div>mode: {importSession.selectedMode ?? importSession.mode}</div>
-                          <div>companies: {draftCounts.companies}</div>
-                          <div>roles: {draftCounts.roles}</div>
-                          <div>highlights: {draftCounts.highlights}</div>
-                          <div>outcomes: {draftCounts.outcomes}</div>
+                          <div>companies: {fullDraftCounts.companies}</div>
+                          <div>roles: {fullDraftCounts.roles}</div>
+                          <div>highlights: {fullDraftCounts.highlights}</div>
+                          <div>outcomes: {fullDraftCounts.outcomes}</div>
                         </div>
                         <div>
                           reasonCodes: {importSession.diagnostics.reasonCodes.length > 0 ? importSession.diagnostics.reasonCodes.join(', ') : 'none'}
