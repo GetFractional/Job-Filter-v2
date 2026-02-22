@@ -28,13 +28,33 @@ import {
 } from '../../lib/claimsImportPipeline';
 import { buildBestImportDraftFromText, buildImportDraftFromText, hasUsableImportDraft } from '../../lib/importDraftBuilder';
 import { inferProfilePrefillSuggestion } from '../../lib/profileInference';
+import {
+  applyGlobalRelocationPreference,
+  createLocationPreference,
+  DEFAULT_HARD_FILTERS,
+  EMPLOYMENT_TYPE_OPTIONS,
+  locationPreferenceFromHint,
+  sanitizeHardFilters,
+  sanitizeLocationPreferences,
+  summarizeLocationPreferences,
+  STANDARD_RADIUS_MILES,
+} from '../../lib/profilePreferences';
 import { getImportSessionStorageNotice } from '../../lib/importSessionStorage';
 import { BUILD_INFO } from '../../lib/buildInfo';
+import {
+  BENEFITS_CATALOG,
+  benefitIdsToLabels,
+  legacyBenefitsToIds,
+  sanitizeBenefitIds,
+  searchBenefitCatalog,
+} from '../../lib/benefitsCatalog';
 import type {
   Claim,
+  HardFilters,
   ImportDraft,
   ImportDraftRole,
   ImportSession,
+  LocationPreference,
   ParseReasonCode,
   SegmentationMode,
 } from '../../types';
@@ -60,6 +80,15 @@ const LOW_QUALITY_REASON_CODES = new Set<ParseReasonCode>([
   'ROLE_DETECT_FAIL',
   'COMPANY_DETECT_FAIL',
 ]);
+
+interface SuggestionSelectionState {
+  firstName: boolean;
+  lastName: boolean;
+  targetRoles: boolean;
+  locationHints: boolean;
+  compensationFloor: boolean;
+  compensationTarget: boolean;
+}
 
 function countDraftItems(draft: ImportDraft): { companies: number; roles: number; highlights: number; outcomes: number } {
   return draft.companies.reduce(
@@ -222,6 +251,70 @@ function ChipInput({
   );
 }
 
+function BenefitCatalogPicker({
+  label,
+  selectedIds,
+  onChange,
+}: {
+  label: string;
+  selectedIds: string[];
+  onChange: (next: string[]) => void;
+}) {
+  const [query, setQuery] = useState('');
+  const suggestions = useMemo(() => searchBenefitCatalog(query, selectedIds, 10), [query, selectedIds]);
+
+  const selectedItems = selectedIds
+    .map((id) => BENEFITS_CATALOG.find((item) => item.id === id))
+    .filter((item): item is NonNullable<typeof item> => Boolean(item));
+
+  return (
+    <div>
+      <label className="text-xs font-medium text-neutral-600 mb-1 block">{label}</label>
+      <div className="rounded-lg border border-neutral-200 bg-white px-3 py-2 space-y-2">
+        <div className="flex flex-wrap gap-1.5">
+          {selectedItems.map((item) => (
+            <span key={item.id} className="inline-flex items-center gap-1 rounded-full bg-neutral-100 text-neutral-700 text-xs px-2 py-0.5">
+              {item.label}
+              <button
+                type="button"
+                onClick={() => onChange(selectedIds.filter((id) => id !== item.id))}
+                className="text-neutral-500 hover:text-neutral-800"
+                aria-label={`Remove ${item.label}`}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+        <input
+          type="text"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Search benefits..."
+          className="w-full border-0 p-0 text-xs text-neutral-800 placeholder:text-neutral-400 focus:outline-none"
+        />
+        {suggestions.length > 0 && (
+          <div className="max-h-32 overflow-y-auto rounded-md border border-neutral-100 bg-neutral-50 p-1">
+            {suggestions.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  onChange([...selectedIds, item.id]);
+                  setQuery('');
+                }}
+                className="w-full rounded px-2 py-1 text-left text-xs text-neutral-700 hover:bg-white"
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const profile = useStore((s) => s.profile);
   const updateProfile = useStore((s) => s.updateProfile);
@@ -238,10 +331,27 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const [lastName, setLastName] = useState(profile?.lastName || profile?.name.split(' ').slice(1).join(' ') || '');
   const [targetRoles, setTargetRoles] = useState(profile?.targetRoles || []);
 
-  const [compFloor, setCompFloor] = useState(profile?.compFloor ? profile.compFloor.toString() : '');
   const [compTarget, setCompTarget] = useState(profile?.compTarget ? profile.compTarget.toString() : '');
-  const [locationPref, setLocationPref] = useState(profile?.locationPreference || '');
-  const [disqualifiers, setDisqualifiers] = useState(profile?.disqualifiers?.join('\n') || '');
+  const [requiredBenefitIds, setRequiredBenefitIds] = useState<string[]>(
+    sanitizeBenefitIds(profile?.requiredBenefitIds?.length ? profile.requiredBenefitIds : legacyBenefitsToIds(profile?.requiredBenefits)),
+  );
+  const [preferredBenefitIds, setPreferredBenefitIds] = useState<string[]>(
+    sanitizeBenefitIds(profile?.preferredBenefitIds?.length ? profile.preferredBenefitIds : legacyBenefitsToIds(profile?.preferredBenefits)),
+  );
+  const [locationPreferences, setLocationPreferences] = useState<LocationPreference[]>(
+    profile?.locationPreferences?.length ? profile.locationPreferences : [],
+  );
+  const [willingToRelocate, setWillingToRelocate] = useState(
+    Boolean(profile?.willingToRelocate || profile?.locationPreferences?.some((entry) => entry.willingToRelocate)),
+  );
+  const [hardFilters, setHardFilters] = useState<HardFilters>(
+    sanitizeHardFilters({
+      ...DEFAULT_HARD_FILTERS,
+      ...(profile?.hardFilters ?? {}),
+      minBaseSalary: profile?.hardFilters?.minBaseSalary ?? profile?.compFloor ?? 0,
+    }),
+  );
+  const [preferenceErrors, setPreferenceErrors] = useState<string[]>([]);
 
   const [resumeText, setResumeText] = useState('');
   const [extractionDiagnostics, setExtractionDiagnostics] = useState<ClaimsImportExtractionDiagnostics | null>(null);
@@ -251,6 +361,14 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const [readingFile, setReadingFile] = useState(false);
   const [fileImportError, setFileImportError] = useState<string | null>(null);
   const [suggestionsDismissed, setSuggestionsDismissed] = useState(false);
+  const [suggestionSelections, setSuggestionSelections] = useState<SuggestionSelectionState>({
+    firstName: true,
+    lastName: true,
+    targetRoles: true,
+    locationHints: true,
+    compensationFloor: true,
+    compensationTarget: true,
+  });
   const [troubleshootOpen, setTroubleshootOpen] = useState(false);
   const [showAllStatuses, setShowAllStatuses] = useState(false);
   const [debugReportNotice, setDebugReportNotice] = useState<string | null>(null);
@@ -289,6 +407,18 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     : 0;
   const showSuggestionCard = !suggestionsDismissed && hasProfileSuggestions(importSession);
 
+  useEffect(() => {
+    if (!importSession) return;
+    setSuggestionSelections({
+      firstName: Boolean(importSession.profileSuggestion.firstName),
+      lastName: Boolean(importSession.profileSuggestion.lastName),
+      targetRoles: importSession.profileSuggestion.targetRoles.length > 0,
+      locationHints: importSession.profileSuggestion.locationHints.length > 0,
+      compensationFloor: Boolean(importSession.profileSuggestion.compensation?.floor),
+      compensationTarget: Boolean(importSession.profileSuggestion.compensation?.target),
+    });
+  }, [importSession?.id]);
+
   const handleSaveProfile = useCallback(async () => {
     setSaving(true);
     try {
@@ -303,46 +433,147 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     }
   }, [firstName, lastName, targetRoles, updateProfile]);
 
-  const handleSavePreferences = useCallback(async () => {
+  const handleSavePreferences = useCallback(async (): Promise<boolean> => {
+    const errors: string[] = [];
+    if (hardFilters.minBaseSalary < 0) errors.push('Minimum base salary must be 0 or higher.');
+    if (hardFilters.maxOnsiteDaysPerWeek < 0 || hardFilters.maxOnsiteDaysPerWeek > 5) {
+      errors.push('Max onsite days per week must be between 0 and 5.');
+    }
+    if (hardFilters.maxTravelPercent < 0 || hardFilters.maxTravelPercent > 100) {
+      errors.push('Max travel percent must be between 0 and 100.');
+    }
+    if (hardFilters.employmentTypes.length === 0) {
+      errors.push('Select at least one employment type.');
+    }
+
+    if (locationPreferences.length === 0) {
+      errors.push('Add at least one location preference.');
+    }
+
+    locationPreferences.forEach((preference, index) => {
+      if (preference.type === 'Remote') {
+        return;
+      }
+
+      if (!preference.city?.trim()) {
+        errors.push(`Location preference ${index + 1}: city is required for ${preference.type.toLowerCase()} roles.`);
+      }
+
+      if (preference.radiusMiles === undefined || Number.isNaN(preference.radiusMiles)) {
+        errors.push(`Location preference ${index + 1}: radius is required for ${preference.type.toLowerCase()} roles.`);
+      } else if (preference.radiusMiles < 1 || preference.radiusMiles > 500) {
+        errors.push(`Location preference ${index + 1}: radius must be between 1 and 500 miles.`);
+      }
+    });
+
+    if (errors.length > 0) {
+      setPreferenceErrors(errors);
+      return false;
+    }
+
+    const normalizedHardFilters = sanitizeHardFilters(hardFilters);
+    const normalizedLocations = applyGlobalRelocationPreference(
+      sanitizeLocationPreferences(locationPreferences),
+      willingToRelocate,
+    );
+    const normalizedRequiredBenefits = sanitizeBenefitIds(requiredBenefitIds);
+    const normalizedPreferredBenefits = sanitizeBenefitIds(preferredBenefitIds);
+
     setSaving(true);
     try {
       await updateProfile({
-        compFloor: parseInt(compFloor, 10) || 0,
+        compFloor: normalizedHardFilters.minBaseSalary,
         compTarget: parseInt(compTarget, 10) || 0,
-        locationPreference: locationPref.trim(),
-        disqualifiers: disqualifiers.split('\n').map((line) => line.trim()).filter(Boolean),
+        locationPreference: summarizeLocationPreferences(normalizedLocations),
+        disqualifiers: [],
+        locationPreferences: normalizedLocations,
+        willingToRelocate,
+        hardFilters: normalizedHardFilters,
+        requiredBenefitIds: normalizedRequiredBenefits,
+        preferredBenefitIds: normalizedPreferredBenefits,
+        requiredBenefits: benefitIdsToLabels(normalizedRequiredBenefits),
+        preferredBenefits: benefitIdsToLabels(normalizedPreferredBenefits),
       });
+      setPreferenceErrors([]);
+      return true;
     } finally {
       setSaving(false);
     }
-  }, [compFloor, compTarget, locationPref, disqualifiers, updateProfile]);
+  }, [
+    compTarget,
+    hardFilters,
+    locationPreferences,
+    preferredBenefitIds,
+    requiredBenefitIds,
+    updateProfile,
+    willingToRelocate,
+  ]);
 
   const handleApplySuggestions = useCallback(() => {
     if (!importSession) return;
 
     const suggestion = importSession.profileSuggestion;
-    if (suggestion.firstName) setFirstName((prev) => prev || suggestion.firstName || '');
-    if (suggestion.lastName) setLastName((prev) => prev || suggestion.lastName || '');
+    if (suggestionSelections.firstName && suggestion.firstName) {
+      setFirstName((prev) => prev || suggestion.firstName || '');
+    }
+    if (suggestionSelections.lastName && suggestion.lastName) {
+      setLastName((prev) => prev || suggestion.lastName || '');
+    }
 
-    if (suggestion.targetRoles.length > 0) {
+    if (suggestionSelections.targetRoles && suggestion.targetRoles.length > 0) {
       const merged = [...new Set([...targetRoles, ...suggestion.targetRoles])];
       setTargetRoles(merged);
     }
 
-    if (suggestion.locationHints.length > 0 && !locationPref.trim()) {
-      setLocationPref(suggestion.locationHints[0]);
+    if (suggestionSelections.locationHints && suggestion.locationHints.length > 0 && locationPreferences.length === 0) {
+      setLocationPreferences([locationPreferenceFromHint(suggestion.locationHints[0])]);
     }
 
-    if (suggestion.compensation?.floor && !compFloor.trim()) {
-      setCompFloor(String(suggestion.compensation.floor));
+    if (suggestionSelections.compensationFloor && suggestion.compensation?.floor && hardFilters.minBaseSalary <= 0) {
+      setHardFilters((prev) => ({ ...prev, minBaseSalary: suggestion.compensation?.floor ?? prev.minBaseSalary }));
     }
 
-    if (suggestion.compensation?.target && !compTarget.trim()) {
+    if (suggestionSelections.compensationTarget && suggestion.compensation?.target && !compTarget.trim()) {
       setCompTarget(String(suggestion.compensation.target));
     }
 
     setSuggestionsDismissed(true);
-  }, [compFloor, compTarget, importSession, locationPref, targetRoles]);
+  }, [
+    compTarget,
+    hardFilters.minBaseSalary,
+    importSession,
+    locationPreferences.length,
+    suggestionSelections.compensationFloor,
+    suggestionSelections.compensationTarget,
+    suggestionSelections.firstName,
+    suggestionSelections.lastName,
+    suggestionSelections.locationHints,
+    suggestionSelections.targetRoles,
+    targetRoles,
+  ]);
+
+  const addLocationPreference = useCallback((type: LocationPreference['type']) => {
+    setLocationPreferences((prev) => [...prev, createLocationPreference(type)]);
+  }, []);
+
+  const updateLocationPreference = useCallback((id: string, updates: Partial<LocationPreference>) => {
+    setLocationPreferences((prev) => prev.map((preference) => (
+      preference.id === id
+        ? {
+            ...preference,
+            ...updates,
+            city: (updates.type ?? preference.type) === 'Remote' ? '' : (updates.city ?? preference.city),
+            radiusMiles: (updates.type ?? preference.type) === 'Remote'
+              ? undefined
+              : (updates.radiusMiles ?? preference.radiusMiles),
+          }
+        : preference
+    )));
+  }, []);
+
+  const removeLocationPreference = useCallback((id: string) => {
+    setLocationPreferences((prev) => prev.filter((preference) => preference.id !== id));
+  }, []);
 
   const handleParseResume = useCallback((forcedMode?: SegmentationMode) => {
     if (!resumeText.trim()) {
@@ -598,7 +829,8 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     }
 
     if (step === 'preferences') {
-      await handleSavePreferences();
+      const saved = await handleSavePreferences();
+      if (!saved) return;
     }
 
     const nextIndex = stepIndex + 1;
@@ -617,10 +849,10 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   };
 
   const handleSkip = () => {
-    if (step === 'resume') {
-      if (importSession?.state !== 'saved') {
-        markSkipped();
-      }
+    if (step !== 'resume') return;
+
+    if (importSession?.state !== 'saved') {
+      markSkipped();
     }
 
     const nextIndex = stepIndex + 1;
@@ -631,7 +863,15 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     }
   };
 
-  const missingRequiredPrefs = !compFloor.trim() || !locationPref.trim();
+  const hasInvalidRequiredLocation = locationPreferences.some((preference) => (
+    preference.type !== 'Remote' && (!preference.city?.trim() || !preference.radiusMiles)
+  ));
+  const missingRequiredPrefs = (
+    hardFilters.minBaseSalary <= 0
+    || hardFilters.employmentTypes.length === 0
+    || locationPreferences.length === 0
+    || hasInvalidRequiredLocation
+  );
 
   const primaryLabel = useMemo(() => {
     if (step === 'ready') return "Let's Go";
@@ -769,13 +1009,8 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                   </div>
                   <div>
                     <h2 className="text-lg font-semibold text-neutral-900">Import your resume</h2>
-                    <p className="text-xs text-neutral-500">Upload PDF, DOCX, TXT, or paste text. All inputs share one parser.</p>
+                    <p className="text-xs text-neutral-500">Upload PDF, DOCX, TXT, or paste text, then continue to review and edit.</p>
                   </div>
-                </div>
-
-                <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3 text-xs text-neutral-600">
-                  <p>Your resume is parsed locally in your browser.</p>
-                  <p className="mt-1">AI parsing requires explicit opt-in.</p>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
@@ -812,18 +1047,9 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                   rows={10}
                   className="w-full px-3.5 py-2.5 bg-white border border-neutral-200 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
                 />
-
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-neutral-500">We automatically choose the best parsing method.</p>
-                  <button
-                    type="button"
-                    onClick={() => handleParseResume()}
-                    disabled={!resumeText.trim() || readingFile}
-                    className="px-3 py-1.5 text-xs rounded-full border border-neutral-200 text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
-                  >
-                    {importSession ? 'Parse again' : 'Parse now'}
-                  </button>
-                </div>
+                <p className="text-[11px] text-neutral-500">
+                  Parsed locally in your browser. AI parsing requires explicit opt-in.
+                </p>
               </div>
 
               {importSession && (
@@ -857,34 +1083,66 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                   {showSuggestionCard && (
                     <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800">
                       <p className="font-medium">Suggested (review): profile updates from your import</p>
-                      <p className="mt-1 text-blue-700">Apply only if they look right. This does not overwrite fields that already have values.</p>
-                      <ul className="mt-1 space-y-1 text-blue-700">
-                        {importSession.profileSuggestion.firstName || importSession.profileSuggestion.lastName ? (
-                          <li>
-                            Will set name: {importSession.profileSuggestion.firstName || '...'} {importSession.profileSuggestion.lastName || '...'}
-                          </li>
-                        ) : null}
-                        {importSession.profileSuggestion.targetRoles.length > 0 ? (
-                          <li>Will add target roles: {importSession.profileSuggestion.targetRoles.slice(0, 3).join(', ')}</li>
-                        ) : null}
-                        {importSession.profileSuggestion.locationHints.length > 0 ? (
-                          <li>Will set location hint: {importSession.profileSuggestion.locationHints.join(', ')}</li>
-                        ) : null}
-                        {importSession.profileSuggestion.compensation?.floor || importSession.profileSuggestion.compensation?.target ? (
-                          <li>
-                            Will suggest compensation:
+                      <p className="mt-1 text-blue-700">Choose which fields to apply. Existing values are preserved unless empty.</p>
+                      <div className="mt-2 space-y-1.5 text-blue-700">
+                        {(importSession.profileSuggestion.firstName || importSession.profileSuggestion.lastName) && (
+                          <label className="inline-flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={suggestionSelections.firstName || suggestionSelections.lastName}
+                              onChange={(event) => setSuggestionSelections((prev) => ({
+                                ...prev,
+                                firstName: event.target.checked,
+                                lastName: event.target.checked,
+                              }))}
+                            />
+                            Set first and last name to {importSession.profileSuggestion.firstName || '...'} {importSession.profileSuggestion.lastName || '...'}
+                          </label>
+                        )}
+                        {importSession.profileSuggestion.targetRoles.length > 0 && (
+                          <label className="inline-flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={suggestionSelections.targetRoles}
+                              onChange={(event) => setSuggestionSelections((prev) => ({ ...prev, targetRoles: event.target.checked }))}
+                            />
+                            Add target roles: {importSession.profileSuggestion.targetRoles.slice(0, 3).join(', ')}
+                          </label>
+                        )}
+                        {importSession.profileSuggestion.locationHints.length > 0 && (
+                          <label className="inline-flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={suggestionSelections.locationHints}
+                              onChange={(event) => setSuggestionSelections((prev) => ({ ...prev, locationHints: event.target.checked }))}
+                            />
+                            Add location hint: {importSession.profileSuggestion.locationHints.join(', ')}
+                          </label>
+                        )}
+                        {(importSession.profileSuggestion.compensation?.floor || importSession.profileSuggestion.compensation?.target) && (
+                          <label className="inline-flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={suggestionSelections.compensationFloor || suggestionSelections.compensationTarget}
+                              onChange={(event) => setSuggestionSelections((prev) => ({
+                                ...prev,
+                                compensationFloor: event.target.checked,
+                                compensationTarget: event.target.checked,
+                              }))}
+                            />
+                            Suggest compensation
                             {importSession.profileSuggestion.compensation?.floor ? ` floor ${importSession.profileSuggestion.compensation.floor}` : ''}
                             {importSession.profileSuggestion.compensation?.target ? ` target ${importSession.profileSuggestion.compensation.target}` : ''}
-                          </li>
-                        ) : null}
-                      </ul>
+                          </label>
+                        )}
+                      </div>
                       <div className="mt-2 flex items-center gap-2">
                         <button
                           type="button"
                           onClick={handleApplySuggestions}
                           className="px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
                         >
-                          Apply suggested fields
+                          Apply selected
                         </button>
                         <button
                           type="button"
@@ -1030,57 +1288,255 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
               {missingRequiredPrefs && (
                 <div className="flex items-start gap-2 p-3 bg-amber-50 rounded-lg border border-amber-200">
                   <AlertTriangle size={14} className="text-amber-600 shrink-0 mt-0.5" />
-                  <p className="text-xs text-amber-700 leading-relaxed">Set compensation floor and location preference for better scoring quality.</p>
+                  <p className="text-xs text-amber-700 leading-relaxed">
+                    Add minimum settings before continuing: base salary, at least one location preference, and at least one employment type.
+                  </p>
                 </div>
               )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-neutral-700 mb-1.5 block flex items-center gap-1.5">
-                    <DollarSign size={14} className="text-neutral-400" /> Compensation floor
-                  </label>
-                  <input
-                    type="number"
-                    value={compFloor}
-                    onChange={(event) => setCompFloor(event.target.value)}
-                    placeholder="150000"
-                    className="w-full px-3.5 py-2.5 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
-                  />
+              {preferenceErrors.length > 0 && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+                  <p className="text-xs font-semibold text-red-700">Please fix the following:</p>
+                  <ul className="mt-1 space-y-1 text-xs text-red-700 list-disc pl-4">
+                    {preferenceErrors.map((error) => (
+                      <li key={error}>{error}</li>
+                    ))}
+                  </ul>
                 </div>
-                <div>
-                  <label className="text-sm font-medium text-neutral-700 mb-1.5 block flex items-center gap-1.5">
-                    <DollarSign size={14} className="text-neutral-400" /> Compensation target
-                  </label>
-                  <input
-                    type="number"
-                    value={compTarget}
-                    onChange={(event) => setCompTarget(event.target.value)}
-                    placeholder="180000"
-                    className="w-full px-3.5 py-2.5 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
-                  />
-                </div>
-              </div>
+              )}
 
-              <div>
-                <label className="text-sm font-medium text-neutral-700 mb-1.5 block flex items-center gap-1.5">
-                  <MapPin size={14} className="text-neutral-400" /> Location preference
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-neutral-700 flex items-center gap-1.5">
+                  <MapPin size={14} className="text-neutral-400" /> Location preferences
                 </label>
-                <input
-                  type="text"
-                  value={locationPref}
-                  onChange={(event) => setLocationPref(event.target.value)}
-                  placeholder="Remote preferred, hybrid in Nashville"
-                  className="w-full px-3.5 py-2.5 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
-                />
+                <label className="inline-flex items-center gap-2 text-xs text-neutral-600">
+                  <input
+                    type="checkbox"
+                    checked={willingToRelocate}
+                    onChange={(event) => setWillingToRelocate(event.target.checked)}
+                  />
+                  Willing to relocate
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => addLocationPreference('Remote')}
+                    className="rounded-full border border-neutral-200 px-3 py-1 text-xs text-neutral-700 hover:bg-neutral-50"
+                  >
+                    + Remote
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => addLocationPreference('Hybrid')}
+                    className="rounded-full border border-neutral-200 px-3 py-1 text-xs text-neutral-700 hover:bg-neutral-50"
+                  >
+                    + Hybrid
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => addLocationPreference('Onsite')}
+                    className="rounded-full border border-neutral-200 px-3 py-1 text-xs text-neutral-700 hover:bg-neutral-50"
+                  >
+                    + Onsite
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  {locationPreferences.length === 0 && (
+                    <p className="rounded-lg border border-dashed border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-neutral-500">
+                      No locations added yet. Add at least one preference.
+                    </p>
+                  )}
+                  {locationPreferences.map((preference) => (
+                    <div key={preference.id} className="rounded-lg border border-neutral-200 bg-neutral-50 p-3 space-y-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-[180px_1fr_auto] gap-2">
+                        <select
+                          value={preference.type}
+                          onChange={(event) => updateLocationPreference(preference.id, {
+                            type: event.target.value as LocationPreference['type'],
+                            radiusMiles: event.target.value === 'Remote' ? undefined : (preference.radiusMiles ?? 25),
+                          })}
+                          className="px-3 py-2 pr-10 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                        >
+                          <option value="Remote">Remote</option>
+                          <option value="Hybrid">Hybrid</option>
+                          <option value="Onsite">Onsite</option>
+                        </select>
+                        {preference.type === 'Remote' ? (
+                          <div className="rounded-lg border border-dashed border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-500">
+                            Remote roles do not require city or radius.
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 sm:grid-cols-[1fr_180px] gap-2">
+                            <input
+                              type="text"
+                              value={preference.city ?? ''}
+                              onChange={(event) => updateLocationPreference(preference.id, { city: event.target.value })}
+                              placeholder="City (required)"
+                              className="px-3 py-2 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                            />
+                            <div className="space-y-1">
+                              <label className="text-[11px] font-medium text-neutral-600">Radius (miles)</label>
+                              <select
+                                value={
+                                  preference.radiusMiles && STANDARD_RADIUS_MILES.includes(preference.radiusMiles as (typeof STANDARD_RADIUS_MILES)[number])
+                                    ? String(preference.radiusMiles)
+                                    : (preference.radiusMiles ? 'custom' : '')
+                                }
+                                onChange={(event) => {
+                                  const value = event.target.value;
+                                  if (!value) {
+                                    updateLocationPreference(preference.id, { radiusMiles: undefined });
+                                    return;
+                                  }
+                                  if (value === 'custom') {
+                                    updateLocationPreference(preference.id, { radiusMiles: preference.radiusMiles ?? 25 });
+                                    return;
+                                  }
+                                  updateLocationPreference(preference.id, { radiusMiles: Number(value) });
+                                }}
+                                className="w-full px-3 py-2 pr-10 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                              >
+                                <option value="">Select radius</option>
+                                {STANDARD_RADIUS_MILES.map((miles) => (
+                                  <option key={miles} value={miles}>{miles} miles</option>
+                                ))}
+                                <option value="custom">Custom</option>
+                              </select>
+                            </div>
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => removeLocationPreference(preference.id)}
+                          className="rounded-lg border border-neutral-200 px-3 py-2 text-xs text-neutral-600 hover:bg-neutral-100"
+                        >
+                          Remove
+                        </button>
+                      </div>
+
+                      {preference.type !== 'Remote'
+                        && preference.radiusMiles !== undefined
+                        && !STANDARD_RADIUS_MILES.includes(preference.radiusMiles as (typeof STANDARD_RADIUS_MILES)[number]) && (
+                        <div className="grid grid-cols-1 sm:grid-cols-[180px_1fr] gap-2 items-center">
+                          <label className="text-[11px] font-medium text-neutral-600">Custom radius (miles)</label>
+                          <input
+                            type="number"
+                            min={1}
+                            max={500}
+                            value={preference.radiusMiles ?? ''}
+                            onChange={(event) => updateLocationPreference(preference.id, {
+                              radiusMiles: event.target.value ? Number(event.target.value) : undefined,
+                            })}
+                            placeholder="Enter miles"
+                            className="px-3 py-2 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
 
-              <div>
-                <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Disqualifiers (one per line)</label>
-                <textarea
-                  value={disqualifiers}
-                  onChange={(event) => setDisqualifiers(event.target.value)}
-                  rows={4}
-                  className="w-full px-3.5 py-2.5 bg-white border border-neutral-200 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+              <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3 space-y-3">
+                <div className="text-sm font-medium text-neutral-800">Hard filters</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-medium text-neutral-600 mb-1 block flex items-center gap-1.5">
+                      <DollarSign size={12} className="text-neutral-400" /> Minimum base salary
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={hardFilters.minBaseSalary}
+                      onChange={(event) => setHardFilters((prev) => ({ ...prev, minBaseSalary: Number(event.target.value) || 0 }))}
+                      placeholder="150000"
+                      className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-neutral-600 mb-1 block flex items-center gap-1.5">
+                      <DollarSign size={12} className="text-neutral-400" /> Compensation target
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={compTarget}
+                      onChange={(event) => setCompTarget(event.target.value)}
+                      placeholder="180000"
+                      className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-neutral-600 mb-1 block">Employment types</label>
+                    <div className="rounded-lg border border-neutral-200 bg-white p-2 flex flex-wrap gap-1.5">
+                      {EMPLOYMENT_TYPE_OPTIONS.map((option) => {
+                        const selected = hardFilters.employmentTypes.includes(option.id);
+                        return (
+                          <button
+                            key={option.id}
+                            type="button"
+                            onClick={() => setHardFilters((prev) => ({
+                              ...prev,
+                              employmentTypes: selected
+                                ? prev.employmentTypes.filter((id) => id !== option.id)
+                                : [...prev.employmentTypes, option.id],
+                            }))}
+                            className={`rounded-full px-2.5 py-1 text-[11px] border ${
+                              selected
+                                ? 'border-brand-300 bg-brand-50 text-brand-700'
+                                : 'border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50'
+                            }`}
+                          >
+                            {option.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-neutral-600 mb-1 block">Max onsite days per week</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={5}
+                      value={hardFilters.maxOnsiteDaysPerWeek}
+                      onChange={(event) => setHardFilters((prev) => ({ ...prev, maxOnsiteDaysPerWeek: Number(event.target.value) || 0 }))}
+                      className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-neutral-600 mb-1 block">Max travel percent</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={hardFilters.maxTravelPercent}
+                      onChange={(event) => setHardFilters((prev) => ({ ...prev, maxTravelPercent: Number(event.target.value) || 0 }))}
+                      className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                    />
+                  </div>
+                </div>
+                <label className="inline-flex items-center gap-2 text-xs text-neutral-500">
+                  <input
+                    type="checkbox"
+                    checked={hardFilters.requiresVisaSponsorship}
+                    onChange={(event) => setHardFilters((prev) => ({ ...prev, requiresVisaSponsorship: event.target.checked }))}
+                  />
+                  Require visa sponsorship (optional hard filter)
+                </label>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <BenefitCatalogPicker
+                  label="Required benefits"
+                  selectedIds={requiredBenefitIds}
+                  onChange={setRequiredBenefitIds}
+                />
+                <BenefitCatalogPicker
+                  label="Preferred benefits"
+                  selectedIds={preferredBenefitIds}
+                  onChange={setPreferredBenefitIds}
                 />
               </div>
             </div>
@@ -1132,7 +1588,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
           </div>
 
           <div className="flex items-center gap-3">
-            {step !== 'welcome' && step !== 'ready' && (
+            {step === 'resume' && (
               <button onClick={handleSkip} className="px-4 py-2 text-sm text-neutral-500 hover:text-neutral-700">
                 Skip
               </button>

@@ -35,6 +35,16 @@ export type EmploymentType = 'Full-time' | 'Contract' | 'Part-time' | 'Freelance
 
 export type LocationType = 'Remote' | 'Hybrid' | 'In-person' | 'Unknown';
 
+export type LocationPreferenceType = 'Remote' | 'Hybrid' | 'Onsite';
+
+export type HardFilterEmploymentType =
+  | 'full_time_w2'
+  | 'contract'
+  | 'contract_to_hire'
+  | 'part_time'
+  | 'internship'
+  | 'temporary';
+
 export type CompanyStage =
   | 'Seed'
   | 'Series A'
@@ -242,6 +252,22 @@ export interface Outcome {
 // Profile & Claim Ledger
 // ============================================================
 
+export interface LocationPreference {
+  id: string;
+  type: LocationPreferenceType;
+  city?: string;
+  radiusMiles?: number;
+  willingToRelocate: boolean;
+}
+
+export interface HardFilters {
+  requiresVisaSponsorship: boolean;
+  minBaseSalary: number;
+  maxOnsiteDaysPerWeek: number;
+  maxTravelPercent: number;
+  employmentTypes: HardFilterEmploymentType[];
+}
+
 export interface Profile {
   id: string;
   name: string;
@@ -254,6 +280,11 @@ export interface Profile {
   preferredBenefits: string[];
   locationPreference: string;
   disqualifiers: string[];
+  locationPreferences: LocationPreference[];
+  willingToRelocate: boolean;
+  requiredBenefitIds: string[];
+  preferredBenefitIds: string[];
+  hardFilters: HardFilters;
   digitalResume?: ImportDraft;
   updatedAt: string;
 }
@@ -376,7 +407,7 @@ export interface HardFilterSuggestion {
   minBaseSalary?: number;
   maxOnsiteDaysPerWeek?: number;
   maxTravelPercent?: number;
-  employmentType?: 'full_time_only' | 'exclude_contract';
+  employmentTypes?: HardFilterEmploymentType[];
 }
 
 export interface ProfilePrefillSuggestion {

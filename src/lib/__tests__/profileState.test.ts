@@ -35,7 +35,18 @@ describe('profileState', () => {
     expect(profile.locationPreference).toBe('');
     expect(profile.requiredBenefits).toEqual([]);
     expect(profile.preferredBenefits).toEqual([]);
+    expect(profile.requiredBenefitIds).toEqual([]);
+    expect(profile.preferredBenefitIds).toEqual([]);
     expect(profile.disqualifiers).toEqual([]);
+    expect(profile.locationPreferences).toEqual([]);
+    expect(profile.willingToRelocate).toBe(false);
+    expect(profile.hardFilters).toEqual({
+      requiresVisaSponsorship: false,
+      minBaseSalary: 0,
+      maxOnsiteDaysPerWeek: 5,
+      maxTravelPercent: 100,
+      employmentTypes: ['full_time_w2', 'contract', 'contract_to_hire', 'part_time', 'internship', 'temporary'],
+    });
     expect(profile.updatedAt).toBe('2026-02-16T00:00:00.000Z');
   });
 

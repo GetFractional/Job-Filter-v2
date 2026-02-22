@@ -1,4 +1,5 @@
 import type { Profile } from '../types';
+import { DEFAULT_HARD_FILTERS } from './profilePreferences';
 
 export const DEFAULT_PROFILE_ID = 'default';
 export const ONBOARDING_STORAGE_KEY = 'jf2-onboarding-complete';
@@ -15,8 +16,13 @@ export function createEmptyProfile(timestamp = new Date().toISOString()): Profil
     compTarget: 0,
     requiredBenefits: [],
     preferredBenefits: [],
+    requiredBenefitIds: [],
+    preferredBenefitIds: [],
     locationPreference: '',
     disqualifiers: [],
+    locationPreferences: [],
+    willingToRelocate: false,
+    hardFilters: { ...DEFAULT_HARD_FILTERS },
     updatedAt: timestamp,
   };
 }

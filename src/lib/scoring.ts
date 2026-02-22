@@ -3,6 +3,8 @@
 // See docs/MASTER_PLAN.md section 9 for spec.
 
 import type { Job, FitLabel, Profile, Requirement, Claim, RequirementPriority, RequirementMatch } from '../types';
+import { BENEFITS_CATALOG, legacyBenefitsToIds } from './benefitsCatalog';
+import { sanitizeHardFilters } from './profilePreferences';
 
 // ============================================================
 // Scoring Weights (calibratable)
@@ -48,6 +50,17 @@ const SEED_STAGE_KEYWORDS = [
   'bootstrapped startup',
 ];
 
+const VISA_SPONSORSHIP_RESTRICTION_PATTERNS = [
+  'no visa sponsorship',
+  'unable to sponsor',
+  'cannot sponsor',
+  'without sponsorship',
+  'must be authorized to work',
+  'no sponsorship available',
+];
+
+const BENEFIT_BY_ID = new Map(BENEFITS_CATALOG.map((benefit) => [benefit.id, benefit]));
+
 export interface ScoringResult {
   fitScore: number;
   fitLabel: FitLabel;
@@ -67,9 +80,83 @@ export interface ScoreBreakdown {
   riskPenalty: number;
 }
 
+function parseTravelPercent(text: string): number | null {
+  const match = text.match(/(\d{1,3})\s*%[^.\\n]*(travel|onsite|on-site)/i)
+    || text.match(/(travel|onsite|on-site)[^.\\n]*(\d{1,3})\s*%/i);
+
+  if (!match) return null;
+  const value = Number(match[1] || match[2]);
+  if (Number.isNaN(value)) return null;
+  return Math.min(100, Math.max(0, value));
+}
+
+function estimateOnsiteDaysPerWeek(job: Partial<Job>, jd: string): number | null {
+  if (job.locationType === 'Remote') return 0;
+  if (job.locationType === 'In-person') return 5;
+
+  if (job.locationType === 'Hybrid') {
+    const dayMatch = jd.match(/(\d)\s*(day|days)\s*(per week|\/week|a week)/i);
+    if (dayMatch) return Number(dayMatch[1]);
+    return 3;
+  }
+
+  return null;
+}
+
+function inferEmploymentFilterType(job: Partial<Job>, jd: string): 'full_time_w2' | 'contract' | 'contract_to_hire' | 'part_time' | 'temporary' | null {
+  if (/(contract[\s-]*to[\s-]*hire|temp[\s-]*to[\s-]*perm)/i.test(jd)) {
+    return 'contract_to_hire';
+  }
+
+  if (/(temporary|temp role|seasonal)/i.test(jd)) {
+    return 'temporary';
+  }
+
+  if (job.employmentType === 'Full-time') return 'full_time_w2';
+  if (job.employmentType === 'Contract' || job.employmentType === 'Freelance') return 'contract';
+  if (job.employmentType === 'Part-time') return 'part_time';
+
+  return null;
+}
+
+function hasBenefitMatch(jd: string, benefitId: string): boolean {
+  const benefit = BENEFIT_BY_ID.get(benefitId);
+  if (!benefit) return false;
+  return benefit.keywords.some((keyword) => jd.includes(keyword.toLowerCase()));
+}
+
+function matchesLocationPreferences(job: Partial<Job>, profile: Profile): boolean | null {
+  if (!profile.locationPreferences || profile.locationPreferences.length === 0) return null;
+  if (!job.locationType || job.locationType === 'Unknown') return null;
+
+  const jobType = job.locationType === 'In-person' ? 'Onsite' : job.locationType;
+  const location = (job.location || '').toLowerCase();
+
+  for (const preference of profile.locationPreferences) {
+    if (preference.type !== jobType) continue;
+    if (preference.type === 'Remote') return true;
+
+    if (!preference.city?.trim()) return true;
+    if (location.includes(preference.city.trim().toLowerCase())) return true;
+    if (profile.willingToRelocate || preference.willingToRelocate) return true;
+  }
+
+  return false;
+}
+
 export function scoreJob(job: Partial<Job>, profile: Profile, claims?: Claim[]): ScoringResult {
   const jd = (job.jobDescription || '').toLowerCase();
   const title = (job.title || '').toLowerCase();
+  const hardFilters = sanitizeHardFilters({
+    ...(profile.hardFilters ?? {}),
+    minBaseSalary: profile.hardFilters?.minBaseSalary ?? profile.compFloor,
+  });
+  const requiredBenefitIds = profile.requiredBenefitIds?.length
+    ? profile.requiredBenefitIds
+    : legacyBenefitsToIds(profile.requiredBenefits);
+  const preferredBenefitIds = profile.preferredBenefitIds?.length
+    ? profile.preferredBenefitIds
+    : legacyBenefitsToIds(profile.preferredBenefits);
 
   const disqualifiers: string[] = [];
   const reasonsToPursue: string[] = [];
@@ -102,8 +189,47 @@ export function scoreJob(job: Partial<Job>, profile: Profile, claims?: Claim[]):
   }
 
   // 3. Compensation below floor
-  if (job.compMax && job.compMax < profile.compFloor) {
-    disqualifiers.push(`Max compensation ($${job.compMax.toLocaleString()}) is below floor ($${profile.compFloor.toLocaleString()})`);
+  const effectiveCompFloor = Math.max(profile.compFloor || 0, hardFilters.minBaseSalary || 0);
+  if (job.compMax && job.compMax < effectiveCompFloor) {
+    disqualifiers.push(`Max compensation ($${job.compMax.toLocaleString()}) is below floor ($${effectiveCompFloor.toLocaleString()})`);
+  }
+
+  for (const benefitId of requiredBenefitIds) {
+    if (!hasBenefitMatch(jd, benefitId)) {
+      const benefitLabel = BENEFIT_BY_ID.get(benefitId)?.label ?? benefitId;
+      disqualifiers.push(`Missing required benefit: ${benefitLabel}`);
+    }
+  }
+
+  // 4. Employment type filter
+  const jobEmploymentFilterType = inferEmploymentFilterType(job, jd);
+  if (jobEmploymentFilterType && hardFilters.employmentTypes.length > 0 && !hardFilters.employmentTypes.includes(jobEmploymentFilterType)) {
+    disqualifiers.push('Role employment type falls outside your hard filters');
+  }
+
+  // 5. Sponsorship filter
+  if (hardFilters.requiresVisaSponsorship) {
+    const hasRestriction = VISA_SPONSORSHIP_RESTRICTION_PATTERNS.some((pattern) => jd.includes(pattern));
+    if (hasRestriction) {
+      disqualifiers.push('Job indicates visa sponsorship is unavailable');
+    }
+  }
+
+  // 6. Travel and onsite constraints
+  const travelPercent = parseTravelPercent(jd);
+  if (travelPercent !== null && travelPercent > hardFilters.maxTravelPercent) {
+    disqualifiers.push(`Travel requirement (${travelPercent}%) exceeds your max (${hardFilters.maxTravelPercent}%)`);
+  }
+
+  const onsiteDays = estimateOnsiteDaysPerWeek(job, jd);
+  if (onsiteDays !== null && onsiteDays > hardFilters.maxOnsiteDaysPerWeek) {
+    disqualifiers.push(`Onsite requirement (${onsiteDays} days/week) exceeds your max (${hardFilters.maxOnsiteDaysPerWeek})`);
+  }
+
+  // 7. Location preference fit
+  const locationMatch = matchesLocationPreferences(job, profile);
+  if (locationMatch === false) {
+    disqualifiers.push('Job location does not match your location preferences');
   }
 
   // If hard disqualified, return early with score 0
@@ -192,6 +318,12 @@ export function scoreJob(job: Partial<Job>, profile: Profile, claims?: Claim[]):
   compScore += Math.min(benefitCount * 2, 10);
   if (benefitCount >= 3) {
     reasonsToPursue.push('Strong benefits package indicated');
+  }
+
+  const preferredBenefitMatches = preferredBenefitIds.filter((benefitId) => hasBenefitMatch(jd, benefitId)).length;
+  if (preferredBenefitMatches > 0) {
+    compScore += Math.min(preferredBenefitMatches * 1.5, 6);
+    reasonsToPursue.push(`${preferredBenefitMatches} preferred benefit${preferredBenefitMatches === 1 ? '' : 's'} matched`);
   }
 
   compScore = Math.min(compScore, 25);
