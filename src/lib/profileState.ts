@@ -12,6 +12,8 @@ export function createEmptyProfile(timestamp = new Date().toISOString()): Profil
     firstName: '',
     lastName: '',
     targetRoles: [],
+    skills: [],
+    tools: [],
     compFloor: 0,
     compTarget: 0,
     requiredBenefits: [],

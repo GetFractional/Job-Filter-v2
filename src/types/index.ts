@@ -274,6 +274,8 @@ export interface Profile {
   firstName?: string;
   lastName?: string;
   targetRoles: string[];
+  skills?: string[];
+  tools?: string[];
   compFloor: number;
   compTarget: number;
   requiredBenefits: string[];
@@ -414,6 +416,8 @@ export interface ProfilePrefillSuggestion {
   firstName?: string;
   lastName?: string;
   targetRoles: string[];
+  skillHints: string[];
+  toolHints: string[];
   locationHints: string[];
   compensation?: CompensationSuggestion;
   hardFilterHints?: HardFilterSuggestion;

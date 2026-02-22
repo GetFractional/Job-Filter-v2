@@ -59,6 +59,8 @@ function makeSession(text = 'Built lifecycle engine'): ImportSession {
     updatedAt: new Date().toISOString(),
     profileSuggestion: {
       targetRoles: ['Growth Marketing Manager'],
+      skillHints: [],
+      toolHints: [],
       locationHints: ['Remote'],
     },
     diagnostics: {

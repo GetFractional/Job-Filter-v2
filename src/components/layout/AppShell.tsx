@@ -1,6 +1,8 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
+  ChevronsLeft,
+  ChevronsRight,
   LayoutDashboard,
   KanbanSquare,
   Users,
@@ -23,11 +25,22 @@ const NAV_ITEMS = [
   { path: '/settings', label: 'Settings', icon: Settings },
 ];
 
+const SIDEBAR_COLLAPSED_STORAGE_KEY = 'jf2-ui-sidebar-collapsed';
+
 export function AppShell({ children }: AppShellProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const jobs = useStore((s) => s.jobs);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === 'true';
+  });
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, sidebarCollapsed ? 'true' : 'false');
+  }, [sidebarCollapsed]);
 
   const handleAddJob = () => {
     window.dispatchEvent(new CustomEvent('open-capture-modal'));
@@ -42,13 +55,22 @@ export function AppShell({ children }: AppShellProps) {
   return (
     <div className="min-h-screen bg-[var(--app-bg)]">
       {/* ── Desktop / Tablet Sidebar ── */}
-      <aside className="hidden md:flex fixed inset-y-0 left-0 z-20 md:w-16 lg:w-60 bg-white border-r border-neutral-200 flex-col">
+      <aside className={`hidden md:flex fixed inset-y-0 left-0 z-20 bg-white border-r border-neutral-200 flex-col transition-all ${sidebarCollapsed ? 'w-16' : 'w-60'}`}>
         {/* Logo */}
-        <div className="h-14 flex items-center gap-2.5 px-4 border-b border-neutral-100 shrink-0">
+        <div className="h-14 flex items-center gap-2.5 px-3 border-b border-neutral-100 shrink-0">
           <div className="w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center shrink-0">
             <span className="text-white text-xs font-bold">JF</span>
           </div>
-          <span className="text-sm font-semibold text-neutral-900 hidden lg:block">Job Filter</span>
+          {!sidebarCollapsed && <span className="text-sm font-semibold text-neutral-900">Job Filter</span>}
+          <button
+            type="button"
+            onClick={() => setSidebarCollapsed((prev) => !prev)}
+            className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700"
+            aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {sidebarCollapsed ? <ChevronsRight size={14} /> : <ChevronsLeft size={14} />}
+          </button>
         </div>
 
         {/* Navigation */}
@@ -69,8 +91,8 @@ export function AppShell({ children }: AppShellProps) {
                 }`}
                 title={item.label}
               >
-                <Icon size={18} strokeWidth={isActive ? 2.2 : 1.8} className="shrink-0 mx-auto lg:mx-0" />
-                <span className="hidden lg:block">{item.label}</span>
+                <Icon size={18} strokeWidth={isActive ? 2.2 : 1.8} className={`shrink-0 ${sidebarCollapsed ? 'mx-auto' : ''}`} />
+                {!sidebarCollapsed && <span>{item.label}</span>}
               </button>
             );
           })}
@@ -84,11 +106,13 @@ export function AppShell({ children }: AppShellProps) {
             title="Add Job"
           >
             <Plus size={16} className="shrink-0" />
-            <span className="hidden lg:block">Add Job</span>
+            {!sidebarCollapsed && <span>Add Job</span>}
           </button>
-          <div className="hidden lg:flex items-center justify-between px-3 py-1">
-            <span className="text-xs text-neutral-400">{jobs.length} jobs</span>
-          </div>
+          {!sidebarCollapsed && (
+            <div className="flex items-center justify-between px-3 py-1">
+              <span className="text-xs text-neutral-400">{jobs.length} jobs</span>
+            </div>
+          )}
         </div>
       </aside>
 
@@ -185,7 +209,7 @@ export function AppShell({ children }: AppShellProps) {
       )}
 
       {/* ── Main Content ── */}
-      <main className="md:pl-16 lg:pl-60 min-h-screen">
+      <main className={`min-h-screen transition-all ${sidebarCollapsed ? 'md:pl-16' : 'md:pl-60'}`}>
         <div className="max-w-[1200px] mx-auto p-4 lg:p-6">
           {children}
         </div>
