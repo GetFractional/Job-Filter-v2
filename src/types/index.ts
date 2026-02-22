@@ -30,6 +30,7 @@ export const STAGE_CATEGORIES: Record<string, PipelineStage[]> = {
 };
 
 export type FitLabel = 'Pursue' | 'Maybe' | 'Pass';
+export type SeedStagePolicy = 'warn' | 'disqualify' | 'ignore';
 
 export type EmploymentType = 'Full-time' | 'Contract' | 'Part-time' | 'Freelance' | 'Unknown';
 
@@ -103,8 +104,11 @@ export interface Job {
   fitScore?: number;
   fitLabel?: FitLabel;
   disqualifiers: string[];
+  riskWarnings?: string[];
   reasonsToPursue: string[];
   reasonsToPass: string[];
+  gapSuggestions?: string[];
+  mustHaveSummary?: MustHaveSummary;
   redFlags: string[];
   requirementsExtracted: Requirement[];
   scoreBreakdown?: ScoreBreakdownStored;
@@ -268,6 +272,18 @@ export interface HardFilters {
   employmentTypes: HardFilterEmploymentType[];
 }
 
+export interface ScoringPolicy {
+  seedStagePolicy: SeedStagePolicy;
+}
+
+export interface MustHaveSummary {
+  total: number;
+  met: number;
+  partial: number;
+  missing: number;
+  hasBlockers: boolean;
+}
+
 export interface Profile {
   id: string;
   name: string;
@@ -287,6 +303,7 @@ export interface Profile {
   requiredBenefitIds: string[];
   preferredBenefitIds: string[];
   hardFilters: HardFilters;
+  scoringPolicy?: ScoringPolicy;
   digitalResume?: ImportDraft;
   updatedAt: string;
 }

@@ -4,6 +4,7 @@
 import { differenceInDays, differenceInHours, startOfWeek, subWeeks, isAfter } from 'date-fns';
 import type { Job, Activity, PipelineStage, FunnelMetrics, BottleneckMetrics } from '../types';
 import { PIPELINE_STAGES } from '../types';
+import { getEffectiveFitLabel } from './scoreBands';
 
 // ============================================================
 // Executive Dashboard Metrics
@@ -35,8 +36,8 @@ export function computeFunnelMetrics(jobs: Job[], activities: Activity[]): Funne
   }).length;
 
   // Pursue rate
-  const scoredJobs = jobs.filter((j) => j.fitLabel);
-  const pursueJobs = scoredJobs.filter((j) => j.fitLabel === 'Pursue');
+  const scoredJobs = jobs.filter((j) => j.fitScore !== undefined || j.fitLabel);
+  const pursueJobs = scoredJobs.filter((j) => getEffectiveFitLabel(j.fitScore, j.fitLabel) === 'Pursue');
   const pursueRate = scoredJobs.length > 0 ? pursueJobs.length / scoredJobs.length : 0;
 
   // Outreach volume (activities with direction Outbound)

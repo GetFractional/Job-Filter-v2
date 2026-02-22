@@ -47,6 +47,9 @@ describe('profileState', () => {
       maxTravelPercent: 100,
       employmentTypes: ['full_time_w2', 'contract', 'contract_to_hire', 'part_time', 'internship', 'temporary'],
     });
+    expect(profile.scoringPolicy).toEqual({
+      seedStagePolicy: 'warn',
+    });
     expect(profile.updatedAt).toBe('2026-02-16T00:00:00.000Z');
   });
 
