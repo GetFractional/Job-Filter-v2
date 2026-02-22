@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Save, Trash2, Download, AlertTriangle, MapPin, DollarSign } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { Save, Trash2, Download, AlertTriangle, MapPin, DollarSign, ChevronDown, ChevronUp } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { db, generateId, seedDefaultProfile } from '../db';
 import { clearJobFilterLocalState } from '../lib/profileState';
@@ -20,9 +20,20 @@ import {
   sanitizeBenefitIds,
   searchBenefitCatalog,
 } from '../lib/benefitsCatalog';
+import { getCityTypeaheadOptions, loadRecentCities, saveRecentCity } from '../lib/cityOptions';
 import { DigitalResumeBuilder } from '../components/resume/DigitalResumeBuilder';
 import { hasUsableImportDraft } from '../lib/importDraftBuilder';
 import type { Claim, ImportDraftRole, ImportSession, LocationPreference, Profile } from '../types';
+
+function parseIntegerInput(value: string): number {
+  const digitsOnly = value.replace(/[^\d]/g, '');
+  return digitsOnly ? Number.parseInt(digitsOnly, 10) : 0;
+}
+
+function formatIntegerInput(value: number): string {
+  if (!value || Number.isNaN(value) || value <= 0) return '';
+  return value.toLocaleString();
+}
 
 export function SettingsPage() {
   const profile = useStore((s) => s.profile);
@@ -143,7 +154,9 @@ function ProfileSection({
 
   const [form, setForm] = useState({
     name: profile.name,
-    compTarget: profile.compTarget,
+    firstName: profile.firstName ?? profile.name.split(' ')[0] ?? '',
+    lastName: profile.lastName ?? profile.name.split(' ').slice(1).join(' ') ?? '',
+    compTarget: profile.compTarget ? profile.compTarget.toLocaleString() : '',
     targetRoles: profile.targetRoles,
     requiredBenefitIds: sanitizeBenefitIds(
       profile.requiredBenefitIds?.length ? profile.requiredBenefitIds : legacyBenefitsToIds(profile.requiredBenefits),
@@ -158,6 +171,8 @@ function ProfileSection({
   const [drafts, setDrafts] = useState({
     targetRole: '',
   });
+  const [recentCities, setRecentCities] = useState<string[]>(() => loadRecentCities());
+  const [showAdvancedBenefits, setShowAdvancedBenefits] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const [saved, setSaved] = useState(false);
 
@@ -174,6 +189,11 @@ function ProfileSection({
   const removeTag = (field: 'targetRoles', value: string) => {
     setForm((prev) => ({ ...prev, [field]: prev[field].filter((entry) => entry !== value) }));
   };
+
+  const rememberCity = useCallback((city: string) => {
+    const next = saveRecentCity(city);
+    setRecentCities(next);
+  }, []);
 
   const updateLocationPreference = (id: string, updates: Partial<LocationPreference>) => {
     setForm((prev) => ({
@@ -237,9 +257,11 @@ function ProfileSection({
     const normalizedPreferredBenefitIds = sanitizeBenefitIds(form.preferredBenefitIds);
 
     await updateProfile({
-      name: form.name,
+      name: `${form.firstName} ${form.lastName}`.trim() || form.name,
+      firstName: form.firstName.trim(),
+      lastName: form.lastName.trim(),
       compFloor: normalizedHardFilters.minBaseSalary,
-      compTarget: form.compTarget,
+      compTarget: parseIntegerInput(form.compTarget),
       locationPreference: summarizeLocationPreferences(normalizedLocations),
       targetRoles: form.targetRoles.map((entry) => entry.trim()).filter(Boolean),
       requiredBenefits: benefitIdsToLabels(normalizedRequiredBenefitIds),
@@ -258,13 +280,25 @@ function ProfileSection({
 
   return (
     <div className="bg-white rounded-lg border border-neutral-200 p-5 shadow-sm space-y-4">
-      <div>
-        <label className="text-xs font-medium text-neutral-600 mb-1 block">Name</label>
-        <input
-          value={form.name}
-          onChange={(e) => setForm({ ...form, name: e.target.value })}
-          className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-        />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className="text-xs font-medium text-neutral-600 mb-1 block">First name</label>
+          <input
+            value={form.firstName}
+            onChange={(e) => setForm({ ...form, firstName: e.target.value })}
+            placeholder="First name"
+            className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+          />
+        </div>
+        <div>
+          <label className="text-xs font-medium text-neutral-600 mb-1 block">Last name</label>
+          <input
+            value={form.lastName}
+            onChange={(e) => setForm({ ...form, lastName: e.target.value })}
+            placeholder="Last name"
+            className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+          />
+        </div>
       </div>
       <div className="space-y-2">
         <label className="text-xs font-medium text-neutral-600 block">Target Roles</label>
@@ -297,18 +331,21 @@ function ProfileSection({
         <label className="text-xs font-medium text-neutral-600 block flex items-center gap-1">
           <MapPin size={12} /> Location Preferences
         </label>
-        <label className="inline-flex items-center gap-2 text-xs text-neutral-600">
-          <input
-            type="checkbox"
-            checked={form.willingToRelocate}
-            onChange={(event) => setForm((prev) => ({ ...prev, willingToRelocate: event.target.checked }))}
-          />
-          Willing to relocate
-        </label>
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={() => setForm((prev) => ({ ...prev, locationPreferences: [...prev.locationPreferences, createLocationPreference('Remote')] }))} className="rounded-full border border-neutral-200 px-3 py-1 text-xs text-neutral-700 hover:bg-neutral-50">+ Remote</button>
           <button type="button" onClick={() => setForm((prev) => ({ ...prev, locationPreferences: [...prev.locationPreferences, createLocationPreference('Hybrid')] }))} className="rounded-full border border-neutral-200 px-3 py-1 text-xs text-neutral-700 hover:bg-neutral-50">+ Hybrid</button>
           <button type="button" onClick={() => setForm((prev) => ({ ...prev, locationPreferences: [...prev.locationPreferences, createLocationPreference('Onsite')] }))} className="rounded-full border border-neutral-200 px-3 py-1 text-xs text-neutral-700 hover:bg-neutral-50">+ Onsite</button>
+          <button
+            type="button"
+            onClick={() => setForm((prev) => ({ ...prev, willingToRelocate: !prev.willingToRelocate }))}
+            className={`rounded-full border px-3 py-1 text-xs ${
+              form.willingToRelocate
+                ? 'border-brand-300 bg-brand-50 text-brand-700'
+                : 'border-neutral-200 text-neutral-700 hover:bg-neutral-50'
+            }`}
+          >
+            + Willing to relocate
+          </button>
         </div>
 
         {form.locationPreferences.length === 0 && (
@@ -317,95 +354,115 @@ function ProfileSection({
           </p>
         )}
         <div className="space-y-2">
-          {form.locationPreferences.map((preference) => (
-            <div key={preference.id} className="rounded-lg border border-neutral-200 bg-neutral-50 p-3 space-y-2">
-              <div className="grid grid-cols-1 sm:grid-cols-[180px_1fr_auto] gap-2">
-                <select
-                  value={preference.type}
-                  onChange={(event) => updateLocationPreference(preference.id, {
-                    type: event.target.value as LocationPreference['type'],
-                    radiusMiles: event.target.value === 'Remote' ? undefined : (preference.radiusMiles ?? 25),
-                  })}
-                  className="px-3 py-2 pr-10 bg-white border border-neutral-200 rounded-lg text-sm"
-                >
-                  <option value="Remote">Remote</option>
-                  <option value="Hybrid">Hybrid</option>
-                  <option value="Onsite">Onsite</option>
-                </select>
-                {preference.type === 'Remote' ? (
-                  <div className="rounded-lg border border-dashed border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-500">
-                    Remote roles do not require city or radius.
+          {form.locationPreferences.map((preference) => {
+            const cityListId = `settings-city-options-${preference.id}`;
+            const cityOptions = getCityTypeaheadOptions(preference.city ?? '', recentCities);
+            const usesCustomRadius = preference.radiusMiles !== undefined
+              && !STANDARD_RADIUS_MILES.includes(preference.radiusMiles as (typeof STANDARD_RADIUS_MILES)[number]);
+
+            return (
+              <div key={preference.id} className="rounded-lg border border-neutral-200 bg-neutral-50 p-3 space-y-2">
+                <div className="grid grid-cols-1 sm:grid-cols-[170px_1fr_170px_auto] gap-2 items-end">
+                  <div>
+                    <label className="text-[11px] font-medium text-neutral-600 mb-1 block">Mode</label>
+                    <select
+                      value={preference.type}
+                      onChange={(event) => updateLocationPreference(preference.id, {
+                        type: event.target.value as LocationPreference['type'],
+                        radiusMiles: event.target.value === 'Remote' ? undefined : (preference.radiusMiles ?? 25),
+                      })}
+                      className="h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm"
+                    >
+                      <option value="Remote">Remote</option>
+                      <option value="Hybrid">Hybrid</option>
+                      <option value="Onsite">Onsite</option>
+                    </select>
                   </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-[1fr_180px] gap-2">
-                    <input
-                      value={preference.city ?? ''}
-                      onChange={(event) => updateLocationPreference(preference.id, { city: event.target.value })}
-                      placeholder="City (required)"
-                      className="px-3 py-2 bg-white border border-neutral-200 rounded-lg text-sm"
-                    />
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-medium text-neutral-600">Radius (miles)</label>
-                      <select
-                        value={
-                          preference.radiusMiles && STANDARD_RADIUS_MILES.includes(preference.radiusMiles as (typeof STANDARD_RADIUS_MILES)[number])
-                            ? String(preference.radiusMiles)
-                            : (preference.radiusMiles ? 'custom' : '')
-                        }
-                        onChange={(event) => {
-                          const value = event.target.value;
-                          if (!value) {
-                            updateLocationPreference(preference.id, { radiusMiles: undefined });
-                            return;
-                          }
-                          if (value === 'custom') {
-                            updateLocationPreference(preference.id, { radiusMiles: preference.radiusMiles ?? 25 });
-                            return;
-                          }
-                          updateLocationPreference(preference.id, { radiusMiles: Number(value) });
-                        }}
-                        className="px-3 py-2 pr-10 bg-white border border-neutral-200 rounded-lg text-sm"
-                      >
-                        <option value="">Select radius</option>
-                        {STANDARD_RADIUS_MILES.map((miles) => (
-                          <option key={miles} value={miles}>{miles} miles</option>
-                        ))}
-                        <option value="custom">Custom</option>
-                      </select>
+                  {preference.type === 'Remote' ? (
+                    <div className="sm:col-span-2 rounded-lg border border-dashed border-neutral-200 bg-white px-3 py-2.5 text-xs text-neutral-500 h-10 flex items-center">
+                      Remote roles do not require city or radius.
                     </div>
+                  ) : (
+                    <>
+                      <div>
+                        <label className="text-[11px] font-medium text-neutral-600 mb-1 block">City</label>
+                        <input
+                          value={preference.city ?? ''}
+                          onChange={(event) => updateLocationPreference(preference.id, { city: event.target.value })}
+                          onBlur={() => rememberCity(preference.city ?? '')}
+                          list={cityListId}
+                          placeholder="City (required)"
+                          className="h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm"
+                        />
+                        <datalist id={cityListId}>
+                          {cityOptions.map((option, index) => (
+                            <option key={`${option}-${index}`} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </datalist>
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-medium text-neutral-600 mb-1 block">Radius (miles)</label>
+                        <select
+                          value={
+                            preference.radiusMiles && STANDARD_RADIUS_MILES.includes(preference.radiusMiles as (typeof STANDARD_RADIUS_MILES)[number])
+                              ? String(preference.radiusMiles)
+                              : (preference.radiusMiles ? 'custom' : '')
+                          }
+                          onChange={(event) => {
+                            const value = event.target.value;
+                            if (!value) {
+                              updateLocationPreference(preference.id, { radiusMiles: undefined });
+                              return;
+                            }
+                            if (value === 'custom') {
+                              updateLocationPreference(preference.id, { radiusMiles: preference.radiusMiles ?? 25 });
+                              return;
+                            }
+                            updateLocationPreference(preference.id, { radiusMiles: Number(value) });
+                          }}
+                          className="h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm"
+                        >
+                          <option value="">Select radius</option>
+                          {STANDARD_RADIUS_MILES.map((miles) => (
+                            <option key={miles} value={miles}>{miles} miles</option>
+                          ))}
+                          <option value="custom">Custom</option>
+                        </select>
+                      </div>
+                    </>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setForm((prev) => ({
+                      ...prev,
+                      locationPreferences: prev.locationPreferences.filter((entry) => entry.id !== preference.id),
+                    }))}
+                    className="h-10 rounded-lg border border-neutral-200 px-3 text-xs text-neutral-600 hover:bg-neutral-100"
+                  >
+                    Remove
+                  </button>
+                </div>
+                {preference.type !== 'Remote' && usesCustomRadius && (
+                  <div className="grid grid-cols-1 sm:grid-cols-[170px_1fr] gap-2 items-center">
+                    <label className="text-[11px] font-medium text-neutral-600">Custom radius (miles)</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={500}
+                      value={preference.radiusMiles ?? ''}
+                      onChange={(event) => updateLocationPreference(preference.id, {
+                        radiusMiles: event.target.value ? Number(event.target.value) : undefined,
+                      })}
+                      placeholder="Enter miles"
+                      className="h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm"
+                    />
                   </div>
                 )}
-                <button
-                  type="button"
-                  onClick={() => setForm((prev) => ({
-                    ...prev,
-                    locationPreferences: prev.locationPreferences.filter((entry) => entry.id !== preference.id),
-                  }))}
-                  className="rounded-lg border border-neutral-200 px-3 py-2 text-xs text-neutral-600 hover:bg-neutral-100"
-                >
-                  Remove
-                </button>
               </div>
-              {preference.type !== 'Remote'
-                && preference.radiusMiles !== undefined
-                && !STANDARD_RADIUS_MILES.includes(preference.radiusMiles as (typeof STANDARD_RADIUS_MILES)[number]) && (
-                <div className="grid grid-cols-1 sm:grid-cols-[180px_1fr] gap-2 items-center">
-                  <label className="text-[11px] font-medium text-neutral-600">Custom radius (miles)</label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={500}
-                    value={preference.radiusMiles ?? ''}
-                    onChange={(event) => updateLocationPreference(preference.id, {
-                      radiusMiles: event.target.value ? Number(event.target.value) : undefined,
-                    })}
-                    placeholder="Enter miles"
-                    className="px-3 py-2 bg-white border border-neutral-200 rounded-lg text-sm"
-                  />
-                </div>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -417,23 +474,25 @@ function ProfileSection({
               <DollarSign size={12} /> Minimum Base Salary
             </label>
             <input
-              type="number"
-              min={0}
-              value={form.hardFilters.minBaseSalary}
+              type="text"
+              inputMode="numeric"
+              value={form.hardFilters.minBaseSalary > 0 ? form.hardFilters.minBaseSalary.toLocaleString() : ''}
               onChange={(event) => setForm((prev) => ({
                 ...prev,
-                hardFilters: { ...prev.hardFilters, minBaseSalary: Number(event.target.value) || 0 },
+                hardFilters: { ...prev.hardFilters, minBaseSalary: parseIntegerInput(event.target.value) },
               }))}
+              placeholder="150,000"
               className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm"
             />
           </div>
           <div>
             <label className="text-xs font-medium text-neutral-600 mb-1 block">Comp Target ($)</label>
             <input
-              type="number"
-              min={0}
+              type="text"
+              inputMode="numeric"
               value={form.compTarget}
-              onChange={(e) => setForm({ ...form, compTarget: parseInt(e.target.value, 10) || 0 })}
+              onChange={(event) => setForm((prev) => ({ ...prev, compTarget: formatIntegerInput(parseIntegerInput(event.target.value)) }))}
+              placeholder="180,000"
               className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm"
             />
           </div>
@@ -473,11 +532,17 @@ function ProfileSection({
               type="number"
               min={0}
               max={5}
-              value={form.hardFilters.maxOnsiteDaysPerWeek}
+              value={form.hardFilters.maxOnsiteDaysPerWeek === DEFAULT_HARD_FILTERS.maxOnsiteDaysPerWeek ? '' : form.hardFilters.maxOnsiteDaysPerWeek}
               onChange={(event) => setForm((prev) => ({
                 ...prev,
-                hardFilters: { ...prev.hardFilters, maxOnsiteDaysPerWeek: Number(event.target.value) || 0 },
+                hardFilters: {
+                  ...prev.hardFilters,
+                  maxOnsiteDaysPerWeek: event.target.value === ''
+                    ? DEFAULT_HARD_FILTERS.maxOnsiteDaysPerWeek
+                    : Number(event.target.value),
+                },
               }))}
+              placeholder="5"
               className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm"
             />
           </div>
@@ -487,39 +552,65 @@ function ProfileSection({
               type="number"
               min={0}
               max={100}
-              value={form.hardFilters.maxTravelPercent}
+              value={form.hardFilters.maxTravelPercent === DEFAULT_HARD_FILTERS.maxTravelPercent ? '' : form.hardFilters.maxTravelPercent}
               onChange={(event) => setForm((prev) => ({
                 ...prev,
-                hardFilters: { ...prev.hardFilters, maxTravelPercent: Number(event.target.value) || 0 },
+                hardFilters: {
+                  ...prev.hardFilters,
+                  maxTravelPercent: event.target.value === ''
+                    ? DEFAULT_HARD_FILTERS.maxTravelPercent
+                    : Number(event.target.value),
+                },
               }))}
+              placeholder="100"
               className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm"
             />
           </div>
         </div>
-        <label className="inline-flex items-center gap-2 text-xs text-neutral-500">
-          <input
-            type="checkbox"
-            checked={form.hardFilters.requiresVisaSponsorship}
-            onChange={(event) => setForm((prev) => ({
-              ...prev,
-              hardFilters: { ...prev.hardFilters, requiresVisaSponsorship: event.target.checked },
-            }))}
-          />
-          Require visa sponsorship (optional hard filter)
-        </label>
+        <button
+          type="button"
+          onClick={() => setForm((prev) => ({
+            ...prev,
+            hardFilters: { ...prev.hardFilters, requiresVisaSponsorship: !prev.hardFilters.requiresVisaSponsorship },
+          }))}
+          className={`inline-flex items-center rounded-full border px-3 py-1 text-xs ${
+            form.hardFilters.requiresVisaSponsorship
+              ? 'border-brand-300 bg-brand-50 text-brand-700'
+              : 'border-neutral-200 text-neutral-600 hover:bg-neutral-100'
+          }`}
+        >
+          I will need visa sponsorship
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="space-y-3">
         <BenefitCatalogPicker
           label="Required Benefits"
           selectedIds={form.requiredBenefitIds}
           onChange={(next) => setForm((prev) => ({ ...prev, requiredBenefitIds: next }))}
         />
-        <BenefitCatalogPicker
-          label="Preferred Benefits"
-          selectedIds={form.preferredBenefitIds}
-          onChange={(next) => setForm((prev) => ({ ...prev, preferredBenefitIds: next }))}
-        />
+        <p className="text-[11px] text-neutral-500">
+          Jobs with missing benefits stay in an unknown state instead of failing automatically.
+        </p>
+        <div className="rounded-lg border border-neutral-200">
+          <button
+            type="button"
+            onClick={() => setShowAdvancedBenefits((open) => !open)}
+            className="w-full px-3 py-2.5 flex items-center justify-between text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+          >
+            Advanced preferences
+            {showAdvancedBenefits ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+          {showAdvancedBenefits && (
+            <div className="border-t border-neutral-200 p-3">
+              <BenefitCatalogPicker
+                label="Preferred Benefits"
+                selectedIds={form.preferredBenefitIds}
+                onChange={(next) => setForm((prev) => ({ ...prev, preferredBenefitIds: next }))}
+              />
+            </div>
+          )}
+        </div>
       </div>
 
       {errors.length > 0 && (

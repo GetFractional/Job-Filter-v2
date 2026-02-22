@@ -10,7 +10,9 @@ import {
   Copy,
   DollarSign,
   FileText,
+  Info,
   MapPin,
+  Plus,
   Rocket,
   Settings2,
   Sparkles,
@@ -48,6 +50,7 @@ import {
   sanitizeBenefitIds,
   searchBenefitCatalog,
 } from '../../lib/benefitsCatalog';
+import { getCityTypeaheadOptions, loadRecentCities, saveRecentCity } from '../../lib/cityOptions';
 import type {
   Claim,
   HardFilters,
@@ -85,9 +88,21 @@ interface SuggestionSelectionState {
   firstName: boolean;
   lastName: boolean;
   targetRoles: boolean;
+  skillHints: boolean;
+  toolHints: boolean;
   locationHints: boolean;
   compensationFloor: boolean;
   compensationTarget: boolean;
+}
+
+function parseIntegerInput(value: string): number {
+  const digitsOnly = value.replace(/[^\d]/g, '');
+  return digitsOnly ? Number.parseInt(digitsOnly, 10) : 0;
+}
+
+function formatIntegerInput(value: number): string {
+  if (!value || Number.isNaN(value) || value <= 0) return '';
+  return value.toLocaleString();
 }
 
 function countDraftItems(draft: ImportDraft): { companies: number; roles: number; highlights: number; outcomes: number } {
@@ -112,6 +127,8 @@ function hasProfileSuggestions(session: ImportSession | null): boolean {
     suggestion.firstName
     || suggestion.lastName
     || suggestion.targetRoles.length > 0
+    || suggestion.skillHints.length > 0
+    || suggestion.toolHints.length > 0
     || suggestion.locationHints.length > 0
     || suggestion.compensation?.floor
     || suggestion.compensation?.target,
@@ -319,6 +336,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const profile = useStore((s) => s.profile);
   const updateProfile = useStore((s) => s.updateProfile);
   const addClaim = useStore((s) => s.addClaim);
+  const jobs = useStore((s) => s.jobs);
   const importSession = useStore((s) => s.importSession);
   const setImportSession = useStore((s) => s.setImportSession);
   const hydrateImportSession = useStore((s) => s.hydrateImportSession);
@@ -330,8 +348,10 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const [firstName, setFirstName] = useState(profile?.firstName || profile?.name.split(' ')[0] || '');
   const [lastName, setLastName] = useState(profile?.lastName || profile?.name.split(' ').slice(1).join(' ') || '');
   const [targetRoles, setTargetRoles] = useState(profile?.targetRoles || []);
+  const [skills, setSkills] = useState(profile?.skills ?? []);
+  const [tools, setTools] = useState(profile?.tools ?? []);
 
-  const [compTarget, setCompTarget] = useState(profile?.compTarget ? profile.compTarget.toString() : '');
+  const [compTarget, setCompTarget] = useState(profile?.compTarget ? profile.compTarget.toLocaleString() : '');
   const [requiredBenefitIds, setRequiredBenefitIds] = useState<string[]>(
     sanitizeBenefitIds(profile?.requiredBenefitIds?.length ? profile.requiredBenefitIds : legacyBenefitsToIds(profile?.requiredBenefits)),
   );
@@ -365,12 +385,16 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     firstName: true,
     lastName: true,
     targetRoles: true,
+    skillHints: true,
+    toolHints: true,
     locationHints: true,
     compensationFloor: true,
     compensationTarget: true,
   });
   const [troubleshootOpen, setTroubleshootOpen] = useState(false);
   const [showAllStatuses, setShowAllStatuses] = useState(false);
+  const [showAdvancedPreferences, setShowAdvancedPreferences] = useState(false);
+  const [recentCities, setRecentCities] = useState<string[]>(() => loadRecentCities());
   const [debugReportNotice, setDebugReportNotice] = useState<string | null>(null);
 
   useEffect(() => {
@@ -413,11 +437,13 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
       firstName: Boolean(importSession.profileSuggestion.firstName),
       lastName: Boolean(importSession.profileSuggestion.lastName),
       targetRoles: importSession.profileSuggestion.targetRoles.length > 0,
+      skillHints: importSession.profileSuggestion.skillHints.length > 0,
+      toolHints: importSession.profileSuggestion.toolHints.length > 0,
       locationHints: importSession.profileSuggestion.locationHints.length > 0,
       compensationFloor: Boolean(importSession.profileSuggestion.compensation?.floor),
       compensationTarget: Boolean(importSession.profileSuggestion.compensation?.target),
     });
-  }, [importSession?.id]);
+  }, [importSession]);
 
   const handleSaveProfile = useCallback(async () => {
     setSaving(true);
@@ -427,11 +453,13 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
         lastName: lastName.trim(),
         name: `${firstName} ${lastName}`.trim(),
         targetRoles,
+        skills,
+        tools,
       });
     } finally {
       setSaving(false);
     }
-  }, [firstName, lastName, targetRoles, updateProfile]);
+  }, [firstName, lastName, skills, targetRoles, tools, updateProfile]);
 
   const handleSavePreferences = useCallback(async (): Promise<boolean> => {
     const errors: string[] = [];
@@ -483,7 +511,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     try {
       await updateProfile({
         compFloor: normalizedHardFilters.minBaseSalary,
-        compTarget: parseInt(compTarget, 10) || 0,
+        compTarget: parseIntegerInput(compTarget),
         locationPreference: summarizeLocationPreferences(normalizedLocations),
         disqualifiers: [],
         locationPreferences: normalizedLocations,
@@ -525,8 +553,17 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
       setTargetRoles(merged);
     }
 
+    if (suggestionSelections.skillHints && suggestion.skillHints.length > 0) {
+      setSkills((prev) => [...new Set([...prev, ...suggestion.skillHints])]);
+    }
+
+    if (suggestionSelections.toolHints && suggestion.toolHints.length > 0) {
+      setTools((prev) => [...new Set([...prev, ...suggestion.toolHints])]);
+    }
+
     if (suggestionSelections.locationHints && suggestion.locationHints.length > 0 && locationPreferences.length === 0) {
-      setLocationPreferences([locationPreferenceFromHint(suggestion.locationHints[0])]);
+      const mappedHints = suggestion.locationHints.slice(0, 3).map((hint) => locationPreferenceFromHint(hint));
+      setLocationPreferences(mappedHints);
     }
 
     if (suggestionSelections.compensationFloor && suggestion.compensation?.floor && hardFilters.minBaseSalary <= 0) {
@@ -534,7 +571,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     }
 
     if (suggestionSelections.compensationTarget && suggestion.compensation?.target && !compTarget.trim()) {
-      setCompTarget(String(suggestion.compensation.target));
+      setCompTarget(formatIntegerInput(suggestion.compensation.target));
     }
 
     setSuggestionsDismissed(true);
@@ -548,6 +585,8 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     suggestionSelections.firstName,
     suggestionSelections.lastName,
     suggestionSelections.locationHints,
+    suggestionSelections.skillHints,
+    suggestionSelections.toolHints,
     suggestionSelections.targetRoles,
     targetRoles,
   ]);
@@ -573,6 +612,11 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
   const removeLocationPreference = useCallback((id: string) => {
     setLocationPreferences((prev) => prev.filter((preference) => preference.id !== id));
+  }, []);
+
+  const rememberCity = useCallback((city: string) => {
+    const next = saveRecentCity(city);
+    setRecentCities(next);
   }, []);
 
   const handleParseResume = useCallback((forcedMode?: SegmentationMode) => {
@@ -613,6 +657,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     setDebugReportNotice(null);
     setFileImportError(null);
     setTroubleshootOpen(false);
+    setShowAdvancedPreferences(false);
   }, [extractionDiagnostics, resumeText, selectedFileMeta, setImportSession]);
 
   const handleTryAnotherMethod = useCallback(() => {
@@ -707,6 +752,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     setSuggestionsDismissed(false);
     setTroubleshootOpen(false);
     setShowAllStatuses(false);
+    setShowAdvancedPreferences(false);
     setDebugReportNotice(null);
 
     try {
@@ -767,6 +813,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     setExtractionDiagnostics(null);
     setTroubleshootOpen(false);
     setShowAllStatuses(false);
+    setShowAdvancedPreferences(false);
     setDebugReportNotice(null);
   }, [setImportSession]);
 
@@ -783,6 +830,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     setExtractionDiagnostics(null);
     setTroubleshootOpen(false);
     setShowAllStatuses(false);
+    setShowAdvancedPreferences(false);
     setDebugReportNotice(null);
   }, [setImportSession]);
 
@@ -873,8 +921,18 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     || hasInvalidRequiredLocation
   );
 
+  const isPreviewOrDev = BUILD_INFO.appEnv !== 'production' && BUILD_INFO.appEnv !== 'prod';
+  const hasNoJobs = jobs.length === 0;
+
+  const handleAddJobManually = useCallback(() => {
+    onComplete();
+    window.setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('open-capture-modal'));
+    }, 0);
+  }, [onComplete]);
+
   const primaryLabel = useMemo(() => {
-    if (step === 'ready') return "Let's Go";
+    if (step === 'ready') return 'Find jobs';
     if (step === 'resume') {
       if (importSession?.state === 'parsed') return 'Approve & Save';
       if (!importSession && resumeText.trim()) return 'Parse & Review';
@@ -997,6 +1055,21 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                 onChange={setTargetRoles}
                 placeholder="Add a role and press Enter"
               />
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <ChipInput
+                  label="Skills"
+                  values={skills}
+                  onChange={setSkills}
+                  placeholder="Add a skill and press Enter"
+                />
+                <ChipInput
+                  label="Tools"
+                  values={tools}
+                  onChange={setTools}
+                  placeholder="Add a tool and press Enter"
+                />
+              </div>
             </div>
           )}
 
@@ -1004,14 +1077,23 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
             <div className="space-y-4">
               <div className="bg-white rounded-xl border border-neutral-200 p-5 space-y-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-brand-50 rounded-lg flex items-center justify-center">
-                    <FileText size={20} className="text-brand-600" />
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-semibold text-neutral-900">Import your resume</h2>
-                    <p className="text-xs text-neutral-500">Upload PDF, DOCX, TXT, or paste text, then continue to review and edit.</p>
-                  </div>
+                <div className="w-10 h-10 bg-brand-50 rounded-lg flex items-center justify-center">
+                  <FileText size={20} className="text-brand-600" />
                 </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <h2 className="text-lg font-semibold text-neutral-900">Import your resume</h2>
+                    <span
+                      className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-neutral-200 text-neutral-500"
+                      title={"We’ll use your resume to build your Digital Resume. You can edit everything before saving. AI features (later) require opt-in."}
+                      aria-label="Import details"
+                    >
+                      <Info size={12} />
+                    </span>
+                  </div>
+                  <p className="text-xs text-neutral-500">Upload PDF, DOCX, TXT, or paste text, then continue to review and edit.</p>
+                </div>
+              </div>
 
                 <div className="flex flex-wrap items-center gap-2">
                   <label className="inline-flex items-center gap-1.5 px-3 py-2 border border-neutral-200 rounded-lg text-xs font-medium text-neutral-700 hover:bg-neutral-50 cursor-pointer">
@@ -1047,9 +1129,6 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                   rows={10}
                   className="w-full px-3.5 py-2.5 bg-white border border-neutral-200 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
                 />
-                <p className="text-[11px] text-neutral-500">
-                  Parsed locally in your browser. AI parsing requires explicit opt-in.
-                </p>
               </div>
 
               {importSession && (
@@ -1109,6 +1188,26 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                             Add target roles: {importSession.profileSuggestion.targetRoles.slice(0, 3).join(', ')}
                           </label>
                         )}
+                        {importSession.profileSuggestion.skillHints.length > 0 && (
+                          <label className="inline-flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={suggestionSelections.skillHints}
+                              onChange={(event) => setSuggestionSelections((prev) => ({ ...prev, skillHints: event.target.checked }))}
+                            />
+                            Add skills: {importSession.profileSuggestion.skillHints.slice(0, 4).join(', ')}
+                          </label>
+                        )}
+                        {importSession.profileSuggestion.toolHints.length > 0 && (
+                          <label className="inline-flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={suggestionSelections.toolHints}
+                              onChange={(event) => setSuggestionSelections((prev) => ({ ...prev, toolHints: event.target.checked }))}
+                            />
+                            Add tools: {importSession.profileSuggestion.toolHints.slice(0, 4).join(', ')}
+                          </label>
+                        )}
                         {importSession.profileSuggestion.locationHints.length > 0 && (
                           <label className="inline-flex items-center gap-2">
                             <input
@@ -1142,7 +1241,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                           onClick={handleApplySuggestions}
                           className="px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
                         >
-                          Apply selected
+                          Apply suggestions
                         </button>
                         <button
                           type="button"
@@ -1309,14 +1408,6 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                 <label className="text-sm font-medium text-neutral-700 flex items-center gap-1.5">
                   <MapPin size={14} className="text-neutral-400" /> Location preferences
                 </label>
-                <label className="inline-flex items-center gap-2 text-xs text-neutral-600">
-                  <input
-                    type="checkbox"
-                    checked={willingToRelocate}
-                    onChange={(event) => setWillingToRelocate(event.target.checked)}
-                  />
-                  Willing to relocate
-                </label>
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
@@ -1339,102 +1430,135 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                   >
                     + Onsite
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setWillingToRelocate((prev) => !prev)}
+                    className={`rounded-full border px-3 py-1 text-xs ${
+                      willingToRelocate
+                        ? 'border-brand-300 bg-brand-50 text-brand-700'
+                        : 'border-neutral-200 text-neutral-700 hover:bg-neutral-50'
+                    }`}
+                  >
+                    + Willing to relocate
+                  </button>
                 </div>
 
                 <div className="space-y-2">
                   {locationPreferences.length === 0 && (
                     <p className="rounded-lg border border-dashed border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-neutral-500">
-                      No locations added yet. Add at least one preference.
+                      Add at least one location preference.
                     </p>
                   )}
-                  {locationPreferences.map((preference) => (
-                    <div key={preference.id} className="rounded-lg border border-neutral-200 bg-neutral-50 p-3 space-y-2">
-                      <div className="grid grid-cols-1 sm:grid-cols-[180px_1fr_auto] gap-2">
-                        <select
-                          value={preference.type}
-                          onChange={(event) => updateLocationPreference(preference.id, {
-                            type: event.target.value as LocationPreference['type'],
-                            radiusMiles: event.target.value === 'Remote' ? undefined : (preference.radiusMiles ?? 25),
-                          })}
-                          className="px-3 py-2 pr-10 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
-                        >
-                          <option value="Remote">Remote</option>
-                          <option value="Hybrid">Hybrid</option>
-                          <option value="Onsite">Onsite</option>
-                        </select>
-                        {preference.type === 'Remote' ? (
-                          <div className="rounded-lg border border-dashed border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-500">
-                            Remote roles do not require city or radius.
+                  {locationPreferences.map((preference) => {
+                    const cityListId = `onboarding-city-options-${preference.id}`;
+                    const cityOptions = getCityTypeaheadOptions(preference.city ?? '', recentCities);
+                    const usesCustomRadius = preference.radiusMiles !== undefined
+                      && !STANDARD_RADIUS_MILES.includes(preference.radiusMiles as (typeof STANDARD_RADIUS_MILES)[number]);
+
+                    return (
+                      <div key={preference.id} className="rounded-lg border border-neutral-200 bg-neutral-50 p-3 space-y-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-[170px_1fr_170px_auto] gap-2 items-end">
+                          <div>
+                            <label className="text-[11px] font-medium text-neutral-600 mb-1 block">Mode</label>
+                            <select
+                              value={preference.type}
+                              onChange={(event) => updateLocationPreference(preference.id, {
+                                type: event.target.value as LocationPreference['type'],
+                                radiusMiles: event.target.value === 'Remote' ? undefined : (preference.radiusMiles ?? 25),
+                              })}
+                              className="h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                            >
+                              <option value="Remote">Remote</option>
+                              <option value="Hybrid">Hybrid</option>
+                              <option value="Onsite">Onsite</option>
+                            </select>
                           </div>
-                        ) : (
-                          <div className="grid grid-cols-1 sm:grid-cols-[1fr_180px] gap-2">
-                            <input
-                              type="text"
-                              value={preference.city ?? ''}
-                              onChange={(event) => updateLocationPreference(preference.id, { city: event.target.value })}
-                              placeholder="City (required)"
-                              className="px-3 py-2 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
-                            />
-                            <div className="space-y-1">
-                              <label className="text-[11px] font-medium text-neutral-600">Radius (miles)</label>
-                              <select
-                                value={
-                                  preference.radiusMiles && STANDARD_RADIUS_MILES.includes(preference.radiusMiles as (typeof STANDARD_RADIUS_MILES)[number])
-                                    ? String(preference.radiusMiles)
-                                    : (preference.radiusMiles ? 'custom' : '')
-                                }
-                                onChange={(event) => {
-                                  const value = event.target.value;
-                                  if (!value) {
-                                    updateLocationPreference(preference.id, { radiusMiles: undefined });
-                                    return;
-                                  }
-                                  if (value === 'custom') {
-                                    updateLocationPreference(preference.id, { radiusMiles: preference.radiusMiles ?? 25 });
-                                    return;
-                                  }
-                                  updateLocationPreference(preference.id, { radiusMiles: Number(value) });
-                                }}
-                                className="w-full px-3 py-2 pr-10 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
-                              >
-                                <option value="">Select radius</option>
-                                {STANDARD_RADIUS_MILES.map((miles) => (
-                                  <option key={miles} value={miles}>{miles} miles</option>
-                                ))}
-                                <option value="custom">Custom</option>
-                              </select>
+
+                          {preference.type === 'Remote' ? (
+                            <div className="sm:col-span-2 rounded-lg border border-dashed border-neutral-200 bg-white px-3 py-2.5 text-xs text-neutral-500 h-10 flex items-center">
+                              Remote roles do not need city or radius.
                             </div>
+                          ) : (
+                            <>
+                              <div>
+                                <label className="text-[11px] font-medium text-neutral-600 mb-1 block">City</label>
+                                <input
+                                  type="text"
+                                  list={cityListId}
+                                  value={preference.city ?? ''}
+                                  onChange={(event) => updateLocationPreference(preference.id, { city: event.target.value })}
+                                  onBlur={() => rememberCity(preference.city ?? '')}
+                                  placeholder="City (required)"
+                                  className="h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                                />
+                                <datalist id={cityListId}>
+                                  {cityOptions.map((option, index) => (
+                                    <option key={`${option}-${index}`} value={option}>
+                                      {option}
+                                    </option>
+                                  ))}
+                                </datalist>
+                              </div>
+                              <div>
+                                <label className="text-[11px] font-medium text-neutral-600 mb-1 block">Radius (miles)</label>
+                                <select
+                                  value={
+                                    preference.radiusMiles && STANDARD_RADIUS_MILES.includes(preference.radiusMiles as (typeof STANDARD_RADIUS_MILES)[number])
+                                      ? String(preference.radiusMiles)
+                                      : (preference.radiusMiles ? 'custom' : '')
+                                  }
+                                  onChange={(event) => {
+                                    const value = event.target.value;
+                                    if (!value) {
+                                      updateLocationPreference(preference.id, { radiusMiles: undefined });
+                                      return;
+                                    }
+                                    if (value === 'custom') {
+                                      updateLocationPreference(preference.id, { radiusMiles: preference.radiusMiles ?? 25 });
+                                      return;
+                                    }
+                                    updateLocationPreference(preference.id, { radiusMiles: Number(value) });
+                                  }}
+                                  className="h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                                >
+                                  <option value="">Select radius</option>
+                                  {STANDARD_RADIUS_MILES.map((miles) => (
+                                    <option key={miles} value={miles}>{miles} miles</option>
+                                  ))}
+                                  <option value="custom">Custom</option>
+                                </select>
+                              </div>
+                            </>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => removeLocationPreference(preference.id)}
+                            className="h-10 rounded-lg border border-neutral-200 px-3 text-xs text-neutral-600 hover:bg-neutral-100"
+                          >
+                            Remove
+                          </button>
+                        </div>
+
+                        {preference.type !== 'Remote' && usesCustomRadius && (
+                          <div className="grid grid-cols-1 sm:grid-cols-[170px_1fr] gap-2 items-center">
+                            <label className="text-[11px] font-medium text-neutral-600">Custom radius (miles)</label>
+                            <input
+                              type="number"
+                              min={1}
+                              max={500}
+                              value={preference.radiusMiles ?? ''}
+                              onChange={(event) => updateLocationPreference(preference.id, {
+                                radiusMiles: event.target.value ? Number(event.target.value) : undefined,
+                              })}
+                              placeholder="Enter miles"
+                              className="h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                            />
                           </div>
                         )}
-                        <button
-                          type="button"
-                          onClick={() => removeLocationPreference(preference.id)}
-                          className="rounded-lg border border-neutral-200 px-3 py-2 text-xs text-neutral-600 hover:bg-neutral-100"
-                        >
-                          Remove
-                        </button>
                       </div>
-
-                      {preference.type !== 'Remote'
-                        && preference.radiusMiles !== undefined
-                        && !STANDARD_RADIUS_MILES.includes(preference.radiusMiles as (typeof STANDARD_RADIUS_MILES)[number]) && (
-                        <div className="grid grid-cols-1 sm:grid-cols-[180px_1fr] gap-2 items-center">
-                          <label className="text-[11px] font-medium text-neutral-600">Custom radius (miles)</label>
-                          <input
-                            type="number"
-                            min={1}
-                            max={500}
-                            value={preference.radiusMiles ?? ''}
-                            onChange={(event) => updateLocationPreference(preference.id, {
-                              radiusMiles: event.target.value ? Number(event.target.value) : undefined,
-                            })}
-                            placeholder="Enter miles"
-                            className="px-3 py-2 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
@@ -1446,12 +1570,15 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                       <DollarSign size={12} className="text-neutral-400" /> Minimum base salary
                     </label>
                     <input
-                      type="number"
-                      min={0}
-                      value={hardFilters.minBaseSalary}
-                      onChange={(event) => setHardFilters((prev) => ({ ...prev, minBaseSalary: Number(event.target.value) || 0 }))}
-                      placeholder="150000"
-                      className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                      type="text"
+                      inputMode="numeric"
+                      value={hardFilters.minBaseSalary > 0 ? hardFilters.minBaseSalary.toLocaleString() : ''}
+                      onChange={(event) => setHardFilters((prev) => ({
+                        ...prev,
+                        minBaseSalary: parseIntegerInput(event.target.value),
+                      }))}
+                      placeholder="150,000"
+                      className="h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
                     />
                   </div>
                   <div>
@@ -1459,17 +1586,17 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                       <DollarSign size={12} className="text-neutral-400" /> Compensation target
                     </label>
                     <input
-                      type="number"
-                      min={0}
+                      type="text"
+                      inputMode="numeric"
                       value={compTarget}
-                      onChange={(event) => setCompTarget(event.target.value)}
-                      placeholder="180000"
-                      className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                      onChange={(event) => setCompTarget(formatIntegerInput(parseIntegerInput(event.target.value)))}
+                      placeholder="180,000"
+                      className="h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
                     />
                   </div>
                   <div>
                     <label className="text-xs font-medium text-neutral-600 mb-1 block">Employment types</label>
-                    <div className="rounded-lg border border-neutral-200 bg-white p-2 flex flex-wrap gap-1.5">
+                    <div className="rounded-lg border border-neutral-200 bg-white p-2 flex flex-wrap gap-1.5 min-h-10">
                       {EMPLOYMENT_TYPE_OPTIONS.map((option) => {
                         const selected = hardFilters.employmentTypes.includes(option.id);
                         return (
@@ -1500,9 +1627,15 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                       type="number"
                       min={0}
                       max={5}
-                      value={hardFilters.maxOnsiteDaysPerWeek}
-                      onChange={(event) => setHardFilters((prev) => ({ ...prev, maxOnsiteDaysPerWeek: Number(event.target.value) || 0 }))}
-                      className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                      value={hardFilters.maxOnsiteDaysPerWeek === DEFAULT_HARD_FILTERS.maxOnsiteDaysPerWeek ? '' : hardFilters.maxOnsiteDaysPerWeek}
+                      onChange={(event) => setHardFilters((prev) => ({
+                        ...prev,
+                        maxOnsiteDaysPerWeek: event.target.value === ''
+                          ? DEFAULT_HARD_FILTERS.maxOnsiteDaysPerWeek
+                          : Number(event.target.value),
+                      }))}
+                      placeholder="5"
+                      className="h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
                     />
                   </div>
                   <div>
@@ -1511,33 +1644,58 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                       type="number"
                       min={0}
                       max={100}
-                      value={hardFilters.maxTravelPercent}
-                      onChange={(event) => setHardFilters((prev) => ({ ...prev, maxTravelPercent: Number(event.target.value) || 0 }))}
-                      className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                      value={hardFilters.maxTravelPercent === DEFAULT_HARD_FILTERS.maxTravelPercent ? '' : hardFilters.maxTravelPercent}
+                      onChange={(event) => setHardFilters((prev) => ({
+                        ...prev,
+                        maxTravelPercent: event.target.value === ''
+                          ? DEFAULT_HARD_FILTERS.maxTravelPercent
+                          : Number(event.target.value),
+                      }))}
+                      placeholder="100"
+                      className="h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
                     />
                   </div>
                 </div>
-                <label className="inline-flex items-center gap-2 text-xs text-neutral-500">
-                  <input
-                    type="checkbox"
-                    checked={hardFilters.requiresVisaSponsorship}
-                    onChange={(event) => setHardFilters((prev) => ({ ...prev, requiresVisaSponsorship: event.target.checked }))}
-                  />
-                  Require visa sponsorship (optional hard filter)
-                </label>
+                <button
+                  type="button"
+                  onClick={() => setHardFilters((prev) => ({ ...prev, requiresVisaSponsorship: !prev.requiresVisaSponsorship }))}
+                  className={`inline-flex items-center rounded-full border px-3 py-1 text-xs ${
+                    hardFilters.requiresVisaSponsorship
+                      ? 'border-brand-300 bg-brand-50 text-brand-700'
+                      : 'border-neutral-200 text-neutral-600 hover:bg-neutral-100'
+                  }`}
+                >
+                  I will need visa sponsorship
+                </button>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <BenefitCatalogPicker
-                  label="Required benefits"
-                  selectedIds={requiredBenefitIds}
-                  onChange={setRequiredBenefitIds}
-                />
-                <BenefitCatalogPicker
-                  label="Preferred benefits"
-                  selectedIds={preferredBenefitIds}
-                  onChange={setPreferredBenefitIds}
-                />
+              <BenefitCatalogPicker
+                label="Required benefits"
+                selectedIds={requiredBenefitIds}
+                onChange={setRequiredBenefitIds}
+              />
+              <p className="text-[11px] text-neutral-500">
+                If a job does not list benefits, we treat benefits as unknown instead of an automatic fail.
+              </p>
+
+              <div className="rounded-lg border border-neutral-200">
+                <button
+                  type="button"
+                  onClick={() => setShowAdvancedPreferences((open) => !open)}
+                  className="w-full px-3 py-2.5 flex items-center justify-between text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+                >
+                  Advanced preferences
+                  {showAdvancedPreferences ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                </button>
+                {showAdvancedPreferences && (
+                  <div className="border-t border-neutral-200 p-3">
+                    <BenefitCatalogPicker
+                      label="Preferred benefits"
+                      selectedIds={preferredBenefitIds}
+                      onChange={setPreferredBenefitIds}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1547,26 +1705,37 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
               <div className="w-20 h-20 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto mb-6">
                 <Check size={36} className="text-emerald-600" />
               </div>
-              <h1 className="text-2xl font-bold text-neutral-900 mb-3">You’re all set</h1>
+              <h1 className="text-2xl font-bold text-neutral-900 mb-3">Ready to find strong-fit jobs</h1>
               <p className="text-sm text-neutral-600 max-w-md mx-auto mb-8 leading-relaxed">
-                Your profile and digital resume are ready. Capture a job and start scoring immediately.
+                Your Digital Resume and preferences are saved. Find jobs now, then score and prioritize your best opportunities.
               </p>
-              <div className="bg-white rounded-lg border border-neutral-200 p-4 text-left max-w-sm mx-auto">
-                <h4 className="text-xs font-bold text-neutral-700 uppercase tracking-wider mb-3">Quick start</h4>
-                <ol className="space-y-2.5">
-                  <li className="flex items-start gap-2.5 text-sm text-neutral-600">
-                    <span className="w-5 h-5 rounded-full bg-brand-50 text-brand-600 flex items-center justify-center text-[11px] font-bold shrink-0">1</span>
-                    Click <span className="font-medium text-neutral-800">+ Add Job</span>
-                  </li>
-                  <li className="flex items-start gap-2.5 text-sm text-neutral-600">
-                    <span className="w-5 h-5 rounded-full bg-brand-50 text-brand-600 flex items-center justify-center text-[11px] font-bold shrink-0">2</span>
-                    Paste the job description for scoring and gap analysis
-                  </li>
-                  <li className="flex items-start gap-2.5 text-sm text-neutral-600">
-                    <span className="w-5 h-5 rounded-full bg-brand-50 text-brand-600 flex items-center justify-center text-[11px] font-bold shrink-0">3</span>
-                    Generate assets using verified evidence
-                  </li>
-                </ol>
+              <div className="bg-white rounded-lg border border-neutral-200 p-4 text-left max-w-md mx-auto space-y-3">
+                <h4 className="text-xs font-bold text-neutral-700 uppercase tracking-wider">Next step</h4>
+                <p className="text-sm text-neutral-600">
+                  {hasNoJobs
+                    ? 'Start with your first jobs so you can score match quality and focus your effort.'
+                    : 'You already have jobs in your pipeline. Open them now and prioritize the best fits.'}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={handleAddJobManually}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 px-3 py-2 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+                  >
+                    <Plus size={13} />
+                    Add job manually
+                  </button>
+                  {hasNoJobs && isPreviewOrDev && (
+                    <button
+                      type="button"
+                      disabled
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 px-3 py-2 text-xs font-medium text-neutral-400 cursor-not-allowed"
+                      title="Sample jobs will be available in A2.1 for preview and development environments."
+                    >
+                      Load sample jobs (soon)
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           )}

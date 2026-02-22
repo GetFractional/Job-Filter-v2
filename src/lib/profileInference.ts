@@ -35,6 +35,31 @@ function inferTargetRoles(draft: ImportDraft): string[] {
   return [...roles];
 }
 
+function inferToolAndSkillHints(draft: ImportDraft): { toolHints: string[]; skillHints: string[] } {
+  const tools = new Set<string>();
+  const skills = new Set<string>();
+
+  for (const company of draft.companies) {
+    for (const role of company.roles) {
+      for (const tool of role.tools) {
+        const value = tool.text.trim();
+        if (value) tools.add(value);
+        if (tools.size >= 10) break;
+      }
+      for (const skill of role.skills) {
+        const value = skill.text.trim();
+        if (value) skills.add(value);
+        if (skills.size >= 10) break;
+      }
+    }
+  }
+
+  return {
+    toolHints: [...tools].slice(0, 8),
+    skillHints: [...skills].slice(0, 8),
+  };
+}
+
 function inferLocationHints(previewLines: string[]): string[] {
   const hints = new Set<string>();
 
@@ -80,11 +105,14 @@ export function inferProfilePrefillSuggestion(
 ): ProfilePrefillSuggestion {
   const previewLines = diagnostics.previewLines;
   const name = inferName(previewLines);
+  const { toolHints, skillHints } = inferToolAndSkillHints(draft);
 
   const suggestion: ProfilePrefillSuggestion = {
     firstName: name.firstName,
     lastName: name.lastName,
     targetRoles: inferTargetRoles(draft),
+    skillHints,
+    toolHints,
     locationHints: inferLocationHints(previewLines),
     compensation: inferCompensation(previewLines),
     hardFilterHints: undefined,

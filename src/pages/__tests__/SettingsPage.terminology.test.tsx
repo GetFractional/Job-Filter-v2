@@ -60,4 +60,22 @@ describe('SettingsPage terminology guard', () => {
     expect(/\bautouse\b/.test(visibleText)).toBe(false);
     expect(/claim ledger/.test(visibleText)).toBe(false);
   });
+
+  it('enforces location fields by preference type and keeps preferred benefits advanced', () => {
+    mockUseStore.mockImplementation((selector: (store: typeof state) => unknown) => selector(state));
+
+    render(<SettingsPage />);
+
+    fireEvent.click(screen.getByRole('button', { name: /\+ Remote/i }));
+    expect(screen.getByText(/Remote roles do not require city or radius/i)).toBeTruthy();
+    expect(screen.queryByPlaceholderText(/City \(required\)/i)).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: /\+ Hybrid/i }));
+    expect(screen.getByPlaceholderText(/City \(required\)/i)).toBeTruthy();
+    expect(screen.getByText(/Radius \(miles\)/i)).toBeTruthy();
+
+    expect(screen.queryByText(/Preferred Benefits/i)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Advanced preferences/i }));
+    expect(screen.getByText(/Preferred Benefits/i)).toBeTruthy();
+  });
 });
