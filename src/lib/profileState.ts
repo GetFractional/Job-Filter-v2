@@ -16,9 +16,12 @@ export function createEmptyProfile(timestamp = new Date().toISOString()): Profil
     compTarget: 0,
     requiredBenefits: [],
     preferredBenefits: [],
+    requiredBenefitIds: [],
+    preferredBenefitIds: [],
     locationPreference: '',
     disqualifiers: [],
     locationPreferences: [],
+    willingToRelocate: false,
     hardFilters: { ...DEFAULT_HARD_FILTERS },
     updatedAt: timestamp,
   };

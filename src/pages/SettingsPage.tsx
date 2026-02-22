@@ -4,15 +4,25 @@ import { useStore } from '../store/useStore';
 import { db, generateId, seedDefaultProfile } from '../db';
 import { clearJobFilterLocalState } from '../lib/profileState';
 import {
+  applyGlobalRelocationPreference,
   createLocationPreference,
   DEFAULT_HARD_FILTERS,
+  EMPLOYMENT_TYPE_OPTIONS,
   sanitizeHardFilters,
   sanitizeLocationPreferences,
   summarizeLocationPreferences,
+  STANDARD_RADIUS_MILES,
 } from '../lib/profilePreferences';
+import {
+  BENEFITS_CATALOG,
+  benefitIdsToLabels,
+  legacyBenefitsToIds,
+  sanitizeBenefitIds,
+  searchBenefitCatalog,
+} from '../lib/benefitsCatalog';
 import { DigitalResumeBuilder } from '../components/resume/DigitalResumeBuilder';
 import { hasUsableImportDraft } from '../lib/importDraftBuilder';
-import type { Claim, HardFilters, ImportDraftRole, ImportSession, LocationPreference, Profile } from '../types';
+import type { Claim, ImportDraftRole, ImportSession, LocationPreference, Profile } from '../types';
 
 export function SettingsPage() {
   const profile = useStore((s) => s.profile);
@@ -63,6 +73,61 @@ export function SettingsPage() {
   );
 }
 
+function BenefitCatalogPicker({
+  label,
+  selectedIds,
+  onChange,
+}: {
+  label: string;
+  selectedIds: string[];
+  onChange: (next: string[]) => void;
+}) {
+  const [query, setQuery] = useState('');
+  const suggestions = searchBenefitCatalog(query, selectedIds, 10);
+  const selected = selectedIds
+    .map((id) => BENEFITS_CATALOG.find((item) => item.id === id))
+    .filter((item): item is NonNullable<typeof item> => Boolean(item));
+
+  return (
+    <div>
+      <label className="text-xs font-medium text-neutral-600 mb-1 block">{label}</label>
+      <div className="rounded-lg border border-neutral-300 bg-white px-3 py-2">
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {selected.map((item) => (
+            <span key={item.id} className="inline-flex items-center gap-1 rounded-full bg-neutral-100 text-neutral-700 text-xs px-2.5 py-1">
+              {item.label}
+              <button type="button" onClick={() => onChange(selectedIds.filter((id) => id !== item.id))} className="text-neutral-600 hover:text-neutral-900">×</button>
+            </span>
+          ))}
+        </div>
+        <input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Search benefits..."
+          className="w-full border-0 p-0 text-xs focus:outline-none"
+        />
+        {suggestions.length > 0 && (
+          <div className="mt-2 max-h-32 overflow-y-auto rounded-lg border border-neutral-200 bg-neutral-50 p-1">
+            {suggestions.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  onChange([...selectedIds, item.id]);
+                  setQuery('');
+                }}
+                className="w-full rounded px-2 py-1 text-left text-xs text-neutral-700 hover:bg-white"
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ProfileSection({
   profile,
   updateProfile,
@@ -80,20 +145,23 @@ function ProfileSection({
     name: profile.name,
     compTarget: profile.compTarget,
     targetRoles: profile.targetRoles,
-    requiredBenefits: profile.requiredBenefits,
-    preferredBenefits: profile.preferredBenefits,
+    requiredBenefitIds: sanitizeBenefitIds(
+      profile.requiredBenefitIds?.length ? profile.requiredBenefitIds : legacyBenefitsToIds(profile.requiredBenefits),
+    ),
+    preferredBenefitIds: sanitizeBenefitIds(
+      profile.preferredBenefitIds?.length ? profile.preferredBenefitIds : legacyBenefitsToIds(profile.preferredBenefits),
+    ),
     locationPreferences: profile.locationPreferences?.length ? profile.locationPreferences : [],
+    willingToRelocate: Boolean(profile.willingToRelocate || profile.locationPreferences?.some((entry) => entry.willingToRelocate)),
     hardFilters: initialHardFilters,
   });
   const [drafts, setDrafts] = useState({
     targetRole: '',
-    requiredBenefit: '',
-    preferredBenefit: '',
   });
   const [errors, setErrors] = useState<string[]>([]);
   const [saved, setSaved] = useState(false);
 
-  const addTag = (field: 'targetRoles' | 'requiredBenefits' | 'preferredBenefits', key: keyof typeof drafts) => {
+  const addTag = (field: 'targetRoles', key: keyof typeof drafts) => {
     const value = drafts[key].trim();
     if (!value) return;
     setForm((prev) => ({
@@ -103,7 +171,7 @@ function ProfileSection({
     setDrafts((prev) => ({ ...prev, [key]: '' }));
   };
 
-  const removeTag = (field: 'targetRoles' | 'requiredBenefits' | 'preferredBenefits', value: string) => {
+  const removeTag = (field: 'targetRoles', value: string) => {
     setForm((prev) => ({ ...prev, [field]: prev[field].filter((entry) => entry !== value) }));
   };
 
@@ -111,7 +179,16 @@ function ProfileSection({
     setForm((prev) => ({
       ...prev,
       locationPreferences: prev.locationPreferences.map((preference) => (
-        preference.id === id ? { ...preference, ...updates } : preference
+        preference.id === id
+          ? {
+              ...preference,
+              ...updates,
+              city: (updates.type ?? preference.type) === 'Remote' ? '' : (updates.city ?? preference.city),
+              radiusMiles: (updates.type ?? preference.type) === 'Remote'
+                ? undefined
+                : (updates.radiusMiles ?? preference.radiusMiles),
+            }
+          : preference
       )),
     }));
   };
@@ -125,13 +202,22 @@ function ProfileSection({
     if (form.hardFilters.maxTravelPercent < 0 || form.hardFilters.maxTravelPercent > 100) {
       nextErrors.push('Max travel percent must be between 0 and 100.');
     }
+    if (form.hardFilters.employmentTypes.length === 0) {
+      nextErrors.push('Select at least one employment type.');
+    }
+    if (form.locationPreferences.length === 0) {
+      nextErrors.push('Add at least one location preference.');
+    }
 
     form.locationPreferences.forEach((preference, index) => {
-      if (preference.radiusMiles !== undefined && (preference.radiusMiles < 1 || preference.radiusMiles > 500)) {
-        nextErrors.push(`Location preference ${index + 1}: radius must be between 1 and 500 miles.`);
+      if (preference.type === 'Remote') return;
+      if (!preference.city?.trim()) {
+        nextErrors.push(`Location preference ${index + 1}: city is required for ${preference.type.toLowerCase()} roles.`);
       }
-      if ((preference.type === 'Hybrid' || preference.type === 'Onsite') && preference.radiusMiles && !preference.city?.trim()) {
-        nextErrors.push(`Location preference ${index + 1}: add a city when using a radius.`);
+      if (preference.radiusMiles === undefined || Number.isNaN(preference.radiusMiles)) {
+        nextErrors.push(`Location preference ${index + 1}: radius is required for ${preference.type.toLowerCase()} roles.`);
+      } else if (preference.radiusMiles < 1 || preference.radiusMiles > 500) {
+        nextErrors.push(`Location preference ${index + 1}: radius must be between 1 and 500 miles.`);
       }
     });
 
@@ -143,7 +229,12 @@ function ProfileSection({
     if (!validate()) return;
 
     const normalizedHardFilters = sanitizeHardFilters(form.hardFilters);
-    const normalizedLocations = sanitizeLocationPreferences(form.locationPreferences);
+    const normalizedLocations = applyGlobalRelocationPreference(
+      sanitizeLocationPreferences(form.locationPreferences),
+      form.willingToRelocate,
+    );
+    const normalizedRequiredBenefitIds = sanitizeBenefitIds(form.requiredBenefitIds);
+    const normalizedPreferredBenefitIds = sanitizeBenefitIds(form.preferredBenefitIds);
 
     await updateProfile({
       name: form.name,
@@ -151,10 +242,13 @@ function ProfileSection({
       compTarget: form.compTarget,
       locationPreference: summarizeLocationPreferences(normalizedLocations),
       targetRoles: form.targetRoles.map((entry) => entry.trim()).filter(Boolean),
-      requiredBenefits: form.requiredBenefits.map((entry) => entry.trim()).filter(Boolean),
-      preferredBenefits: form.preferredBenefits.map((entry) => entry.trim()).filter(Boolean),
+      requiredBenefits: benefitIdsToLabels(normalizedRequiredBenefitIds),
+      preferredBenefits: benefitIdsToLabels(normalizedPreferredBenefitIds),
+      requiredBenefitIds: normalizedRequiredBenefitIds,
+      preferredBenefitIds: normalizedPreferredBenefitIds,
       disqualifiers: [],
       locationPreferences: normalizedLocations,
+      willingToRelocate: form.willingToRelocate,
       hardFilters: normalizedHardFilters,
     });
     setErrors([]);
@@ -203,6 +297,14 @@ function ProfileSection({
         <label className="text-xs font-medium text-neutral-600 block flex items-center gap-1">
           <MapPin size={12} /> Location Preferences
         </label>
+        <label className="inline-flex items-center gap-2 text-xs text-neutral-600">
+          <input
+            type="checkbox"
+            checked={form.willingToRelocate}
+            onChange={(event) => setForm((prev) => ({ ...prev, willingToRelocate: event.target.checked }))}
+          />
+          Willing to relocate
+        </label>
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={() => setForm((prev) => ({ ...prev, locationPreferences: [...prev.locationPreferences, createLocationPreference('Remote')] }))} className="rounded-full border border-neutral-200 px-3 py-1 text-xs text-neutral-700 hover:bg-neutral-50">+ Remote</button>
           <button type="button" onClick={() => setForm((prev) => ({ ...prev, locationPreferences: [...prev.locationPreferences, createLocationPreference('Hybrid')] }))} className="rounded-full border border-neutral-200 px-3 py-1 text-xs text-neutral-700 hover:bg-neutral-50">+ Hybrid</button>
@@ -217,25 +319,62 @@ function ProfileSection({
         <div className="space-y-2">
           {form.locationPreferences.map((preference) => (
             <div key={preference.id} className="rounded-lg border border-neutral-200 bg-neutral-50 p-3 space-y-2">
-              <div className="grid grid-cols-1 sm:grid-cols-[140px_1fr_auto] gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-[180px_1fr_auto] gap-2">
                 <select
                   value={preference.type}
                   onChange={(event) => updateLocationPreference(preference.id, {
                     type: event.target.value as LocationPreference['type'],
                     radiusMiles: event.target.value === 'Remote' ? undefined : (preference.radiusMiles ?? 25),
                   })}
-                  className="px-3 py-2 bg-white border border-neutral-200 rounded-lg text-sm"
+                  className="px-3 py-2 pr-10 bg-white border border-neutral-200 rounded-lg text-sm"
                 >
                   <option value="Remote">Remote</option>
                   <option value="Hybrid">Hybrid</option>
                   <option value="Onsite">Onsite</option>
                 </select>
-                <input
-                  value={preference.city ?? ''}
-                  onChange={(event) => updateLocationPreference(preference.id, { city: event.target.value })}
-                  placeholder={preference.type === 'Remote' ? 'Optional city' : 'City'}
-                  className="px-3 py-2 bg-white border border-neutral-200 rounded-lg text-sm"
-                />
+                {preference.type === 'Remote' ? (
+                  <div className="rounded-lg border border-dashed border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-500">
+                    Remote roles do not require city or radius.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-[1fr_180px] gap-2">
+                    <input
+                      value={preference.city ?? ''}
+                      onChange={(event) => updateLocationPreference(preference.id, { city: event.target.value })}
+                      placeholder="City (required)"
+                      className="px-3 py-2 bg-white border border-neutral-200 rounded-lg text-sm"
+                    />
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-medium text-neutral-600">Radius (miles)</label>
+                      <select
+                        value={
+                          preference.radiusMiles && STANDARD_RADIUS_MILES.includes(preference.radiusMiles as (typeof STANDARD_RADIUS_MILES)[number])
+                            ? String(preference.radiusMiles)
+                            : (preference.radiusMiles ? 'custom' : '')
+                        }
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          if (!value) {
+                            updateLocationPreference(preference.id, { radiusMiles: undefined });
+                            return;
+                          }
+                          if (value === 'custom') {
+                            updateLocationPreference(preference.id, { radiusMiles: preference.radiusMiles ?? 25 });
+                            return;
+                          }
+                          updateLocationPreference(preference.id, { radiusMiles: Number(value) });
+                        }}
+                        className="px-3 py-2 pr-10 bg-white border border-neutral-200 rounded-lg text-sm"
+                      >
+                        <option value="">Select radius</option>
+                        {STANDARD_RADIUS_MILES.map((miles) => (
+                          <option key={miles} value={miles}>{miles} miles</option>
+                        ))}
+                        <option value="custom">Custom</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
                 <button
                   type="button"
                   onClick={() => setForm((prev) => ({
@@ -247,8 +386,11 @@ function ProfileSection({
                   Remove
                 </button>
               </div>
-              {preference.type !== 'Remote' && (
-                <div className="grid grid-cols-1 sm:grid-cols-[140px_1fr] gap-2 items-center">
+              {preference.type !== 'Remote'
+                && preference.radiusMiles !== undefined
+                && !STANDARD_RADIUS_MILES.includes(preference.radiusMiles as (typeof STANDARD_RADIUS_MILES)[number]) && (
+                <div className="grid grid-cols-1 sm:grid-cols-[180px_1fr] gap-2 items-center">
+                  <label className="text-[11px] font-medium text-neutral-600">Custom radius (miles)</label>
                   <input
                     type="number"
                     min={1}
@@ -257,17 +399,9 @@ function ProfileSection({
                     onChange={(event) => updateLocationPreference(preference.id, {
                       radiusMiles: event.target.value ? Number(event.target.value) : undefined,
                     })}
-                    placeholder="Radius miles"
+                    placeholder="Enter miles"
                     className="px-3 py-2 bg-white border border-neutral-200 rounded-lg text-sm"
                   />
-                  <label className="inline-flex items-center gap-2 text-xs text-neutral-600">
-                    <input
-                      type="checkbox"
-                      checked={preference.willingToRelocate}
-                      onChange={(event) => updateLocationPreference(preference.id, { willingToRelocate: event.target.checked })}
-                    />
-                    Willing to relocate
-                  </label>
                 </div>
               )}
             </div>
@@ -277,17 +411,6 @@ function ProfileSection({
 
       <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3 space-y-3">
         <div className="text-sm font-semibold text-neutral-800">Hard Filters</div>
-        <label className="inline-flex items-center gap-2 text-xs text-neutral-700">
-          <input
-            type="checkbox"
-            checked={form.hardFilters.requiresVisaSponsorship}
-            onChange={(event) => setForm((prev) => ({
-              ...prev,
-              hardFilters: { ...prev.hardFilters, requiresVisaSponsorship: event.target.checked },
-            }))}
-          />
-          Require visa sponsorship
-        </label>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="text-xs font-medium text-neutral-600 mb-1 block flex items-center gap-1">
@@ -315,18 +438,34 @@ function ProfileSection({
             />
           </div>
           <div>
-            <label className="text-xs font-medium text-neutral-600 mb-1 block">Employment Type</label>
-            <select
-              value={form.hardFilters.employmentType}
-              onChange={(event) => setForm((prev) => ({
-                ...prev,
-                hardFilters: { ...prev.hardFilters, employmentType: event.target.value as HardFilters['employmentType'] },
-              }))}
-              className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm"
-            >
-              <option value="ft_only">FT only</option>
-              <option value="exclude_contract">Exclude contract</option>
-            </select>
+            <label className="text-xs font-medium text-neutral-600 mb-1 block">Employment Types</label>
+            <div className="rounded-lg border border-neutral-300 bg-white p-2 flex flex-wrap gap-1.5">
+              {EMPLOYMENT_TYPE_OPTIONS.map((option) => {
+                const selected = form.hardFilters.employmentTypes.includes(option.id);
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => setForm((prev) => ({
+                      ...prev,
+                      hardFilters: {
+                        ...prev.hardFilters,
+                        employmentTypes: selected
+                          ? prev.hardFilters.employmentTypes.filter((id) => id !== option.id)
+                          : [...prev.hardFilters.employmentTypes, option.id],
+                      },
+                    }))}
+                    className={`rounded-full px-2.5 py-1 text-[11px] border ${
+                      selected
+                        ? 'border-brand-300 bg-brand-50 text-brand-700'
+                        : 'border-neutral-200 text-neutral-600 hover:bg-neutral-50'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
           <div>
             <label className="text-xs font-medium text-neutral-600 mb-1 block">Max Onsite Days / Week</label>
@@ -357,61 +496,30 @@ function ProfileSection({
             />
           </div>
         </div>
+        <label className="inline-flex items-center gap-2 text-xs text-neutral-500">
+          <input
+            type="checkbox"
+            checked={form.hardFilters.requiresVisaSponsorship}
+            onChange={(event) => setForm((prev) => ({
+              ...prev,
+              hardFilters: { ...prev.hardFilters, requiresVisaSponsorship: event.target.checked },
+            }))}
+          />
+          Require visa sponsorship (optional hard filter)
+        </label>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>
-          <label className="text-xs font-medium text-neutral-600 mb-1 block">Required Benefits</label>
-          <div className="rounded-lg border border-neutral-300 bg-white px-3 py-2">
-            <div className="flex flex-wrap gap-1.5 mb-2">
-              {form.requiredBenefits.map((value) => (
-                <span key={value} className="inline-flex items-center gap-1 rounded-full bg-neutral-100 text-neutral-700 text-xs px-2.5 py-1">
-                  {value}
-                  <button type="button" onClick={() => removeTag('requiredBenefits', value)} className="text-neutral-600 hover:text-neutral-900">×</button>
-                </span>
-              ))}
-            </div>
-            <input
-              value={drafts.requiredBenefit}
-              onChange={(event) => setDrafts((prev) => ({ ...prev, requiredBenefit: event.target.value }))}
-              onBlur={() => addTag('requiredBenefits', 'requiredBenefit')}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' || event.key === ',') {
-                  event.preventDefault();
-                  addTag('requiredBenefits', 'requiredBenefit');
-                }
-              }}
-              placeholder="Type and press Enter"
-              className="w-full border-0 p-0 text-sm focus:outline-none"
-            />
-          </div>
-        </div>
-        <div>
-          <label className="text-xs font-medium text-neutral-600 mb-1 block">Preferred Benefits</label>
-          <div className="rounded-lg border border-neutral-300 bg-white px-3 py-2">
-            <div className="flex flex-wrap gap-1.5 mb-2">
-              {form.preferredBenefits.map((value) => (
-                <span key={value} className="inline-flex items-center gap-1 rounded-full bg-neutral-100 text-neutral-700 text-xs px-2.5 py-1">
-                  {value}
-                  <button type="button" onClick={() => removeTag('preferredBenefits', value)} className="text-neutral-600 hover:text-neutral-900">×</button>
-                </span>
-              ))}
-            </div>
-            <input
-              value={drafts.preferredBenefit}
-              onChange={(event) => setDrafts((prev) => ({ ...prev, preferredBenefit: event.target.value }))}
-              onBlur={() => addTag('preferredBenefits', 'preferredBenefit')}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' || event.key === ',') {
-                  event.preventDefault();
-                  addTag('preferredBenefits', 'preferredBenefit');
-                }
-              }}
-              placeholder="Type and press Enter"
-              className="w-full border-0 p-0 text-sm focus:outline-none"
-            />
-          </div>
-        </div>
+        <BenefitCatalogPicker
+          label="Required Benefits"
+          selectedIds={form.requiredBenefitIds}
+          onChange={(next) => setForm((prev) => ({ ...prev, requiredBenefitIds: next }))}
+        />
+        <BenefitCatalogPicker
+          label="Preferred Benefits"
+          selectedIds={form.preferredBenefitIds}
+          onChange={(next) => setForm((prev) => ({ ...prev, preferredBenefitIds: next }))}
+        />
       </div>
 
       {errors.length > 0 && (

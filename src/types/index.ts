@@ -37,7 +37,13 @@ export type LocationType = 'Remote' | 'Hybrid' | 'In-person' | 'Unknown';
 
 export type LocationPreferenceType = 'Remote' | 'Hybrid' | 'Onsite';
 
-export type HardFilterEmploymentType = 'ft_only' | 'exclude_contract';
+export type HardFilterEmploymentType =
+  | 'full_time_w2'
+  | 'contract'
+  | 'contract_to_hire'
+  | 'part_time'
+  | 'internship'
+  | 'temporary';
 
 export type CompanyStage =
   | 'Seed'
@@ -259,7 +265,7 @@ export interface HardFilters {
   minBaseSalary: number;
   maxOnsiteDaysPerWeek: number;
   maxTravelPercent: number;
-  employmentType: HardFilterEmploymentType;
+  employmentTypes: HardFilterEmploymentType[];
 }
 
 export interface Profile {
@@ -275,6 +281,9 @@ export interface Profile {
   locationPreference: string;
   disqualifiers: string[];
   locationPreferences: LocationPreference[];
+  willingToRelocate: boolean;
+  requiredBenefitIds: string[];
+  preferredBenefitIds: string[];
   hardFilters: HardFilters;
   digitalResume?: ImportDraft;
   updatedAt: string;
@@ -398,7 +407,7 @@ export interface HardFilterSuggestion {
   minBaseSalary?: number;
   maxOnsiteDaysPerWeek?: number;
   maxTravelPercent?: number;
-  employmentType?: 'full_time_only' | 'exclude_contract';
+  employmentTypes?: HardFilterEmploymentType[];
 }
 
 export interface ProfilePrefillSuggestion {

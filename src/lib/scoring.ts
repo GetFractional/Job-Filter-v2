@@ -3,6 +3,7 @@
 // See docs/MASTER_PLAN.md section 9 for spec.
 
 import type { Job, FitLabel, Profile, Requirement, Claim, RequirementPriority, RequirementMatch } from '../types';
+import { BENEFITS_CATALOG, legacyBenefitsToIds } from './benefitsCatalog';
 import { sanitizeHardFilters } from './profilePreferences';
 
 // ============================================================
@@ -58,6 +59,8 @@ const VISA_SPONSORSHIP_RESTRICTION_PATTERNS = [
   'no sponsorship available',
 ];
 
+const BENEFIT_BY_ID = new Map(BENEFITS_CATALOG.map((benefit) => [benefit.id, benefit]));
+
 export interface ScoringResult {
   fitScore: number;
   fitLabel: FitLabel;
@@ -100,6 +103,28 @@ function estimateOnsiteDaysPerWeek(job: Partial<Job>, jd: string): number | null
   return null;
 }
 
+function inferEmploymentFilterType(job: Partial<Job>, jd: string): 'full_time_w2' | 'contract' | 'contract_to_hire' | 'part_time' | 'temporary' | null {
+  if (/(contract[\s-]*to[\s-]*hire|temp[\s-]*to[\s-]*perm)/i.test(jd)) {
+    return 'contract_to_hire';
+  }
+
+  if (/(temporary|temp role|seasonal)/i.test(jd)) {
+    return 'temporary';
+  }
+
+  if (job.employmentType === 'Full-time') return 'full_time_w2';
+  if (job.employmentType === 'Contract' || job.employmentType === 'Freelance') return 'contract';
+  if (job.employmentType === 'Part-time') return 'part_time';
+
+  return null;
+}
+
+function hasBenefitMatch(jd: string, benefitId: string): boolean {
+  const benefit = BENEFIT_BY_ID.get(benefitId);
+  if (!benefit) return false;
+  return benefit.keywords.some((keyword) => jd.includes(keyword.toLowerCase()));
+}
+
 function matchesLocationPreferences(job: Partial<Job>, profile: Profile): boolean | null {
   if (!profile.locationPreferences || profile.locationPreferences.length === 0) return null;
   if (!job.locationType || job.locationType === 'Unknown') return null;
@@ -113,7 +138,7 @@ function matchesLocationPreferences(job: Partial<Job>, profile: Profile): boolea
 
     if (!preference.city?.trim()) return true;
     if (location.includes(preference.city.trim().toLowerCase())) return true;
-    if (preference.willingToRelocate) return true;
+    if (profile.willingToRelocate || preference.willingToRelocate) return true;
   }
 
   return false;
@@ -126,6 +151,12 @@ export function scoreJob(job: Partial<Job>, profile: Profile, claims?: Claim[]):
     ...(profile.hardFilters ?? {}),
     minBaseSalary: profile.hardFilters?.minBaseSalary ?? profile.compFloor,
   });
+  const requiredBenefitIds = profile.requiredBenefitIds?.length
+    ? profile.requiredBenefitIds
+    : legacyBenefitsToIds(profile.requiredBenefits);
+  const preferredBenefitIds = profile.preferredBenefitIds?.length
+    ? profile.preferredBenefitIds
+    : legacyBenefitsToIds(profile.preferredBenefits);
 
   const disqualifiers: string[] = [];
   const reasonsToPursue: string[] = [];
@@ -163,12 +194,17 @@ export function scoreJob(job: Partial<Job>, profile: Profile, claims?: Claim[]):
     disqualifiers.push(`Max compensation ($${job.compMax.toLocaleString()}) is below floor ($${effectiveCompFloor.toLocaleString()})`);
   }
 
-  // 4. Employment type filter
-  if (hardFilters.employmentType === 'ft_only' && job.employmentType && job.employmentType !== 'Full-time') {
-    disqualifiers.push('Role is not full-time, which is outside your hard filters');
+  for (const benefitId of requiredBenefitIds) {
+    if (!hasBenefitMatch(jd, benefitId)) {
+      const benefitLabel = BENEFIT_BY_ID.get(benefitId)?.label ?? benefitId;
+      disqualifiers.push(`Missing required benefit: ${benefitLabel}`);
+    }
   }
-  if (hardFilters.employmentType === 'exclude_contract' && job.employmentType === 'Contract') {
-    disqualifiers.push('Contract role is excluded by your hard filters');
+
+  // 4. Employment type filter
+  const jobEmploymentFilterType = inferEmploymentFilterType(job, jd);
+  if (jobEmploymentFilterType && hardFilters.employmentTypes.length > 0 && !hardFilters.employmentTypes.includes(jobEmploymentFilterType)) {
+    disqualifiers.push('Role employment type falls outside your hard filters');
   }
 
   // 5. Sponsorship filter
@@ -282,6 +318,12 @@ export function scoreJob(job: Partial<Job>, profile: Profile, claims?: Claim[]):
   compScore += Math.min(benefitCount * 2, 10);
   if (benefitCount >= 3) {
     reasonsToPursue.push('Strong benefits package indicated');
+  }
+
+  const preferredBenefitMatches = preferredBenefitIds.filter((benefitId) => hasBenefitMatch(jd, benefitId)).length;
+  if (preferredBenefitMatches > 0) {
+    compScore += Math.min(preferredBenefitMatches * 1.5, 6);
+    reasonsToPursue.push(`${preferredBenefitMatches} preferred benefit${preferredBenefitMatches === 1 ? '' : 's'} matched`);
   }
 
   compScore = Math.min(compScore, 25);

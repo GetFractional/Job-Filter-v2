@@ -11,15 +11,18 @@ const baseProfile: Profile = {
   compTarget: 180000,
   requiredBenefits: ['Medical'],
   preferredBenefits: ['401(k)', 'Equity'],
+  requiredBenefitIds: [],
+  preferredBenefitIds: [],
   locationPreference: 'Remote',
   disqualifiers: [],
   locationPreferences: [{ id: 'lp-1', type: 'Remote', city: '', willingToRelocate: false }],
+  willingToRelocate: false,
   hardFilters: {
     requiresVisaSponsorship: false,
     minBaseSalary: 150000,
     maxOnsiteDaysPerWeek: 5,
     maxTravelPercent: 100,
-    employmentType: 'exclude_contract',
+    employmentTypes: ['full_time_w2', 'contract_to_hire', 'part_time', 'internship', 'temporary'],
   },
   updatedAt: new Date().toISOString(),
 };
@@ -112,7 +115,7 @@ describe('scoreJob', () => {
     };
     const result = scoreJob(contractJob, baseProfile);
     expect(result.fitScore).toBe(0);
-    expect(result.disqualifiers.some((d) => d.toLowerCase().includes('contract'))).toBe(true);
+    expect(result.disqualifiers.some((d) => d.toLowerCase().includes('employment type'))).toBe(true);
   });
 
   it('applies max travel hard filter', () => {
@@ -177,6 +180,7 @@ describe('scoreJob', () => {
         Looking for a unicorn who can do it all.
         You need to wear many hats in this fast-paced environment.
         Must have miracle-worker mentality.
+        Benefits: Medical
       `,
     };
     const result = scoreJob(riskyJob, baseProfile);
