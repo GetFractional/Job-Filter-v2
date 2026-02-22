@@ -24,6 +24,9 @@ const baseProfile: Profile = {
     maxTravelPercent: 100,
     employmentTypes: ['full_time_w2', 'contract_to_hire', 'part_time', 'internship', 'temporary'],
   },
+  scoringPolicy: {
+    seedStagePolicy: 'warn',
+  },
   updatedAt: new Date().toISOString(),
 };
 
@@ -88,14 +91,30 @@ describe('scoreJob', () => {
     expect(result.disqualifiers.length).toBeGreaterThan(0);
   });
 
-  it('disqualifies seed-stage companies', () => {
+  it('treats seed-stage as warning by default', () => {
     const seedJob: Partial<Job> = {
       ...baseJob,
       jobDescription: 'Seed stage startup looking for a marketing lead to help us grow.',
     };
     const result = scoreJob(seedJob, baseProfile);
+    expect(result.disqualifiers.some((d) => d.toLowerCase().includes('seed-stage'))).toBe(false);
+    expect((result.riskWarnings || []).some((warning) => warning.toLowerCase().includes('seed-stage'))).toBe(true);
+  });
+
+  it('allows users to hard-disqualify seed-stage companies', () => {
+    const seedJob: Partial<Job> = {
+      ...baseJob,
+      jobDescription: 'Seed stage startup looking for a marketing lead to help us grow.',
+    };
+    const strictProfile: Profile = {
+      ...baseProfile,
+      scoringPolicy: {
+        seedStagePolicy: 'disqualify',
+      },
+    };
+    const result = scoreJob(seedJob, strictProfile);
     expect(result.fitScore).toBe(0);
-    expect(result.fitLabel).toBe('Pass');
+    expect(result.disqualifiers.some((d) => d.toLowerCase().includes('seed-stage'))).toBe(true);
   });
 
   it('disqualifies when comp is below floor', () => {
@@ -133,6 +152,21 @@ describe('scoreJob', () => {
     const result = scoreJob(travelJob, strictProfile);
     expect(result.fitScore).toBe(0);
     expect(result.disqualifiers.some((d) => d.toLowerCase().includes('travel'))).toBe(true);
+  });
+
+  it('does not hard-fail when required benefits are unknown in the job description', () => {
+    const profileWithRequiredBenefits: Profile = {
+      ...baseProfile,
+      requiredBenefitIds: ['health_insurance'],
+      requiredBenefits: ['Health insurance'],
+    };
+    const sparseBenefitsJob: Partial<Job> = {
+      ...baseJob,
+      jobDescription: 'Director of Growth role. Compensation: $160,000 - $200,000.',
+    };
+    const result = scoreJob(sparseBenefitsJob, profileWithRequiredBenefits);
+    expect(result.disqualifiers.some((d) => d.toLowerCase().includes('required benefit'))).toBe(false);
+    expect(result.riskWarnings.some((warning) => warning.toLowerCase().includes('could not verify required benefit'))).toBe(true);
   });
 
   it('extracts requirements from JD', () => {
@@ -197,6 +231,12 @@ describe('scoreJob', () => {
       breakdown.domainFit -
       breakdown.riskPenalty;
     expect(result.fitScore).toBe(Math.max(0, Math.min(100, sum)));
+  });
+
+  it('returns must-have summary and gap suggestions for explainability', () => {
+    const result = scoreJob(baseJob, baseProfile, testClaims);
+    expect(result.mustHaveSummary.total).toBeGreaterThanOrEqual(0);
+    expect(Array.isArray(result.gapSuggestions)).toBe(true);
   });
 });
 

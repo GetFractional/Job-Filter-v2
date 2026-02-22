@@ -14,8 +14,9 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import { STAGE_CATEGORIES, PIPELINE_STAGES } from '../types';
+import { STAGE_CATEGORIES } from '../types';
 import type { Job, FitLabel, PipelineStage } from '../types';
+import { getEffectiveFitLabel } from '../lib/scoreBands';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -87,10 +88,11 @@ const FIT_LABEL_STYLES: Record<FitLabel, string> = {
   Pass: 'text-red-600 bg-red-50 ring-1 ring-red-200',
 };
 
-const SCORE_COLOR = (score: number | undefined): string => {
-  if (score === undefined) return 'text-neutral-400';
-  if (score >= 70) return 'text-green-700';
-  if (score >= 45) return 'text-amber-600';
+const SCORE_COLOR = (score: number | undefined, label: FitLabel | undefined): string => {
+  const normalized = getEffectiveFitLabel(score, label);
+  if (!normalized) return 'text-neutral-400';
+  if (normalized === 'Pursue') return 'text-green-700';
+  if (normalized === 'Maybe') return 'text-amber-600';
   return 'text-red-600';
 };
 
@@ -121,10 +123,11 @@ const CATEGORY_META: Record<string, { ring: string; badge: string; dot: string }
 // Job Card (dense)
 // ---------------------------------------------------------------------------
 
-function JobCard({ job, onClick, onMoveStage }: { job: Job; onClick: () => void; onMoveStage: (stage: PipelineStage) => void }) {
+function JobCard({ job, onClick }: { job: Job; onClick: () => void }) {
   const comp = formatComp(job);
   const loc = formatLocation(job);
   const action = NEXT_ACTION[job.stage];
+  const fitLabel = getEffectiveFitLabel(job.fitScore, job.fitLabel);
 
   return (
     <div
@@ -140,11 +143,11 @@ function JobCard({ job, onClick, onMoveStage }: { job: Job; onClick: () => void;
           {job.title}
         </h4>
         <div className="flex items-center gap-1.5 shrink-0">
-          {job.fitLabel && (
+          {fitLabel && (
             <span
-              className={`text-[10px] font-semibold uppercase tracking-wide px-1.5 py-px rounded ${FIT_LABEL_STYLES[job.fitLabel]}`}
+              className={`text-[10px] font-semibold uppercase tracking-wide px-1.5 py-px rounded ${FIT_LABEL_STYLES[fitLabel]}`}
             >
-              {job.fitLabel}
+              {fitLabel}
             </span>
           )}
           <ChevronRight
@@ -158,7 +161,7 @@ function JobCard({ job, onClick, onMoveStage }: { job: Job; onClick: () => void;
       <div className="flex items-center gap-2 mt-0.5">
         <span className="text-xs text-neutral-500 truncate">{job.company}</span>
         {job.fitScore !== undefined && (
-          <span className={`text-[11px] font-bold tabular-nums ${SCORE_COLOR(job.fitScore)}`}>
+          <span className={`text-[11px] font-bold tabular-nums ${SCORE_COLOR(job.fitScore, fitLabel)}`}>
             {job.fitScore}
           </span>
         )}
@@ -186,7 +189,7 @@ function JobCard({ job, onClick, onMoveStage }: { job: Job; onClick: () => void;
         </div>
       )}
 
-      {/* Row 4: Next action + stage move */}
+      {/* Row 4: Next action */}
       <div className="flex items-center justify-between mt-1.5">
         {action && (
           <div className="flex items-center gap-1 text-[10px] font-medium text-brand-600 opacity-70 group-hover:opacity-100 transition-opacity">
@@ -194,21 +197,7 @@ function JobCard({ job, onClick, onMoveStage }: { job: Job; onClick: () => void;
             <span>{action}</span>
           </div>
         )}
-        <select
-          value={job.stage}
-          onClick={(e) => e.stopPropagation()}
-          onKeyDown={(e) => e.stopPropagation()}
-          onChange={(e) => {
-            e.stopPropagation();
-            onMoveStage(e.target.value as PipelineStage);
-          }}
-          className="text-[10px] text-neutral-400 bg-transparent border-none cursor-pointer hover:text-neutral-600 focus:outline-none appearance-none pr-3 py-0 pl-0 ml-auto"
-          title="Move to stage"
-        >
-          {PIPELINE_STAGES.map((s) => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-        </select>
+        <span className="text-[10px] text-neutral-400 ml-auto">Open job for stage actions</span>
       </div>
     </div>
   );
@@ -221,12 +210,11 @@ function JobCard({ job, onClick, onMoveStage }: { job: Job; onClick: () => void;
 export function PipelinePage() {
   const navigate = useNavigate();
   const jobs = useStore((s) => s.jobs);
-  const moveJobToStage = useStore((s) => s.moveJobToStage);
 
   // ---- Computed stats ----
   const stats = useMemo(() => {
-    const pursueCount = jobs.filter((j) => j.fitLabel === 'Pursue').length;
-    const maybeCount = jobs.filter((j) => j.fitLabel === 'Maybe').length;
+    const pursueCount = jobs.filter((job) => getEffectiveFitLabel(job.fitScore, job.fitLabel) === 'Pursue').length;
+    const maybeCount = jobs.filter((job) => getEffectiveFitLabel(job.fitScore, job.fitLabel) === 'Maybe').length;
     const outreachStages: PipelineStage[] = [
       'Outreach Sent',
       'Response/Screen',
@@ -348,7 +336,7 @@ export function PipelinePage() {
             icon={<Target size={13} className="text-neutral-400" />}
             label="Avg Score"
             value={stats.avgScore}
-            valueClass={SCORE_COLOR(stats.avgScore)}
+            valueClass={SCORE_COLOR(stats.avgScore, getEffectiveFitLabel(stats.avgScore, undefined))}
           />
         )}
       </div>
@@ -404,7 +392,6 @@ export function PipelinePage() {
                             key={job.id}
                             job={job}
                             onClick={() => navigate(`/job/${job.id}`)}
-                            onMoveStage={(stage) => moveJobToStage(job.id, stage)}
                           />
                         ))}
                       </div>

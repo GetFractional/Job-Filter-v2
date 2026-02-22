@@ -167,6 +167,7 @@ function ProfileSection({
     locationPreferences: profile.locationPreferences?.length ? profile.locationPreferences : [],
     willingToRelocate: Boolean(profile.willingToRelocate || profile.locationPreferences?.some((entry) => entry.willingToRelocate)),
     hardFilters: initialHardFilters,
+    seedStagePolicy: profile.scoringPolicy?.seedStagePolicy ?? 'warn',
   });
   const [drafts, setDrafts] = useState({
     targetRole: '',
@@ -272,6 +273,9 @@ function ProfileSection({
       locationPreferences: normalizedLocations,
       willingToRelocate: form.willingToRelocate,
       hardFilters: normalizedHardFilters,
+      scoringPolicy: {
+        seedStagePolicy: form.seedStagePolicy,
+      },
     });
     setErrors([]);
     setSaved(true);
@@ -581,6 +585,35 @@ function ProfileSection({
         >
           I will need visa sponsorship
         </button>
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-neutral-600 block">Early-stage company policy</label>
+          <div className="flex flex-wrap gap-2">
+            {([
+              { id: 'warn', label: 'Warn (default)' },
+              { id: 'disqualify', label: 'Hard disqualify' },
+              { id: 'ignore', label: 'Ignore stage' },
+            ] as const).map((option) => {
+              const selected = form.seedStagePolicy === option.id;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => setForm((prev) => ({ ...prev, seedStagePolicy: option.id }))}
+                  className={`rounded-full border px-3 py-1 text-xs ${
+                    selected
+                      ? 'border-brand-300 bg-brand-50 text-brand-700'
+                      : 'border-neutral-200 text-neutral-600 hover:bg-neutral-100'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-[11px] text-neutral-500">
+            Controls whether seed-stage companies are warnings, blockers, or ignored in scoring.
+          </p>
+        </div>
       </div>
 
       <div className="space-y-3">

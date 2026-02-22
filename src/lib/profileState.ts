@@ -25,6 +25,9 @@ export function createEmptyProfile(timestamp = new Date().toISOString()): Profil
     locationPreferences: [],
     willingToRelocate: false,
     hardFilters: { ...DEFAULT_HARD_FILTERS },
+    scoringPolicy: {
+      seedStagePolicy: 'warn',
+    },
     updatedAt: timestamp,
   };
 }
