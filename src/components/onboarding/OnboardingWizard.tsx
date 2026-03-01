@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from 'react';
 import {
   AlertTriangle,
   Briefcase,
@@ -17,8 +17,6 @@ import {
   Settings2,
   Sparkles,
   Upload,
-  User,
-  X,
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { DigitalResumeBuilder } from '../resume/DigitalResumeBuilder';
@@ -66,11 +64,10 @@ interface OnboardingWizardProps {
   onComplete: () => void;
 }
 
-type Step = 'welcome' | 'profile' | 'resume' | 'preferences' | 'ready';
+type Step = 'welcome' | 'resume' | 'preferences' | 'ready';
 
 const STEPS: { id: Step; label: string }[] = [
   { id: 'welcome', label: 'Welcome' },
-  { id: 'profile', label: 'Profile' },
   { id: 'resume', label: 'Resume' },
   { id: 'preferences', label: 'Preferences' },
   { id: 'ready', label: 'Ready' },
@@ -83,17 +80,6 @@ const LOW_QUALITY_REASON_CODES = new Set<ParseReasonCode>([
   'ROLE_DETECT_FAIL',
   'COMPANY_DETECT_FAIL',
 ]);
-
-interface SuggestionSelectionState {
-  firstName: boolean;
-  lastName: boolean;
-  targetRoles: boolean;
-  skillHints: boolean;
-  toolHints: boolean;
-  locationHints: boolean;
-  compensationFloor: boolean;
-  compensationTarget: boolean;
-}
 
 function parseIntegerInput(value: string): number {
   const digitsOnly = value.replace(/[^\d]/g, '');
@@ -117,21 +103,6 @@ function countDraftItems(draft: ImportDraft): { companies: number; roles: number
       return acc;
     },
     { companies: 0, roles: 0, highlights: 0, outcomes: 0 },
-  );
-}
-
-function hasProfileSuggestions(session: ImportSession | null): boolean {
-  if (!session) return false;
-  const suggestion = session.profileSuggestion;
-  return Boolean(
-    suggestion.firstName
-    || suggestion.lastName
-    || suggestion.targetRoles.length > 0
-    || suggestion.skillHints.length > 0
-    || suggestion.toolHints.length > 0
-    || suggestion.locationHints.length > 0
-    || suggestion.compensation?.floor
-    || suggestion.compensation?.target,
   );
 }
 
@@ -195,77 +166,6 @@ function createParsedSession(
     updatedAt: new Date().toISOString(),
     storage: 'localStorage',
   };
-}
-
-function ChipInput({
-  label,
-  values,
-  placeholder,
-  onChange,
-}: {
-  label: string;
-  values: string[];
-  placeholder: string;
-  onChange: (next: string[]) => void;
-}) {
-  const [draft, setDraft] = useState('');
-
-  const addDraft = () => {
-    const value = draft.trim();
-    if (!value) return;
-    if (values.includes(value)) {
-      setDraft('');
-      return;
-    }
-    onChange([...values, value]);
-    setDraft('');
-  };
-
-  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Enter' || event.key === ',') {
-      event.preventDefault();
-      addDraft();
-    }
-
-    if (event.key === 'Backspace' && !draft && values.length > 0) {
-      onChange(values.slice(0, -1));
-    }
-  };
-
-  return (
-    <div>
-      <label className="text-sm font-medium text-neutral-700 mb-1.5 block">{label}</label>
-      <div className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500/20">
-        <div className="flex flex-wrap gap-1.5 mb-1.5">
-          {values.map((value) => (
-            <span
-              key={value}
-              className="inline-flex items-center gap-1 rounded-full bg-brand-50 text-brand-700 text-xs px-2.5 py-1"
-            >
-              {value}
-              <button
-                type="button"
-                onClick={() => onChange(values.filter((v) => v !== value))}
-                className="text-brand-600 hover:text-brand-800"
-                aria-label={`Remove ${value}`}
-              >
-                <X size={12} />
-              </button>
-            </span>
-          ))}
-        </div>
-        <input
-          type="text"
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={handleKeyDown}
-          onBlur={addDraft}
-          placeholder={placeholder}
-          className="w-full border-0 p-0 text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none"
-        />
-      </div>
-    </div>
-  );
 }
 
 function BenefitCatalogPicker({
@@ -380,17 +280,6 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const [selectedFileMeta, setSelectedFileMeta] = useState<{ name: string; size: number; type: string } | null>(null);
   const [readingFile, setReadingFile] = useState(false);
   const [fileImportError, setFileImportError] = useState<string | null>(null);
-  const [suggestionsDismissed, setSuggestionsDismissed] = useState(false);
-  const [suggestionSelections, setSuggestionSelections] = useState<SuggestionSelectionState>({
-    firstName: true,
-    lastName: true,
-    targetRoles: true,
-    skillHints: true,
-    toolHints: true,
-    locationHints: true,
-    compensationFloor: true,
-    compensationTarget: true,
-  });
   const [troubleshootOpen, setTroubleshootOpen] = useState(false);
   const [showAllStatuses, setShowAllStatuses] = useState(false);
   const [showAdvancedPreferences, setShowAdvancedPreferences] = useState(false);
@@ -429,37 +318,6 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const bulletCircleCount = importSession
     ? (importSession.diagnostics.topBulletGlyphs ?? []).find((entry) => entry.glyph === '●')?.count ?? 0
     : 0;
-  const showSuggestionCard = !suggestionsDismissed && hasProfileSuggestions(importSession);
-
-  useEffect(() => {
-    if (!importSession) return;
-    setSuggestionSelections({
-      firstName: Boolean(importSession.profileSuggestion.firstName),
-      lastName: Boolean(importSession.profileSuggestion.lastName),
-      targetRoles: importSession.profileSuggestion.targetRoles.length > 0,
-      skillHints: importSession.profileSuggestion.skillHints.length > 0,
-      toolHints: importSession.profileSuggestion.toolHints.length > 0,
-      locationHints: importSession.profileSuggestion.locationHints.length > 0,
-      compensationFloor: Boolean(importSession.profileSuggestion.compensation?.floor),
-      compensationTarget: Boolean(importSession.profileSuggestion.compensation?.target),
-    });
-  }, [importSession]);
-
-  const handleSaveProfile = useCallback(async () => {
-    setSaving(true);
-    try {
-      await updateProfile({
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        name: `${firstName} ${lastName}`.trim(),
-        targetRoles,
-        skills,
-        tools,
-      });
-    } finally {
-      setSaving(false);
-    }
-  }, [firstName, lastName, skills, targetRoles, tools, updateProfile]);
 
   const handleSavePreferences = useCallback(async (): Promise<boolean> => {
     const errors: string[] = [];
@@ -510,6 +368,12 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     setSaving(true);
     try {
       await updateProfile({
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        name: `${firstName} ${lastName}`.trim(),
+        targetRoles,
+        skills,
+        tools,
         compFloor: normalizedHardFilters.minBaseSalary,
         compTarget: parseIntegerInput(compTarget),
         locationPreference: summarizeLocationPreferences(normalizedLocations),
@@ -530,65 +394,16 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   }, [
     compTarget,
     hardFilters,
+    lastName,
     locationPreferences,
     preferredBenefitIds,
+    firstName,
     requiredBenefitIds,
+    skills,
+    targetRoles,
+    tools,
     updateProfile,
     willingToRelocate,
-  ]);
-
-  const handleApplySuggestions = useCallback(() => {
-    if (!importSession) return;
-
-    const suggestion = importSession.profileSuggestion;
-    if (suggestionSelections.firstName && suggestion.firstName) {
-      setFirstName((prev) => prev || suggestion.firstName || '');
-    }
-    if (suggestionSelections.lastName && suggestion.lastName) {
-      setLastName((prev) => prev || suggestion.lastName || '');
-    }
-
-    if (suggestionSelections.targetRoles && suggestion.targetRoles.length > 0) {
-      const merged = [...new Set([...targetRoles, ...suggestion.targetRoles])];
-      setTargetRoles(merged);
-    }
-
-    if (suggestionSelections.skillHints && suggestion.skillHints.length > 0) {
-      setSkills((prev) => [...new Set([...prev, ...suggestion.skillHints])]);
-    }
-
-    if (suggestionSelections.toolHints && suggestion.toolHints.length > 0) {
-      setTools((prev) => [...new Set([...prev, ...suggestion.toolHints])]);
-    }
-
-    if (suggestionSelections.locationHints && suggestion.locationHints.length > 0 && locationPreferences.length === 0) {
-      const mappedHints = suggestion.locationHints.slice(0, 3).map((hint) => locationPreferenceFromHint(hint));
-      setLocationPreferences(mappedHints);
-    }
-
-    if (suggestionSelections.compensationFloor && suggestion.compensation?.floor && hardFilters.minBaseSalary <= 0) {
-      setHardFilters((prev) => ({ ...prev, minBaseSalary: suggestion.compensation?.floor ?? prev.minBaseSalary }));
-    }
-
-    if (suggestionSelections.compensationTarget && suggestion.compensation?.target && !compTarget.trim()) {
-      setCompTarget(formatIntegerInput(suggestion.compensation.target));
-    }
-
-    setSuggestionsDismissed(true);
-  }, [
-    compTarget,
-    hardFilters.minBaseSalary,
-    importSession,
-    locationPreferences.length,
-    suggestionSelections.compensationFloor,
-    suggestionSelections.compensationTarget,
-    suggestionSelections.firstName,
-    suggestionSelections.lastName,
-    suggestionSelections.locationHints,
-    suggestionSelections.skillHints,
-    suggestionSelections.toolHints,
-    suggestionSelections.targetRoles,
-    targetRoles,
   ]);
 
   const addLocationPreference = useCallback((type: LocationPreference['type']) => {
@@ -617,6 +432,44 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const rememberCity = useCallback((city: string) => {
     const next = saveRecentCity(city);
     setRecentCities(next);
+  }, []);
+
+  const applyParsedSuggestions = useCallback((session: ImportSession) => {
+    const suggestion = session.profileSuggestion;
+
+    setFirstName((prev) => prev || suggestion.firstName || '');
+    setLastName((prev) => prev || suggestion.lastName || '');
+
+    if (suggestion.targetRoles.length > 0) {
+      setTargetRoles((prev) => [...new Set([...prev, ...suggestion.targetRoles])]);
+    }
+
+    if (suggestion.skillHints.length > 0) {
+      setSkills((prev) => [...new Set([...prev, ...suggestion.skillHints])]);
+    }
+
+    if (suggestion.toolHints.length > 0) {
+      setTools((prev) => [...new Set([...prev, ...suggestion.toolHints])]);
+    }
+
+    if (suggestion.locationHints.length > 0) {
+      setLocationPreferences((prev) => {
+        if (prev.length > 0) return prev;
+        return suggestion.locationHints.slice(0, 3).map((hint) => locationPreferenceFromHint(hint));
+      });
+    }
+
+    if (suggestion.compensation?.floor) {
+      setHardFilters((prev) => (
+        prev.minBaseSalary > 0
+          ? prev
+          : { ...prev, minBaseSalary: suggestion.compensation?.floor ?? prev.minBaseSalary }
+      ));
+    }
+
+    if (suggestion.compensation?.target) {
+      setCompTarget((prev) => prev.trim() ? prev : formatIntegerInput(suggestion.compensation?.target ?? 0));
+    }
   }, []);
 
   const handleParseResume = useCallback((forcedMode?: SegmentationMode) => {
@@ -648,17 +501,17 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     const session = createParsedSession(result.draft, result.diagnostics, suggestion, sourceMeta);
 
     setImportSession(session);
+    applyParsedSuggestions(session);
     const persisted = useStore.getState().importSession;
     setStorageNotice(persisted ? getImportSessionStorageNotice(persisted.storage) : null);
 
-    setSuggestionsDismissed(false);
     setShowAllStatuses(false);
     setImportedClaimsCount(0);
     setDebugReportNotice(null);
     setFileImportError(null);
     setTroubleshootOpen(false);
     setShowAdvancedPreferences(false);
-  }, [extractionDiagnostics, resumeText, selectedFileMeta, setImportSession]);
+  }, [applyParsedSuggestions, extractionDiagnostics, resumeText, selectedFileMeta, setImportSession]);
 
   const handleTryAnotherMethod = useCallback(() => {
     if (!importSession || !resumeText.trim()) return;
@@ -749,7 +602,6 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     setSelectedFileName(file.name);
     setSelectedFileMeta({ name: file.name, size: file.size, type: file.type });
     setImportedClaimsCount(0);
-    setSuggestionsDismissed(false);
     setTroubleshootOpen(false);
     setShowAllStatuses(false);
     setShowAdvancedPreferences(false);
@@ -808,7 +660,6 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     setSelectedFileName(null);
     setSelectedFileMeta(null);
     setFileImportError(null);
-    setSuggestionsDismissed(false);
     setStorageNotice(null);
     setExtractionDiagnostics(null);
     setTroubleshootOpen(false);
@@ -825,7 +676,6 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     setSelectedFileMeta(null);
     setReadingFile(false);
     setFileImportError(null);
-    setSuggestionsDismissed(false);
     setStorageNotice(null);
     setExtractionDiagnostics(null);
     setTroubleshootOpen(false);
@@ -848,10 +698,6 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     : importSession?.state === 'saved' || importSession?.state === 'skipped';
 
   const handleNext = async () => {
-    if (step === 'profile') {
-      await handleSaveProfile();
-    }
-
     if (step === 'resume') {
       if (!importSession || importSession.state === 'skipped') {
         if (resumeText.trim()) {
@@ -932,7 +778,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   }, [onComplete]);
 
   const primaryLabel = useMemo(() => {
-    if (step === 'ready') return 'Find jobs';
+    if (step === 'ready') return 'Find Jobs';
     if (step === 'resume') {
       if (importSession?.state === 'parsed') return 'Approve & Save';
       if (!importSession && resumeText.trim()) return 'Parse & Review';
@@ -1014,65 +860,6 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
             </div>
           )}
 
-          {step === 'profile' && (
-            <div className="bg-white rounded-xl border border-neutral-200 p-5 space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-brand-50 rounded-lg flex items-center justify-center">
-                  <User size={20} className="text-brand-600" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-neutral-900">Your Profile</h2>
-                  <p className="text-xs text-neutral-500">Use your preferred name and target roles.</p>
-                </div>
-              </div>
-
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-neutral-700 mb-1.5 block">First name</label>
-                  <input
-                    type="text"
-                    value={firstName}
-                    onChange={(event) => setFirstName(event.target.value)}
-                    placeholder="First name"
-                    className="w-full px-3.5 py-2.5 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Last name</label>
-                  <input
-                    type="text"
-                    value={lastName}
-                    onChange={(event) => setLastName(event.target.value)}
-                    placeholder="Last name"
-                    className="w-full px-3.5 py-2.5 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
-                  />
-                </div>
-              </div>
-
-              <ChipInput
-                label="Target roles"
-                values={targetRoles}
-                onChange={setTargetRoles}
-                placeholder="Add a role and press Enter"
-              />
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <ChipInput
-                  label="Skills"
-                  values={skills}
-                  onChange={setSkills}
-                  placeholder="Add a skill and press Enter"
-                />
-                <ChipInput
-                  label="Tools"
-                  values={tools}
-                  onChange={setTools}
-                  placeholder="Add a tool and press Enter"
-                />
-              </div>
-            </div>
-          )}
-
           {step === 'resume' && (
             <div className="space-y-4">
               <div className="bg-white rounded-xl border border-neutral-200 p-5 space-y-4">
@@ -1082,7 +869,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                 </div>
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <h2 className="text-lg font-semibold text-neutral-900">Import your resume</h2>
+                    <h2 className="text-lg font-semibold text-neutral-900">Import Your Resume</h2>
                     <span
                       className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-neutral-200 text-neutral-500"
                       title={"We’ll use your resume to build your Digital Resume. You can edit everything before saving. AI features (later) require opt-in."}
@@ -1120,7 +907,6 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     setSelectedFileMeta(null);
                     setExtractionDiagnostics(null);
                     setImportedClaimsCount(0);
-                    setSuggestionsDismissed(false);
                     setTroubleshootOpen(false);
                     setShowAllStatuses(false);
                     setDebugReportNotice(null);
@@ -1135,11 +921,19 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                 <div className="bg-white rounded-xl border border-neutral-200 p-5 space-y-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <h3 className="text-sm font-semibold text-neutral-900">Import draft</h3>
+                      <h3 className="text-sm font-semibold text-neutral-900">Import Draft</h3>
                       <p className="text-xs text-neutral-500 mt-1">
                         {fullDraftCounts.companies} companies, {fullDraftCounts.roles} roles, {fullDraftCounts.highlights} highlights, {fullDraftCounts.outcomes} outcomes
                       </p>
                       {storageNotice && <p className="text-xs text-amber-700 mt-1">{storageNotice}</p>}
+                      {(importSession.profileSuggestion.firstName
+                        || importSession.profileSuggestion.lastName
+                        || importSession.profileSuggestion.targetRoles.length > 0
+                        || importSession.profileSuggestion.locationHints.length > 0) && (
+                        <p className="text-xs text-neutral-500 mt-1">
+                          Added suggested profile details where fields were empty. You can edit everything before saving.
+                        </p>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       <button
@@ -1147,112 +941,17 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                         onClick={handleDiscardDraft}
                         className="px-3 py-1.5 text-xs border border-neutral-200 rounded-lg text-neutral-600 hover:bg-neutral-50"
                       >
-                        Discard draft
+                        Discard Draft
                       </button>
                       <button
                         type="button"
                         onClick={handleResetImport}
                         className="px-3 py-1.5 text-xs border border-neutral-200 rounded-lg text-neutral-600 hover:bg-neutral-50"
                       >
-                        Reset import session
+                        Reset Import Session
                       </button>
                     </div>
                   </div>
-
-                  {showSuggestionCard && (
-                    <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800">
-                      <p className="font-medium">Suggested (review): profile updates from your import</p>
-                      <p className="mt-1 text-blue-700">Choose which fields to apply. Existing values are preserved unless empty.</p>
-                      <div className="mt-2 space-y-1.5 text-blue-700">
-                        {(importSession.profileSuggestion.firstName || importSession.profileSuggestion.lastName) && (
-                          <label className="inline-flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={suggestionSelections.firstName || suggestionSelections.lastName}
-                              onChange={(event) => setSuggestionSelections((prev) => ({
-                                ...prev,
-                                firstName: event.target.checked,
-                                lastName: event.target.checked,
-                              }))}
-                            />
-                            Set first and last name to {importSession.profileSuggestion.firstName || '...'} {importSession.profileSuggestion.lastName || '...'}
-                          </label>
-                        )}
-                        {importSession.profileSuggestion.targetRoles.length > 0 && (
-                          <label className="inline-flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={suggestionSelections.targetRoles}
-                              onChange={(event) => setSuggestionSelections((prev) => ({ ...prev, targetRoles: event.target.checked }))}
-                            />
-                            Add target roles: {importSession.profileSuggestion.targetRoles.slice(0, 3).join(', ')}
-                          </label>
-                        )}
-                        {importSession.profileSuggestion.skillHints.length > 0 && (
-                          <label className="inline-flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={suggestionSelections.skillHints}
-                              onChange={(event) => setSuggestionSelections((prev) => ({ ...prev, skillHints: event.target.checked }))}
-                            />
-                            Add skills: {importSession.profileSuggestion.skillHints.slice(0, 4).join(', ')}
-                          </label>
-                        )}
-                        {importSession.profileSuggestion.toolHints.length > 0 && (
-                          <label className="inline-flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={suggestionSelections.toolHints}
-                              onChange={(event) => setSuggestionSelections((prev) => ({ ...prev, toolHints: event.target.checked }))}
-                            />
-                            Add tools: {importSession.profileSuggestion.toolHints.slice(0, 4).join(', ')}
-                          </label>
-                        )}
-                        {importSession.profileSuggestion.locationHints.length > 0 && (
-                          <label className="inline-flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={suggestionSelections.locationHints}
-                              onChange={(event) => setSuggestionSelections((prev) => ({ ...prev, locationHints: event.target.checked }))}
-                            />
-                            Add location hint: {importSession.profileSuggestion.locationHints.join(', ')}
-                          </label>
-                        )}
-                        {(importSession.profileSuggestion.compensation?.floor || importSession.profileSuggestion.compensation?.target) && (
-                          <label className="inline-flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={suggestionSelections.compensationFloor || suggestionSelections.compensationTarget}
-                              onChange={(event) => setSuggestionSelections((prev) => ({
-                                ...prev,
-                                compensationFloor: event.target.checked,
-                                compensationTarget: event.target.checked,
-                              }))}
-                            />
-                            Suggest compensation
-                            {importSession.profileSuggestion.compensation?.floor ? ` floor ${importSession.profileSuggestion.compensation.floor}` : ''}
-                            {importSession.profileSuggestion.compensation?.target ? ` target ${importSession.profileSuggestion.compensation.target}` : ''}
-                          </label>
-                        )}
-                      </div>
-                      <div className="mt-2 flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={handleApplySuggestions}
-                          className="px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
-                        >
-                          Apply suggestions
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setSuggestionsDismissed(true)}
-                          className="px-3 py-1.5 rounded-lg border border-blue-200 text-blue-700 hover:bg-blue-100"
-                        >
-                          Dismiss
-                        </button>
-                      </div>
-                    </div>
-                  )}
 
                   {hasVisibleDraft ? (
                     <DigitalResumeBuilder
@@ -1379,7 +1078,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                   <Settings2 size={20} className="text-brand-600" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-semibold text-neutral-900">Scoring preferences</h2>
+                  <h2 className="text-lg font-semibold text-neutral-900">Scoring Preferences</h2>
                   <p className="text-xs text-neutral-500">Add constraints so scoring prioritizes the right opportunities.</p>
                 </div>
               </div>
@@ -1563,7 +1262,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
               </div>
 
               <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3 space-y-3">
-                <div className="text-sm font-medium text-neutral-800">Hard filters</div>
+                <div className="text-sm font-medium text-neutral-800">Hard Filters</div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-medium text-neutral-600 mb-1 block flex items-center gap-1.5">
@@ -1670,7 +1369,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
               </div>
 
               <BenefitCatalogPicker
-                label="Required benefits"
+                label="Required Benefits"
                 selectedIds={requiredBenefitIds}
                 onChange={setRequiredBenefitIds}
               />
@@ -1684,13 +1383,13 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                   onClick={() => setShowAdvancedPreferences((open) => !open)}
                   className="w-full px-3 py-2.5 flex items-center justify-between text-sm font-medium text-neutral-700 hover:bg-neutral-50"
                 >
-                  Advanced preferences
+                  Advanced Preferences
                   {showAdvancedPreferences ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                 </button>
                 {showAdvancedPreferences && (
                   <div className="border-t border-neutral-200 p-3">
                     <BenefitCatalogPicker
-                      label="Preferred benefits"
+                      label="Preferred Benefits"
                       selectedIds={preferredBenefitIds}
                       onChange={setPreferredBenefitIds}
                     />
@@ -1723,7 +1422,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 px-3 py-2 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
                   >
                     <Plus size={13} />
-                    Add job manually
+                    Add Job Manually
                   </button>
                   {hasNoJobs && isPreviewOrDev && (
                     <button
@@ -1732,7 +1431,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                       className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 px-3 py-2 text-xs font-medium text-neutral-400 cursor-not-allowed"
                       title="Sample jobs will be available in A2.1 for preview and development environments."
                     >
-                      Load sample jobs (soon)
+                      Load Sample Jobs (Soon)
                     </button>
                   )}
                 </div>

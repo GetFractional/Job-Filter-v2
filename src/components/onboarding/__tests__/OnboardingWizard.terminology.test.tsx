@@ -41,19 +41,24 @@ vi.mock('../../../store/useStore', () => ({
 }));
 
 describe('OnboardingWizard terminology guard', () => {
+  it('starts onboarding with resume import after welcome', async () => {
+    render(<OnboardingWizard onComplete={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Continue/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: /Import Your Resume/i })).toBeTruthy();
+    });
+    expect(screen.queryByRole('heading', { name: /Your Profile/i })).toBeNull();
+  });
+
   it('does not expose engineering jargon on the resume step', async () => {
     render(<OnboardingWizard onComplete={vi.fn()} />);
 
     fireEvent.click(screen.getByRole('button', { name: /Continue/i }));
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: /Your Profile/i })).toBeTruthy();
-    });
-
-    fireEvent.click(screen.getByRole('button', { name: /Continue/i }));
-
-    await waitFor(() => {
-      expect(screen.getByRole('heading', { name: /Import your resume/i })).toBeTruthy();
+      expect(screen.getByRole('heading', { name: /Import Your Resume/i })).toBeTruthy();
     });
 
     const visibleText = document.body.textContent?.toLowerCase() || '';
@@ -72,13 +77,10 @@ describe('OnboardingWizard terminology guard', () => {
     render(<OnboardingWizard onComplete={vi.fn()} />);
 
     fireEvent.click(screen.getByRole('button', { name: /Continue/i }));
-    await waitFor(() => expect(screen.getByRole('heading', { name: /Your Profile/i })).toBeTruthy());
-
-    fireEvent.click(screen.getByRole('button', { name: /Continue/i }));
-    await waitFor(() => expect(screen.getByRole('heading', { name: /Import your resume/i })).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole('heading', { name: /Import Your Resume/i })).toBeTruthy());
 
     fireEvent.click(screen.getByRole('button', { name: /Skip/i }));
-    await waitFor(() => expect(screen.getByRole('heading', { name: /Scoring preferences/i })).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole('heading', { name: /Scoring Preferences/i })).toBeTruthy());
 
     fireEvent.click(screen.getByRole('button', { name: /\+ Remote/i }));
     expect(screen.getByText(/Remote roles do not need city or radius/i)).toBeTruthy();
