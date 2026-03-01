@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { JobWorkspacePage } from '../JobWorkspacePage';
@@ -47,6 +47,7 @@ describe('JobWorkspacePage mobile overflow guardrails', () => {
       setSelectedJob: vi.fn(),
       scoreAndUpdateJob: vi.fn(),
       moveJobToStage: vi.fn(),
+      updateJob: vi.fn(),
     };
 
     mockUseStore.mockImplementation((selector: (store: typeof state) => unknown) => selector(state));
@@ -85,6 +86,7 @@ describe('JobWorkspacePage mobile overflow guardrails', () => {
       setSelectedJob: vi.fn(),
       scoreAndUpdateJob: vi.fn(),
       moveJobToStage: vi.fn(),
+      updateJob: vi.fn(),
     };
 
     mockUseStore.mockImplementation((selector: (store: typeof state) => unknown) => selector(state));
@@ -102,5 +104,59 @@ describe('JobWorkspacePage mobile overflow guardrails', () => {
     expect(/\bbullets?\b/.test(visibleText)).toBe(false);
     expect(/\bnormalized\b/.test(visibleText)).toBe(false);
     expect(/\bautouse\b/.test(visibleText)).toBe(false);
+  });
+
+  it('opens the edit job modal from the score header', () => {
+    const state = {
+      jobs: [makeJob()],
+      activeTab: 'score' as const,
+      setActiveTab: vi.fn(),
+      setSelectedJob: vi.fn(),
+      scoreAndUpdateJob: vi.fn(),
+      moveJobToStage: vi.fn(),
+      updateJob: vi.fn(),
+    };
+
+    mockUseStore.mockImplementation((selector: (store: typeof state) => unknown) => selector(state));
+
+    render(
+      <MemoryRouter initialEntries={['/job/job-1']}>
+        <Routes>
+          <Route path="/job/:jobId" element={<JobWorkspacePage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    expect(screen.getByText('Edit job details')).toBeTruthy();
+    expect(screen.getByText('Scoring inputs')).toBeTruthy();
+    expect(screen.getByText('Must-have requirements')).toBeTruthy();
+  });
+
+  it('renders clear pass label text for low scores', () => {
+    const state = {
+      jobs: [makeJob({ fitScore: 0, fitLabel: 'Maybe' })],
+      activeTab: 'score' as const,
+      setActiveTab: vi.fn(),
+      setSelectedJob: vi.fn(),
+      scoreAndUpdateJob: vi.fn(),
+      moveJobToStage: vi.fn(),
+      updateJob: vi.fn(),
+      profile: {
+        scoringPolicy: { seedStagePolicy: 'warn' },
+      },
+    };
+
+    mockUseStore.mockImplementation((selector: (store: typeof state) => unknown) => selector(state));
+
+    render(
+      <MemoryRouter initialEntries={['/job/job-1']}>
+        <Routes>
+          <Route path="/job/:jobId" element={<JobWorkspacePage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(screen.getAllByText('Pass on this job').length).toBeGreaterThan(0);
   });
 });

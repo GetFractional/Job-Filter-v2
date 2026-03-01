@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -15,6 +15,7 @@ import {
   XCircle,
   Flag,
   ListChecks,
+  Pencil,
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { PIPELINE_STAGES } from '../types';
@@ -23,6 +24,8 @@ import { ResearchTab } from '../components/research/ResearchTab';
 import { AssetsTab } from '../components/assets/AssetsTab';
 import { CRMTab } from '../components/crm/CRMTab';
 import { QATab } from '../components/qa/QATab';
+import { EditJobModal } from '../components/jobs/EditJobModal';
+import { getEffectiveFitLabel, getFitLabelText } from '../lib/scoreBands';
 
 const FIT_LABEL_STYLES: Record<FitLabel, string> = {
   Pursue: 'text-green-700 bg-green-50 border border-green-200',
@@ -279,6 +282,9 @@ export function JobWorkspacePage() {
   const setSelectedJob = useStore((s) => s.setSelectedJob);
   const scoreAndUpdateJob = useStore((s) => s.scoreAndUpdateJob);
   const moveJobToStage = useStore((s) => s.moveJobToStage);
+  const updateJob = useStore((s) => s.updateJob);
+  const profile = useStore((s) => s.profile);
+  const [isEditModalOpen, setEditModalOpen] = useState(false);
 
   const job = useMemo(() => jobs.find((j) => j.id === jobId), [jobs, jobId]);
 
@@ -323,6 +329,20 @@ export function JobWorkspacePage() {
   };
 
   const breakdown = job.scoreBreakdown;
+  const fitLabel = getEffectiveFitLabel(job.fitScore, job.fitLabel);
+  const fitLabelText = getFitLabelText(fitLabel);
+  const riskWarnings = job.riskWarnings ?? [];
+  const gapSuggestions = job.gapSuggestions ?? [];
+  const mustHaveSummary = job.mustHaveSummary;
+  const missingMustHaves = (job.requirementsExtracted ?? [])
+    .filter((requirement) => requirement.priority === 'Must' && requirement.match === 'Missing')
+    .slice(0, 3);
+  const seedStagePolicy = profile?.scoringPolicy?.seedStagePolicy ?? 'warn';
+  const seedStagePolicyLabel = seedStagePolicy === 'disqualify'
+    ? 'Hard disqualify'
+    : seedStagePolicy === 'ignore'
+      ? 'Ignore stage'
+      : 'Warn';
 
   return (
     <div className="flex flex-col h-full min-w-0">
@@ -338,9 +358,9 @@ export function JobWorkspacePage() {
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <h2 className="text-sm font-semibold text-neutral-900 truncate">{job.title}</h2>
-              {job.fitLabel && (
-                <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-md shrink-0 ${FIT_LABEL_STYLES[job.fitLabel]}`}>
-                  {job.fitLabel} {job.fitScore !== undefined && job.fitScore}
+              {fitLabel && (
+                <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-md shrink-0 ${FIT_LABEL_STYLES[fitLabel]}`}>
+                  {fitLabelText} {job.fitScore !== undefined && job.fitScore}
                 </span>
               )}
             </div>
@@ -354,6 +374,14 @@ export function JobWorkspacePage() {
 
           {/* Action buttons — always visible above fold */}
           <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => setEditModalOpen(true)}
+              className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium text-neutral-700 bg-white border border-neutral-200 rounded-lg hover:bg-neutral-50"
+              title="Edit this job and re-score"
+            >
+              <Pencil size={12} />
+              Edit
+            </button>
             {job.jobDescription && (
               <button
                 onClick={handleRescore}
@@ -362,26 +390,6 @@ export function JobWorkspacePage() {
               >
                 <RefreshCw size={12} />
                 Score
-              </button>
-            )}
-            {prevStage && (
-              <button
-                onClick={handleRevertStage}
-                className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium text-neutral-600 bg-white border border-neutral-200 rounded-lg hover:bg-neutral-50"
-                title={`Move back to ${prevStage}`}
-              >
-                <ChevronLeft size={12} />
-                {prevStage.length > 12 ? prevStage.slice(0, 10) + '...' : prevStage}
-              </button>
-            )}
-            {nextStage && (
-              <button
-                onClick={handleAdvanceStage}
-                className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700"
-                title={`Advance to ${nextStage}`}
-              >
-                {nextStage.length > 12 ? nextStage.slice(0, 10) + '...' : nextStage}
-                <ChevronRight size={12} />
               </button>
             )}
           </div>
@@ -419,12 +427,12 @@ export function JobWorkspacePage() {
         {activeTab === 'score' && (
           <div className="py-4 space-y-6">
             {/* Score Dial */}
-            {job.fitScore !== undefined && job.fitLabel ? (
+            {job.fitScore !== undefined && fitLabel ? (
               <div className="bg-white rounded-lg border border-neutral-200 p-6 shadow-sm text-center">
-                <ScoreDial score={job.fitScore} label={job.fitLabel} />
+                <ScoreDial score={job.fitScore} label={fitLabel} />
                 <div className="mt-3">
-                  <span className={`inline-block text-sm font-semibold px-3 py-1 rounded-md ${FIT_LABEL_STYLES[job.fitLabel]}`}>
-                    {job.fitLabel}
+                  <span className={`inline-block text-sm font-semibold px-3 py-1 rounded-md ${FIT_LABEL_STYLES[fitLabel]}`}>
+                    {fitLabelText}
                   </span>
                 </div>
               </div>
@@ -450,6 +458,71 @@ export function JobWorkspacePage() {
               </div>
             )}
 
+            {mustHaveSummary && mustHaveSummary.total > 0 && (
+              <div className={`bg-white rounded-lg border p-4 shadow-sm ${
+                mustHaveSummary.hasBlockers ? 'border-red-200' : 'border-emerald-200'
+              }`}>
+                <h4 className={`text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-1.5 ${
+                  mustHaveSummary.hasBlockers ? 'text-red-700' : 'text-emerald-700'
+                }`}>
+                  <ListChecks size={14} />
+                  Must-have Checklist
+                </h4>
+                <p className="text-xs text-neutral-600 mb-3">
+                  {mustHaveSummary.hasBlockers
+                    ? 'This role is blocked until missing must-haves are met.'
+                    : 'No must-have blockers detected based on current evidence.'}
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
+                  <div className="rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1.5">
+                    <p className="text-neutral-500">Total</p>
+                    <p className="font-semibold text-neutral-800">{mustHaveSummary.total}</p>
+                  </div>
+                  <div className="rounded-md border border-neutral-200 bg-green-50 px-2 py-1.5">
+                    <p className="text-green-700">Met</p>
+                    <p className="font-semibold text-green-800">{mustHaveSummary.met}</p>
+                  </div>
+                  <div className="rounded-md border border-neutral-200 bg-amber-50 px-2 py-1.5">
+                    <p className="text-amber-700">Partial</p>
+                    <p className="font-semibold text-amber-800">{mustHaveSummary.partial}</p>
+                  </div>
+                  <div className="rounded-md border border-neutral-200 bg-red-50 px-2 py-1.5">
+                    <p className="text-red-700">Missing</p>
+                    <p className="font-semibold text-red-800">{mustHaveSummary.missing}</p>
+                  </div>
+                  <div className={`rounded-md border px-2 py-1.5 ${
+                    mustHaveSummary.hasBlockers
+                      ? 'border-red-200 bg-red-50 text-red-700'
+                      : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                  }`}>
+                    <p>Status</p>
+                    <p className="font-semibold">{mustHaveSummary.hasBlockers ? 'Blocked' : 'Clear'}</p>
+                  </div>
+                </div>
+                {missingMustHaves.length > 0 && (
+                  <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2">
+                    <p className="text-[11px] font-semibold text-red-700 mb-1">Top missing must-haves</p>
+                    <ul className="space-y-1">
+                      {missingMustHaves.map((requirement) => (
+                        <li key={requirement.description} className="text-xs text-red-700">
+                          • {requirement.description}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {job.fitScore !== undefined && (
+              <div className="bg-white rounded-lg border border-neutral-200 p-3 shadow-sm">
+                <p className="text-xs text-neutral-600">
+                  Early-stage policy: <span className="font-semibold text-neutral-800">{seedStagePolicyLabel}</span>.
+                  Change this in Settings under Hard Filters.
+                </p>
+              </div>
+            )}
+
             {/* Disqualifiers */}
             {job.disqualifiers.length > 0 && (
               <div className="bg-white rounded-lg border border-red-200 p-4 shadow-sm">
@@ -462,6 +535,23 @@ export function JobWorkspacePage() {
                     <li key={i} className="text-sm text-red-600 flex items-start gap-2">
                       <span className="w-1 h-1 rounded-full bg-red-400 mt-2 shrink-0" />
                       {d}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {(riskWarnings.length > 0 || job.redFlags.length > 0) && (
+              <div className="bg-white rounded-lg border border-amber-200 p-4 shadow-sm">
+                <h4 className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <AlertTriangle size={14} />
+                  Risks to consider
+                </h4>
+                <ul className="space-y-1.5">
+                  {[...riskWarnings, ...job.redFlags].map((warning, i) => (
+                    <li key={`${warning}-${i}`} className="text-sm text-amber-700 flex items-start gap-2">
+                      <span className="w-1 h-1 rounded-full bg-amber-400 mt-2 shrink-0" />
+                      {warning}
                     </li>
                   ))}
                 </ul>
@@ -504,18 +594,17 @@ export function JobWorkspacePage() {
               </div>
             )}
 
-            {/* Red Flags */}
-            {job.redFlags.length > 0 && (
-              <div className="bg-white rounded-lg border border-red-100 p-4 shadow-sm">
-                <h4 className="text-xs font-bold text-red-600 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            {gapSuggestions.length > 0 && (
+              <div className="bg-white rounded-lg border border-blue-200 p-4 shadow-sm">
+                <h4 className="text-xs font-bold text-blue-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                   <Flag size={14} />
-                  Red Flags
+                  Gap suggestions
                 </h4>
                 <ul className="space-y-1.5">
-                  {job.redFlags.map((f, i) => (
-                    <li key={i} className="text-sm text-red-600 flex items-start gap-2">
-                      <span className="w-1 h-1 rounded-full bg-red-300 mt-2 shrink-0" />
-                      {f}
+                  {gapSuggestions.map((suggestion, index) => (
+                    <li key={`${suggestion}-${index}`} className="text-sm text-blue-700 flex items-start gap-2">
+                      <span className="w-1 h-1 rounded-full bg-blue-400 mt-2 shrink-0" />
+                      {suggestion}
                     </li>
                   ))}
                 </ul>
@@ -561,7 +650,50 @@ export function JobWorkspacePage() {
               </div>
             )}
 
-            {/* Actions are now in the header (above fold) */}
+            <details className="bg-white rounded-lg border border-neutral-200 p-4 shadow-sm">
+              <summary className="cursor-pointer text-xs font-bold text-neutral-700 uppercase tracking-wider">
+                Advanced actions
+              </summary>
+              <div className="mt-3 space-y-3">
+                <div className="flex flex-wrap gap-2">
+                  {prevStage && (
+                    <button
+                      onClick={handleRevertStage}
+                      className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium text-neutral-600 bg-white border border-neutral-200 rounded-lg hover:bg-neutral-50"
+                      title={`Move back to ${prevStage}`}
+                    >
+                      <ChevronLeft size={12} />
+                      Move to {prevStage}
+                    </button>
+                  )}
+                  {nextStage && (
+                    <button
+                      onClick={handleAdvanceStage}
+                      className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700"
+                      title={`Advance to ${nextStage}`}
+                    >
+                      Move to {nextStage}
+                      <ChevronRight size={12} />
+                    </button>
+                  )}
+                </div>
+                <div className="max-w-xs">
+                  <label className="text-[11px] font-medium text-neutral-600 mb-1 block">Manual stage override</label>
+                  <select
+                    value={job.stage}
+                    onChange={(event) => {
+                      const stage = event.target.value as PipelineStage;
+                      if (jobId) moveJobToStage(jobId, stage);
+                    }}
+                    className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-xs text-neutral-700"
+                  >
+                    {PIPELINE_STAGES.map((stage) => (
+                      <option key={stage} value={stage}>{stage}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </details>
           </div>
         )}
 
@@ -576,6 +708,19 @@ export function JobWorkspacePage() {
         {activeTab === 'crm' && <div className="py-4"><CRMTab job={job} /></div>}
         {activeTab === 'qa' && <div className="py-4"><QATab job={job} /></div>}
       </div>
+
+      <EditJobModal
+        open={isEditModalOpen}
+        job={job}
+        onClose={() => setEditModalOpen(false)}
+        onSave={async (updates, options) => {
+          if (!jobId) return;
+          await updateJob(jobId, updates);
+          if (options.rescore) {
+            await scoreAndUpdateJob(jobId);
+          }
+        }}
+      />
     </div>
   );
 }
