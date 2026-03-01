@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { AlertTriangle, ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
 import type { ImportDraft, ImportDraftItem, ImportDraftRole, ImportItemStatus } from '../../types';
+import { UI_TERMS } from '../../lib/terminology';
 import {
   addCompany,
   addRole,
@@ -264,7 +265,7 @@ function ItemEditor({
             <input type="checkbox" checked={selected} onChange={(event) => onSelectedChange(event.target.checked)} />
             Select
           </label>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">{collection === 'highlights' ? 'Highlight' : 'Outcome'}</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">{collection === 'highlights' ? UI_TERMS.accountabilitySingular : UI_TERMS.outcomeSingular}</p>
         </div>
         <div className="flex items-center gap-2">
           {shouldShowBadge(item.status, showAccepted) && (
@@ -288,7 +289,7 @@ function ItemEditor({
         onChange={(event) => onTextChange(event.target.value)}
         rows={2}
         className={`w-full rounded-lg border border-[var(--border-subtle)] bg-white px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-soft)] ${focusTarget === 'item' ? 'ring-2 ring-[var(--accent-soft)]' : ''}`}
-        placeholder={collection === 'highlights' ? 'Describe the work delivered' : 'Describe measurable impact'}
+        placeholder={collection === 'highlights' ? `Describe the ${UI_TERMS.accountabilitySingular.toLowerCase()}` : 'Describe measurable impact'}
       />
 
       {collection === 'outcomes' && (
@@ -633,11 +634,11 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
               if (nextItemId) {
                 setFocusTarget({ type: 'item', id: nextItemId });
               }
-              showToast({ message: 'Highlight added' });
+              showToast({ message: `${UI_TERMS.accountabilitySingular} added` });
             }}
             className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-subtle)] px-2.5 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-bg)]"
           >
-            <Plus size={12} /> Add Highlight
+            <Plus size={12} /> Add {UI_TERMS.accountabilitySingular}
           </button>
           <button
             type="button"
@@ -703,7 +704,7 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
                     itemId: item.id,
                   }));
                   setSelectedItemIds((current) => ({ ...current, [key]: false }));
-                  queueUndoDelete(previousDraft, 'Highlight deleted');
+                  queueUndoDelete(previousDraft, `${UI_TERMS.accountabilitySingular} deleted`);
                 }}
               />
             );
@@ -768,13 +769,6 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
             );
           })}
 
-          {visibleHighlights.length + visibleOutcomes.length === 0 && (
-            <p className="rounded-lg border border-dashed border-[var(--border-subtle)] bg-white px-3 py-2 text-xs text-[var(--text-muted)]">
-              {showAllStatuses
-                ? 'No highlights or outcomes match this filter.'
-                : 'No needs-attention highlights or outcomes in this role. Uncheck “Needs attention only” to review everything.'}
-            </p>
-          )}
         </div>
 
         <div className="grid gap-3 md:grid-cols-2">
@@ -806,7 +800,7 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
 
         {unassigned && (
           <div className="rounded-lg border border-[var(--status-warn-border)] bg-[var(--status-warn-bg)] p-2 text-[11px] text-[var(--status-warn-text)]">
-            This role still needs assignment. Use the controls below to move highlights and outcomes into a named company and role.
+            This role still needs assignment. Use the controls below to move {UI_TERMS.accountabilityPlural.toLowerCase()} and outcomes into a named company and role.
           </div>
         )}
       </div>
@@ -818,7 +812,7 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h4 className="text-sm font-semibold text-[var(--text-primary)]">Resume Review</h4>
-          <p className="text-xs text-[var(--text-secondary)]">Edit companies, roles, highlights, outcomes, tools, and skills before saving.</p>
+          <p className="text-xs text-[var(--text-secondary)]">Edit companies, roles, {UI_TERMS.accountabilityPlural.toLowerCase()}, outcomes, tools, and skills before saving.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button
@@ -855,7 +849,7 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
             type="search"
             value={filterQuery}
             onChange={(event) => setFilterQuery(event.target.value)}
-            placeholder="Search companies, roles, highlights, outcomes, tools, skills"
+            placeholder={`Search companies, roles, ${UI_TERMS.accountabilityPlural.toLowerCase()}, outcomes, tools, skills`}
             className="min-w-[220px] flex-1 rounded-lg border border-[var(--border-subtle)] bg-white px-3 py-1.5 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
           />
           {searchActive && (
@@ -1040,7 +1034,7 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
           >
             <div>
               <p className="text-sm font-semibold text-[var(--status-warn-text)]">Unassigned</p>
-              <p className="text-xs text-[var(--status-warn-text)]/85">{unassignedItems.length} highlights or outcomes need assignment</p>
+              <p className="text-xs text-[var(--status-warn-text)]/85">{unassignedItems.length} {UI_TERMS.accountabilityPlural.toLowerCase()} or outcomes need assignment</p>
             </div>
             {unassignedOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
           </button>
@@ -1050,7 +1044,7 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
               {destinationOptions.length === 0 && (
                 <div className="flex items-start gap-2 rounded-lg border border-[var(--status-warn-border)] bg-white p-3 text-xs text-[var(--status-warn-text)]">
                   <AlertTriangle size={14} className="mt-0.5" />
-                  <p>Add at least one named company and role, then assign unassigned highlights and outcomes.</p>
+                  <p>Add at least one named company and role, then assign unassigned {UI_TERMS.accountabilityPlural.toLowerCase()} and outcomes.</p>
                 </div>
               )}
 

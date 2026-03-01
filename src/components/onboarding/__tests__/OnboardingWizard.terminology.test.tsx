@@ -47,7 +47,7 @@ describe('OnboardingWizard terminology guard', () => {
     fireEvent.click(screen.getByRole('button', { name: /Continue/i }));
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: /Import Your Resume/i })).toBeTruthy();
+      expect(screen.getByRole('heading', { name: /Import Resume/i })).toBeTruthy();
     });
     expect(screen.queryByRole('heading', { name: /Your Profile/i })).toBeNull();
   });
@@ -58,13 +58,14 @@ describe('OnboardingWizard terminology guard', () => {
     fireEvent.click(screen.getByRole('button', { name: /Continue/i }));
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: /Import Your Resume/i })).toBeTruthy();
+      expect(screen.getByRole('heading', { name: /Import Resume/i })).toBeTruthy();
     });
 
     const visibleText = document.body.textContent?.toLowerCase() || '';
 
     expect(/\\bclaims?\\b/.test(visibleText)).toBe(false);
     expect(/\\bbullets?\\b/.test(visibleText)).toBe(false);
+    expect(/\\bhighlights?\\b/.test(visibleText)).toBe(false);
     expect(/\\bnormalized\\b/.test(visibleText)).toBe(false);
     expect(/\\bautouse\\b/.test(visibleText)).toBe(false);
     expect(/claim ledger/.test(visibleText)).toBe(false);
@@ -73,11 +74,27 @@ describe('OnboardingWizard terminology guard', () => {
     expect(visibleText.includes('automatically choose the best parsing method')).toBe(false);
   });
 
+  it('includes the job feeds step before ready', async () => {
+    render(<OnboardingWizard onComplete={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Continue/i }));
+    await waitFor(() => expect(screen.getByRole('heading', { name: /Import Resume/i })).toBeTruthy());
+
+    fireEvent.click(screen.getByRole('button', { name: /Skip/i }));
+    await waitFor(() => expect(screen.getByRole('heading', { name: /Scoring Preferences/i })).toBeTruthy());
+
+    fireEvent.change(screen.getByPlaceholderText('150,000'), { target: { value: '150000' } });
+    fireEvent.click(screen.getByRole('button', { name: /\+ Remote/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Continue$/i }));
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: /Job Feeds/i })).toBeTruthy());
+  });
+
   it('applies location rules by type in preferences', async () => {
     render(<OnboardingWizard onComplete={vi.fn()} />);
 
     fireEvent.click(screen.getByRole('button', { name: /Continue/i }));
-    await waitFor(() => expect(screen.getByRole('heading', { name: /Import Your Resume/i })).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole('heading', { name: /Import Resume/i })).toBeTruthy());
 
     fireEvent.click(screen.getByRole('button', { name: /Skip/i }));
     await waitFor(() => expect(screen.getByRole('heading', { name: /Scoring Preferences/i })).toBeTruthy());

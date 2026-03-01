@@ -28,6 +28,7 @@ export function createEmptyProfile(timestamp = new Date().toISOString()): Profil
     scoringPolicy: {
       seedStagePolicy: 'warn',
     },
+    jobFeeds: [],
     updatedAt: timestamp,
   };
 }

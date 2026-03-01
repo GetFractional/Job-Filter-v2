@@ -41,6 +41,7 @@ import {
 } from '../../lib/profilePreferences';
 import { getImportSessionStorageNotice } from '../../lib/importSessionStorage';
 import { BUILD_INFO } from '../../lib/buildInfo';
+import { UI_TERMS } from '../../lib/terminology';
 import {
   BENEFITS_CATALOG,
   benefitIdsToLabels,
@@ -55,6 +56,7 @@ import type {
   ImportDraft,
   ImportDraftRole,
   ImportSession,
+  JobFeed,
   LocationPreference,
   ParseReasonCode,
   SegmentationMode,
@@ -64,12 +66,14 @@ interface OnboardingWizardProps {
   onComplete: () => void;
 }
 
-type Step = 'welcome' | 'resume' | 'preferences' | 'ready';
+type Step = 'welcome' | 'import' | 'review' | 'preferences' | 'feeds' | 'ready';
 
 const STEPS: { id: Step; label: string }[] = [
   { id: 'welcome', label: 'Welcome' },
-  { id: 'resume', label: 'Resume' },
+  { id: 'import', label: 'Import' },
+  { id: 'review', label: 'Review' },
   { id: 'preferences', label: 'Preferences' },
+  { id: 'feeds', label: 'Job Feeds' },
   { id: 'ready', label: 'Ready' },
 ];
 
@@ -168,6 +172,42 @@ function createParsedSession(
   };
 }
 
+function createJobFeed(role: string): JobFeed {
+  const normalizedRole = role.trim();
+  return {
+    id: `feed-${crypto.randomUUID()}`,
+    role: normalizedRole,
+    active: true,
+  };
+}
+
+function normalizeRoleValue(value: string): string {
+  return value.trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+function dedupeJobFeeds(feeds: JobFeed[]): JobFeed[] {
+  const seen = new Set<string>();
+  const deduped: JobFeed[] = [];
+
+  for (const feed of feeds) {
+    const role = feed.role.trim();
+    if (!role) continue;
+    const key = normalizeRoleValue(role);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push({
+      ...feed,
+      role,
+    });
+  }
+
+  return deduped;
+}
+
+function deriveFeedsFromRoles(roles: string[]): JobFeed[] {
+  return dedupeJobFeeds(roles.filter((role) => role.trim()).map((role) => createJobFeed(role)));
+}
+
 function BenefitCatalogPicker({
   label,
   selectedIds,
@@ -248,6 +288,10 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const [firstName, setFirstName] = useState(profile?.firstName || profile?.name.split(' ')[0] || '');
   const [lastName, setLastName] = useState(profile?.lastName || profile?.name.split(' ').slice(1).join(' ') || '');
   const [targetRoles, setTargetRoles] = useState(profile?.targetRoles || []);
+  const [jobFeeds, setJobFeeds] = useState<JobFeed[]>(
+    profile?.jobFeeds?.length ? dedupeJobFeeds(profile.jobFeeds) : deriveFeedsFromRoles(profile?.targetRoles || []),
+  );
+  const [jobFeedInput, setJobFeedInput] = useState('');
   const [skills, setSkills] = useState(profile?.skills ?? []);
   const [tools, setTools] = useState(profile?.tools ?? []);
 
@@ -298,6 +342,20 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
     setStorageNotice(getImportSessionStorageNotice(importSession.storage));
   }, [importSession]);
+
+  useEffect(() => {
+    setJobFeeds((previous) => {
+      const existingRoles = new Set(previous.map((feed) => normalizeRoleValue(feed.role)));
+      const next = [...previous];
+      for (const role of targetRoles) {
+        const normalized = normalizeRoleValue(role);
+        if (!normalized || existingRoles.has(normalized)) continue;
+        next.push(createJobFeed(role));
+        existingRoles.add(normalized);
+      }
+      return dedupeJobFeeds(next);
+    });
+  }, [targetRoles]);
 
   const stepIndex = STEPS.findIndex((s) => s.id === step);
 
@@ -405,6 +463,33 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     updateProfile,
     willingToRelocate,
   ]);
+
+  const addJobFeed = useCallback(() => {
+    const role = jobFeedInput.trim();
+    if (!role) return;
+
+    setJobFeeds((previous) => dedupeJobFeeds([createJobFeed(role), ...previous]));
+    setPreferenceErrors([]);
+    setJobFeedInput('');
+  }, [jobFeedInput]);
+
+  const handleSaveJobFeeds = useCallback(async (): Promise<boolean> => {
+    const normalizedFeeds = dedupeJobFeeds(jobFeeds).filter((feed) => feed.role.trim());
+    if (normalizedFeeds.length === 0 || normalizedFeeds.every((feed) => !feed.active)) {
+      return false;
+    }
+
+    setSaving(true);
+    try {
+      await updateProfile({
+        jobFeeds: normalizedFeeds,
+      });
+      setJobFeeds(normalizedFeeds);
+      return true;
+    } finally {
+      setSaving(false);
+    }
+  }, [jobFeeds, updateProfile]);
 
   const addLocationPreference = useCallback((type: LocationPreference['type']) => {
     setLocationPreferences((prev) => [...prev, createLocationPreference(type)]);
@@ -653,22 +738,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     }
   }, [addClaim, importSession, setImportSession, updateProfile]);
 
-  const handleDiscardDraft = useCallback(() => {
-    setImportSession(null);
-    setResumeText('');
-    setImportedClaimsCount(0);
-    setSelectedFileName(null);
-    setSelectedFileMeta(null);
-    setFileImportError(null);
-    setStorageNotice(null);
-    setExtractionDiagnostics(null);
-    setTroubleshootOpen(false);
-    setShowAllStatuses(false);
-    setShowAdvancedPreferences(false);
-    setDebugReportNotice(null);
-  }, [setImportSession]);
-
-  const handleResetImport = useCallback(() => {
+  const handleStartOver = useCallback(() => {
     setImportSession(null);
     setResumeText('');
     setImportedClaimsCount(0);
@@ -693,38 +763,74 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     });
   }, [importSession, setImportSession]);
 
-  const canContinueFromResume = !resumeText.trim()
-    ? importSession?.state === 'saved' || importSession?.state === 'skipped'
-    : importSession?.state === 'saved' || importSession?.state === 'skipped';
-
   const handleNext = async () => {
-    if (step === 'resume') {
+    if (step === 'import') {
+      if (!resumeText.trim()) {
+        setFileImportError('Upload a resume or paste text before parsing, or skip for now.');
+        return;
+      }
+
+      handleParseResume();
+      setStep('review');
+      return;
+    }
+
+    if (step === 'review') {
       if (!importSession || importSession.state === 'skipped') {
-        if (resumeText.trim()) {
-          handleParseResume();
-          return;
-        }
+        setStep('preferences');
+        return;
       }
 
-      if (importSession?.state === 'parsed') {
+      if (importSession.state === 'parsed') {
         await handleSaveParsedDraft();
-        const nextIndex = stepIndex + 1;
-        if (nextIndex < STEPS.length) {
-          setStep(STEPS[nextIndex].id);
-        } else {
-          onComplete();
-        }
+        setStep('preferences');
         return;
       }
 
-      if (!canContinueFromResume) {
+      if (importSession.state === 'saved') {
+        setStep('preferences');
         return;
       }
+
+      return;
     }
 
     if (step === 'preferences') {
       const saved = await handleSavePreferences();
       if (!saved) return;
+      setStep('feeds');
+      return;
+    }
+
+    if (step === 'feeds') {
+      const saved = await handleSaveJobFeeds();
+      if (!saved) {
+        setPreferenceErrors(['Add at least one active job feed before continuing.']);
+        return;
+      }
+      setPreferenceErrors([]);
+      setStep('ready');
+      return;
+    }
+
+    if (step === 'ready') {
+      if (!hasNoJobs) {
+        onComplete();
+        return;
+      }
+
+      if (hasNoJobs && isPreviewOrDev) {
+        handleLoadSampleJobs();
+        return;
+      }
+
+      if (hasNoJobs && !isPreviewOrDev) {
+        handleAddJobManually();
+        return;
+      }
+
+      onComplete();
+      return;
     }
 
     const nextIndex = stepIndex + 1;
@@ -743,18 +849,12 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   };
 
   const handleSkip = () => {
-    if (step !== 'resume') return;
+    if (step !== 'import' && step !== 'review') return;
 
-    if (importSession?.state !== 'saved') {
+    if (importSession?.state && importSession.state !== 'saved') {
       markSkipped();
     }
-
-    const nextIndex = stepIndex + 1;
-    if (nextIndex < STEPS.length) {
-      setStep(STEPS[nextIndex].id);
-    } else {
-      onComplete();
-    }
+    setStep('preferences');
   };
 
   const hasInvalidRequiredLocation = locationPreferences.some((preference) => (
@@ -777,16 +877,28 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     }, 0);
   }, [onComplete]);
 
+  const handleLoadSampleJobs = useCallback(() => {
+    onComplete();
+    window.setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('load-sample-jobs'));
+    }, 0);
+  }, [onComplete]);
+
   const primaryLabel = useMemo(() => {
-    if (step === 'ready') return 'Find Jobs';
-    if (step === 'resume') {
-      if (importSession?.state === 'parsed') return 'Approve & Save';
-      if (!importSession && resumeText.trim()) return 'Parse & Review';
-      if (importSession?.state === 'saved' || importSession?.state === 'skipped') return 'Continue';
+    if (step === 'ready') {
+      if (!hasNoJobs) return 'Browse Jobs';
+      return isPreviewOrDev ? 'Load Sample Jobs' : 'Add a Job to Score';
+    }
+    if (step === 'import') {
       return 'Parse & Review';
     }
+    if (step === 'review') {
+      if (importSession?.state === 'parsed') return 'Approve & Save';
+      if (importSession?.state === 'saved' || importSession?.state === 'skipped') return 'Continue';
+      return 'Continue';
+    }
     return 'Continue';
-  }, [importSession, resumeText, step]);
+  }, [hasNoJobs, importSession, isPreviewOrDev, step]);
 
   return (
     <div className="min-h-screen bg-neutral-50 flex flex-col">
@@ -860,70 +972,84 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
             </div>
           )}
 
-          {step === 'resume' && (
+          {(step === 'import' || step === 'review') && (
             <div className="space-y-4">
-              <div className="bg-white rounded-xl border border-neutral-200 p-5 space-y-4">
-                <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-brand-50 rounded-lg flex items-center justify-center">
-                  <FileText size={20} className="text-brand-600" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <h2 className="text-lg font-semibold text-neutral-900">Import Your Resume</h2>
-                    <span
-                      className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-neutral-200 text-neutral-500"
-                      title={"We’ll use your resume to build your Digital Resume. You can edit everything before saving. AI features (later) require opt-in."}
-                      aria-label="Import details"
-                    >
-                      <Info size={12} />
-                    </span>
+              {step === 'import' && (
+                <div className="bg-white rounded-xl border border-neutral-200 p-5 space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-brand-50 rounded-lg flex items-center justify-center">
+                      <FileText size={20} className="text-brand-600" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <h2 className="text-lg font-semibold text-neutral-900">Import Resume</h2>
+                        <span
+                          className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-neutral-200 text-neutral-500"
+                          title={"We’ll use your resume to build your Digital Resume. You can edit everything before saving. AI features (later) require opt-in."}
+                          aria-label="Import details"
+                        >
+                          <Info size={12} />
+                        </span>
+                      </div>
+                      <p className="text-xs text-neutral-500">Upload PDF, DOCX, TXT, or paste text, then continue to review and edit.</p>
+                    </div>
                   </div>
-                  <p className="text-xs text-neutral-500">Upload PDF, DOCX, TXT, or paste text, then continue to review and edit.</p>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <label className="inline-flex items-center gap-1.5 px-3 py-2 border border-neutral-200 rounded-lg text-xs font-medium text-neutral-700 hover:bg-neutral-50 cursor-pointer">
+                      <Upload size={13} />
+                      {readingFile ? 'Reading file...' : 'Upload PDF, DOCX, or TXT'}
+                      <input
+                        type="file"
+                        accept={getClaimsImportAcceptValue()}
+                        onChange={handleImportFile}
+                        className="sr-only"
+                      />
+                    </label>
+                    {selectedFileName && <span className="text-[11px] text-neutral-500 truncate">{selectedFileName}</span>}
+                  </div>
+
+                  {fileImportError && <p className="text-xs text-red-600">{fileImportError}</p>}
+
+                  <textarea
+                    value={resumeText}
+                    onChange={(event) => {
+                      setImportSession(null);
+                      setResumeText(event.target.value);
+                      setSelectedFileName(null);
+                      setSelectedFileMeta(null);
+                      setExtractionDiagnostics(null);
+                      setImportedClaimsCount(0);
+                      setTroubleshootOpen(false);
+                      setShowAllStatuses(false);
+                      setDebugReportNotice(null);
+                    }}
+                    placeholder="Paste your resume text if you prefer manual input"
+                    rows={10}
+                    className="w-full px-3.5 py-2.5 bg-white border border-neutral-200 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                  />
                 </div>
-              </div>
+              )}
 
-                <div className="flex flex-wrap items-center gap-2">
-                  <label className="inline-flex items-center gap-1.5 px-3 py-2 border border-neutral-200 rounded-lg text-xs font-medium text-neutral-700 hover:bg-neutral-50 cursor-pointer">
-                    <Upload size={13} />
-                    {readingFile ? 'Reading file...' : 'Upload PDF, DOCX, or TXT'}
-                    <input
-                      type="file"
-                      accept={getClaimsImportAcceptValue()}
-                      onChange={handleImportFile}
-                      className="sr-only"
-                    />
-                  </label>
-                  {selectedFileName && <span className="text-[11px] text-neutral-500 truncate">{selectedFileName}</span>}
+              {step === 'review' && !importSession && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle size={16} className="text-amber-600 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-amber-800">No import draft yet</p>
+                      <p className="text-xs text-amber-700 mt-1">Go back to Import Resume, parse your content, then continue to review.</p>
+                    </div>
+                  </div>
                 </div>
+              )}
 
-                {fileImportError && <p className="text-xs text-red-600">{fileImportError}</p>}
-
-                <textarea
-                  value={resumeText}
-                  onChange={(event) => {
-                    setImportSession(null);
-                    setResumeText(event.target.value);
-                    setSelectedFileName(null);
-                    setSelectedFileMeta(null);
-                    setExtractionDiagnostics(null);
-                    setImportedClaimsCount(0);
-                    setTroubleshootOpen(false);
-                    setShowAllStatuses(false);
-                    setDebugReportNotice(null);
-                  }}
-                  placeholder="Paste your resume text if you prefer manual input"
-                  rows={10}
-                  className="w-full px-3.5 py-2.5 bg-white border border-neutral-200 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
-                />
-              </div>
-
-              {importSession && (
+              {step === 'review' && importSession && (
                 <div className="bg-white rounded-xl border border-neutral-200 p-5 space-y-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <h3 className="text-sm font-semibold text-neutral-900">Import Draft</h3>
+                      <h3 className="text-sm font-semibold text-neutral-900">Digital Resume Review</h3>
                       <p className="text-xs text-neutral-500 mt-1">
-                        {fullDraftCounts.companies} companies, {fullDraftCounts.roles} roles, {fullDraftCounts.highlights} highlights, {fullDraftCounts.outcomes} outcomes
+                        {fullDraftCounts.companies} companies, {fullDraftCounts.roles} roles, {fullDraftCounts.highlights} {UI_TERMS.accountabilityPlural.toLowerCase()}, {fullDraftCounts.outcomes} outcomes
                       </p>
                       {storageNotice && <p className="text-xs text-amber-700 mt-1">{storageNotice}</p>}
                       {(importSession.profileSuggestion.firstName
@@ -935,21 +1061,15 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                         </p>
                       )}
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-col items-end gap-1.5">
                       <button
                         type="button"
-                        onClick={handleDiscardDraft}
+                        onClick={handleStartOver}
                         className="px-3 py-1.5 text-xs border border-neutral-200 rounded-lg text-neutral-600 hover:bg-neutral-50"
                       >
-                        Discard Draft
+                        Start Over
                       </button>
-                      <button
-                        type="button"
-                        onClick={handleResetImport}
-                        className="px-3 py-1.5 text-xs border border-neutral-200 rounded-lg text-neutral-600 hover:bg-neutral-50"
-                      >
-                        Reset Import Session
-                      </button>
+                      <p className="text-[11px] text-neutral-500">Clears parsed draft, import text, and diagnostics.</p>
                     </div>
                   </div>
 
@@ -973,9 +1093,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                         <AlertTriangle size={16} className="text-amber-600 mt-0.5" />
                         <div>
                           <p className="text-sm font-medium text-amber-800">No structured draft yet</p>
-                          <p className="text-xs text-amber-700 mt-1">
-                            Open Troubleshoot to try another method, upload a different format, or skip and continue manually.
-                          </p>
+                          <p className="text-xs text-amber-700 mt-1">Open Troubleshoot to try another method, upload a different format, or skip and continue manually.</p>
                         </div>
                       </div>
                     </div>
@@ -983,7 +1101,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
                   {parseLooksLowQuality && (
                     <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-                      We imported {fullDraftCounts.companies} companies, {fullDraftCounts.roles} roles, and {fullDraftCounts.highlights + fullDraftCounts.outcomes} highlights/outcomes.
+                      We imported {fullDraftCounts.companies} companies, {fullDraftCounts.roles} roles, and {fullDraftCounts.highlights + fullDraftCounts.outcomes} {UI_TERMS.accountabilityPlural.toLowerCase()}/outcomes.
                       If this looks incomplete, open Troubleshoot, try another method, or continue manually.
                     </div>
                   )}
@@ -1012,7 +1130,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                           <div>mode: {importSession.selectedMode ?? importSession.mode}</div>
                           <div>companies: {fullDraftCounts.companies}</div>
                           <div>roles: {fullDraftCounts.roles}</div>
-                          <div>highlights: {fullDraftCounts.highlights}</div>
+                          <div>{UI_TERMS.accountabilityPlural.toLowerCase()}: {fullDraftCounts.highlights}</div>
                           <div>outcomes: {fullDraftCounts.outcomes}</div>
                         </div>
                         <div>
@@ -1399,6 +1517,108 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
             </div>
           )}
 
+          {step === 'feeds' && (
+            <div className="bg-white rounded-xl border border-neutral-200 p-5 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-brand-50 rounded-lg flex items-center justify-center">
+                  <Briefcase size={20} className="text-brand-600" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-neutral-900">Job Feeds</h2>
+                  <p className="text-xs text-neutral-500">
+                    Feeds are role-based job lists. We&apos;ll use them to organize jobs and alerts.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="text"
+                  value={jobFeedInput}
+                  onChange={(event) => setJobFeedInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      addJobFeed();
+                    }
+                  }}
+                  placeholder="Add a role feed"
+                  className="h-10 min-w-[220px] flex-1 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                />
+                <button
+                  type="button"
+                  onClick={addJobFeed}
+                  className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-neutral-200 px-3 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+                >
+                  <Plus size={13} />
+                  Add Feed
+                </button>
+              </div>
+
+              {preferenceErrors.length > 0 && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+                  <ul className="text-xs text-red-700 list-disc pl-4 space-y-1">
+                    {preferenceErrors.map((error) => (
+                      <li key={error}>{error}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {jobFeeds.length === 0 && (
+                <p className="rounded-lg border border-dashed border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-neutral-500">
+                  Add at least one role feed to organize your job search.
+                </p>
+              )}
+
+              <div className="space-y-2">
+                {jobFeeds.map((feed) => (
+                  <div key={feed.id} className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-2 items-center rounded-lg border border-neutral-200 bg-neutral-50 p-3">
+                    <input
+                      type="text"
+                      value={feed.role}
+                      onChange={(event) => {
+                        const role = event.target.value;
+                        setPreferenceErrors([]);
+                        setJobFeeds((previous) => previous.map((entry) => (
+                          entry.id === feed.id ? { ...entry, role } : entry
+                        )));
+                      }}
+                      placeholder="Role name"
+                      className="h-10 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPreferenceErrors([]);
+                        setJobFeeds((previous) => previous.map((entry) => (
+                          entry.id === feed.id ? { ...entry, active: !entry.active } : entry
+                        )));
+                      }}
+                      className={`h-10 rounded-lg border px-3 text-xs font-medium ${
+                        feed.active
+                          ? 'border-brand-300 bg-brand-50 text-brand-700'
+                          : 'border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-100'
+                      }`}
+                    >
+                      {feed.active ? 'Active' : 'Inactive'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPreferenceErrors([]);
+                        setJobFeeds((previous) => previous.filter((entry) => entry.id !== feed.id));
+                      }}
+                      className="h-10 rounded-lg border border-neutral-200 px-3 text-xs text-neutral-600 hover:bg-neutral-100"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {step === 'ready' && (
             <div className="text-center py-10">
               <div className="w-20 h-20 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto mb-6">
@@ -1416,24 +1636,41 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     : 'You already have jobs in your pipeline. Open them now and prioritize the best fits.'}
                 </p>
                 <div className="flex flex-wrap gap-2">
+                  {!hasNoJobs && (
+                    <button
+                      type="button"
+                      onClick={onComplete}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 px-3 py-2 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+                    >
+                      Browse Jobs
+                    </button>
+                  )}
+                  {hasNoJobs && isPreviewOrDev && (
+                    <button
+                      type="button"
+                      onClick={handleLoadSampleJobs}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 px-3 py-2 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+                    >
+                      Load Sample Jobs
+                    </button>
+                  )}
+                  {hasNoJobs && !isPreviewOrDev && (
+                    <button
+                      type="button"
+                      onClick={handleAddJobManually}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 px-3 py-2 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+                    >
+                      Add a Job to Score
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={handleAddJobManually}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 px-3 py-2 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
                   >
                     <Plus size={13} />
-                    Add Job Manually
+                    Add a Job Manually
                   </button>
-                  {hasNoJobs && isPreviewOrDev && (
-                    <button
-                      type="button"
-                      disabled
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 px-3 py-2 text-xs font-medium text-neutral-400 cursor-not-allowed"
-                      title="Sample jobs will be available in A2.1 for preview and development environments."
-                    >
-                      Load Sample Jobs (Soon)
-                    </button>
-                  )}
                 </div>
               </div>
             </div>
@@ -1456,13 +1693,13 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
           </div>
 
           <div className="flex items-center gap-3">
-            {step === 'resume' && (
+            {(step === 'import' || step === 'review') && (
               <button onClick={handleSkip} className="px-4 py-2 text-sm text-neutral-500 hover:text-neutral-700">
                 Skip
               </button>
             )}
             <button
-              onClick={step === 'ready' ? onComplete : handleNext}
+              onClick={handleNext}
               disabled={saving || readingFile}
               className="inline-flex items-center gap-1.5 px-6 py-2.5 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 disabled:opacity-50"
             >
