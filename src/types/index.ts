@@ -30,6 +30,8 @@ export const STAGE_CATEGORIES: Record<string, PipelineStage[]> = {
 };
 
 export type FitLabel = 'Pursue' | 'Maybe' | 'Pass';
+export type SeedStagePolicy = 'warn' | 'disqualify' | 'ignore';
+export type JobStageHint = 'seed' | 'series_a' | 'series_b' | 'series_c_plus' | 'public' | 'profitable_private' | 'unknown';
 
 export type EmploymentType = 'Full-time' | 'Contract' | 'Part-time' | 'Freelance' | 'Unknown';
 
@@ -103,16 +105,29 @@ export interface Job {
   fitScore?: number;
   fitLabel?: FitLabel;
   disqualifiers: string[];
+  riskWarnings?: string[];
   reasonsToPursue: string[];
   reasonsToPass: string[];
+  gapSuggestions?: string[];
+  mustHaveSummary?: MustHaveSummary;
   redFlags: string[];
   requirementsExtracted: Requirement[];
   scoreBreakdown?: ScoreBreakdownStored;
+  scoringInputs?: JobScoringInputs;
   researchBrief?: ResearchBrief;
   notes?: string;
   source?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface JobScoringInputs {
+  mustHaveRequirements: string[];
+  experienceRequirements: string[];
+  skills: string[];
+  tools: string[];
+  benefits: string[];
+  stageHint?: JobStageHint;
 }
 
 export type RequirementPriority = 'Must' | 'Preferred';
@@ -268,6 +283,18 @@ export interface HardFilters {
   employmentTypes: HardFilterEmploymentType[];
 }
 
+export interface ScoringPolicy {
+  seedStagePolicy: SeedStagePolicy;
+}
+
+export interface MustHaveSummary {
+  total: number;
+  met: number;
+  partial: number;
+  missing: number;
+  hasBlockers: boolean;
+}
+
 export interface Profile {
   id: string;
   name: string;
@@ -287,6 +314,7 @@ export interface Profile {
   requiredBenefitIds: string[];
   preferredBenefitIds: string[];
   hardFilters: HardFilters;
+  scoringPolicy?: ScoringPolicy;
   digitalResume?: ImportDraft;
   updatedAt: string;
 }

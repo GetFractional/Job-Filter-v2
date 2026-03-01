@@ -2,9 +2,21 @@
 // Client-side, no AI cost. Calibratable via weight adjustments.
 // See docs/MASTER_PLAN.md section 9 for spec.
 
-import type { Job, FitLabel, Profile, Requirement, Claim, RequirementPriority, RequirementMatch } from '../types';
+import type {
+  Job,
+  FitLabel,
+  Profile,
+  Requirement,
+  Claim,
+  RequirementPriority,
+  RequirementMatch,
+  MustHaveSummary,
+  SeedStagePolicy,
+  JobScoringInputs,
+} from '../types';
 import { BENEFITS_CATALOG, legacyBenefitsToIds } from './benefitsCatalog';
 import { sanitizeHardFilters } from './profilePreferences';
+import { getFitLabel } from './scoreBands';
 
 // ============================================================
 // Scoring Weights (calibratable)
@@ -65,8 +77,11 @@ export interface ScoringResult {
   fitScore: number;
   fitLabel: FitLabel;
   disqualifiers: string[];
+  riskWarnings: string[];
   reasonsToPursue: string[];
   reasonsToPass: string[];
+  gapSuggestions: string[];
+  mustHaveSummary: MustHaveSummary;
   redFlags: string[];
   requirementsExtracted: Requirement[];
   breakdown: ScoreBreakdown;
@@ -125,6 +140,142 @@ function hasBenefitMatch(jd: string, benefitId: string): boolean {
   return benefit.keywords.some((keyword) => jd.includes(keyword.toLowerCase()));
 }
 
+function hasKnownBenefitsSignal(jd: string): boolean {
+  if (/\bbenefits?\b/.test(jd)) return true;
+  for (const benefit of BENEFITS_CATALOG) {
+    if (benefit.keywords.some((keyword) => jd.includes(keyword.toLowerCase()))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function normalizeScoringInputs(input: JobScoringInputs | undefined): JobScoringInputs {
+  if (!input) {
+    return {
+      mustHaveRequirements: [],
+      experienceRequirements: [],
+      skills: [],
+      tools: [],
+      benefits: [],
+      stageHint: 'unknown',
+    };
+  }
+
+  const sanitizeList = (values: string[] | undefined): string[] => {
+    if (!values) return [];
+    return values
+      .map((value) => value.trim())
+      .filter(Boolean);
+  };
+
+  return {
+    mustHaveRequirements: sanitizeList(input.mustHaveRequirements),
+    experienceRequirements: sanitizeList(input.experienceRequirements),
+    skills: sanitizeList(input.skills),
+    tools: sanitizeList(input.tools),
+    benefits: sanitizeList(input.benefits),
+    stageHint: input.stageHint ?? 'unknown',
+  };
+}
+
+function buildScoringContext(jobDescription: string, scoringInputs: JobScoringInputs): string {
+  const sections: string[] = [jobDescription];
+
+  if (scoringInputs.mustHaveRequirements.length > 0) {
+    sections.push(
+      'Requirements:',
+      ...scoringInputs.mustHaveRequirements.map((item) => `- Must have ${item}`),
+    );
+  }
+
+  if (scoringInputs.experienceRequirements.length > 0) {
+    sections.push(
+      'Experience requirements:',
+      ...scoringInputs.experienceRequirements.map((item) => `- ${item}`),
+    );
+  }
+
+  if (scoringInputs.skills.length > 0) {
+    sections.push(`Skills: ${scoringInputs.skills.join(', ')}`);
+  }
+
+  if (scoringInputs.tools.length > 0) {
+    sections.push(`Tools: ${scoringInputs.tools.join(', ')}`);
+  }
+
+  if (scoringInputs.benefits.length > 0) {
+    sections.push(`Benefits: ${scoringInputs.benefits.join(', ')}`);
+  }
+
+  return sections.filter(Boolean).join('\n');
+}
+
+function buildMustHaveSummary(requirements: Requirement[]): MustHaveSummary {
+  const mustHave = requirements.filter((requirement) => requirement.priority === 'Must');
+  const met = mustHave.filter((requirement) => requirement.match === 'Met').length;
+  const partial = mustHave.filter((requirement) => requirement.match === 'Partial').length;
+  const missing = mustHave.filter((requirement) => requirement.match === 'Missing').length;
+
+  return {
+    total: mustHave.length,
+    met,
+    partial,
+    missing,
+    hasBlockers: missing > 0,
+  };
+}
+
+function buildGapSuggestions(requirements: Requirement[]): string[] {
+  const suggestions: string[] = [];
+  const sorted = [...requirements].sort((left, right) => {
+    const priorityWeight = (priority: RequirementPriority): number => (priority === 'Must' ? 0 : 1);
+    const matchWeight = (match: RequirementMatch): number => {
+      if (match === 'Missing') return 0;
+      if (match === 'Partial') return 1;
+      return 2;
+    };
+
+    return (
+      priorityWeight(left.priority) - priorityWeight(right.priority)
+      || matchWeight(left.match) - matchWeight(right.match)
+    );
+  });
+
+  for (const requirement of sorted) {
+    if (requirement.match === 'Met') continue;
+    if (suggestions.length >= 6) break;
+
+    const descriptor = requirement.description;
+    if (requirement.match === 'Missing') {
+      if (requirement.priority === 'Must') {
+        suggestions.push(`Missing must-have: ${descriptor}. Add evidence or pass on this role.`);
+      } else {
+        suggestions.push(`Add evidence for: ${descriptor}.`);
+      }
+      continue;
+    }
+
+    suggestions.push(`Strengthen evidence for: ${descriptor}.`);
+  }
+
+  return dedupeMessages(suggestions);
+}
+
+function dedupeMessages(messages: string[]): string[] {
+  const seen = new Set<string>();
+  const output: string[] = [];
+  for (const message of messages) {
+    const normalized = message.trim();
+    if (!normalized) continue;
+    const key = normalized.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    output.push(normalized);
+  }
+  return output;
+}
+
 function matchesLocationPreferences(job: Partial<Job>, profile: Profile): boolean | null {
   if (!profile.locationPreferences || profile.locationPreferences.length === 0) return null;
   if (!job.locationType || job.locationType === 'Unknown') return null;
@@ -145,20 +296,25 @@ function matchesLocationPreferences(job: Partial<Job>, profile: Profile): boolea
 }
 
 export function scoreJob(job: Partial<Job>, profile: Profile, claims?: Claim[]): ScoringResult {
-  const jd = (job.jobDescription || '').toLowerCase();
+  const scoringInputs = normalizeScoringInputs(job.scoringInputs);
+  const scoringContext = buildScoringContext(job.jobDescription || '', scoringInputs);
+  const jd = scoringContext.toLowerCase();
   const title = (job.title || '').toLowerCase();
   const hardFilters = sanitizeHardFilters({
     ...(profile.hardFilters ?? {}),
     minBaseSalary: profile.hardFilters?.minBaseSalary ?? profile.compFloor,
   });
+  const seedStagePolicy: SeedStagePolicy = profile.scoringPolicy?.seedStagePolicy ?? 'warn';
   const requiredBenefitIds = profile.requiredBenefitIds?.length
     ? profile.requiredBenefitIds
     : legacyBenefitsToIds(profile.requiredBenefits);
   const preferredBenefitIds = profile.preferredBenefitIds?.length
     ? profile.preferredBenefitIds
     : legacyBenefitsToIds(profile.preferredBenefits);
+  const benefitsKnown = hasKnownBenefitsSignal(jd);
 
   const disqualifiers: string[] = [];
+  const riskWarnings: string[] = [];
   const reasonsToPursue: string[] = [];
   const reasonsToPass: string[] = [];
   const redFlags: string[] = [];
@@ -182,10 +338,15 @@ export function scoreJob(job: Partial<Job>, profile: Profile, claims?: Claim[]):
   // 2. Seed-stage
   const isSeedStage =
     SEED_STAGE_KEYWORDS.some((kw) => jd.includes(kw)) ||
-    job.compRange?.toLowerCase().includes('seed');
+    job.compRange?.toLowerCase().includes('seed') ||
+    scoringInputs.stageHint === 'seed';
 
   if (isSeedStage) {
-    disqualifiers.push('Company appears to be seed-stage');
+    if (seedStagePolicy === 'disqualify') {
+      disqualifiers.push('Company appears to be seed-stage');
+    } else if (seedStagePolicy === 'warn') {
+      riskWarnings.push('Company appears to be seed-stage');
+    }
   }
 
   // 3. Compensation below floor
@@ -197,7 +358,11 @@ export function scoreJob(job: Partial<Job>, profile: Profile, claims?: Claim[]):
   for (const benefitId of requiredBenefitIds) {
     if (!hasBenefitMatch(jd, benefitId)) {
       const benefitLabel = BENEFIT_BY_ID.get(benefitId)?.label ?? benefitId;
-      disqualifiers.push(`Missing required benefit: ${benefitLabel}`);
+      if (benefitsKnown) {
+        disqualifiers.push(`Missing required benefit: ${benefitLabel}`);
+      } else {
+        riskWarnings.push(`Could not verify required benefit: ${benefitLabel}`);
+      }
     }
   }
 
@@ -230,26 +395,6 @@ export function scoreJob(job: Partial<Job>, profile: Profile, claims?: Claim[]):
   const locationMatch = matchesLocationPreferences(job, profile);
   if (locationMatch === false) {
     disqualifiers.push('Job location does not match your location preferences');
-  }
-
-  // If hard disqualified, return early with score 0
-  if (disqualifiers.length > 0) {
-    return {
-      fitScore: 0,
-      fitLabel: 'Pass',
-      disqualifiers,
-      reasonsToPursue,
-      reasonsToPass: [...disqualifiers],
-      redFlags,
-      requirementsExtracted: [],
-      breakdown: {
-        roleScopeAuthority: 0,
-        compensationBenefits: 0,
-        companyStageAbility: 0,
-        domainFit: 0,
-        riskPenalty: 0,
-      },
-    };
   }
 
   // ----------------------------------------------------------
@@ -408,31 +553,40 @@ export function scoreJob(job: Partial<Job>, profile: Profile, claims?: Claim[]):
   // Extract requirements (with claim matching)
   // ----------------------------------------------------------
 
-  const requirements = extractRequirements(jd, claims);
+  const requirements = extractRequirements(scoringContext, claims);
+  const mustHaveSummary = buildMustHaveSummary(requirements);
+  const gapSuggestions = buildGapSuggestions(requirements);
+
+  if (mustHaveSummary.hasBlockers) {
+    reasonsToPass.push(`Missing ${mustHaveSummary.missing} must-have requirement${mustHaveSummary.missing === 1 ? '' : 's'}`);
+  }
 
   // ----------------------------------------------------------
   // Final Score
   // ----------------------------------------------------------
 
   const rawScore = roleScore + compScore + companyScore + domainScore - riskPenalty;
-  const fitScore = Math.max(0, Math.min(100, rawScore));
-
-  let fitLabel: FitLabel;
-  if (fitScore >= 65) {
-    fitLabel = 'Pursue';
-  } else if (fitScore >= 40) {
-    fitLabel = 'Maybe';
-  } else {
-    fitLabel = 'Pass';
-  }
+  const hasHardDisqualifier = disqualifiers.length > 0;
+  const fitScore = hasHardDisqualifier ? 0 : Math.max(0, Math.min(100, rawScore));
+  const fitLabel = getFitLabel(fitScore);
+  const normalizedDisqualifiers = dedupeMessages(disqualifiers);
+  const normalizedRiskWarnings = dedupeMessages(riskWarnings);
+  const normalizedReasonsToPursue = dedupeMessages(reasonsToPursue);
+  const normalizedReasonsToPass = dedupeMessages(reasonsToPass.filter((reason) => {
+    const normalizedReason = reason.trim().toLowerCase();
+    return !normalizedDisqualifiers.some((disqualifier) => disqualifier.toLowerCase() === normalizedReason);
+  }));
 
   return {
     fitScore,
     fitLabel,
-    disqualifiers,
-    reasonsToPursue,
-    reasonsToPass,
-    redFlags,
+    disqualifiers: normalizedDisqualifiers,
+    riskWarnings: normalizedRiskWarnings,
+    reasonsToPursue: normalizedReasonsToPursue,
+    reasonsToPass: normalizedReasonsToPass,
+    gapSuggestions,
+    mustHaveSummary,
+    redFlags: dedupeMessages(redFlags),
     requirementsExtracted: requirements,
     breakdown: {
       roleScopeAuthority: roleScore,
@@ -545,6 +699,16 @@ function cleanDescription(raw: string): string {
   return desc;
 }
 
+function isPrioritySectionHeader(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed) return false;
+  if (BULLET_PREFIX_RE.test(trimmed)) return false;
+  if (trimmed.length > 48) return false;
+  const tokenCount = trimmed.split(/\s+/).length;
+  if (tokenCount > 6) return false;
+  return /:$/.test(trimmed) || /^[A-Z\s/&-]+$/.test(trimmed);
+}
+
 // ============================================================
 // Similarity / deduplication helpers
 // ============================================================
@@ -648,11 +812,11 @@ function extractRequirements(jd: string, claims?: Claim[]): Requirement[] {
     const lineLower = line.toLowerCase();
 
     // Check if this line is a section header that changes priority
-    if (PREFERRED_PATTERNS.some((p) => p.test(line))) {
+    if (isPrioritySectionHeader(line) && PREFERRED_PATTERNS.some((p) => p.test(line))) {
       currentPriority = 'Preferred';
       continue;
     }
-    if (MUST_PATTERNS.some((p) => p.test(line))) {
+    if (isPrioritySectionHeader(line) && MUST_PATTERNS.some((p) => p.test(line))) {
       currentPriority = 'Must';
       continue;
     }
