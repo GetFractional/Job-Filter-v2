@@ -25,7 +25,7 @@ import { AssetsTab } from '../components/assets/AssetsTab';
 import { CRMTab } from '../components/crm/CRMTab';
 import { QATab } from '../components/qa/QATab';
 import { EditJobModal } from '../components/jobs/EditJobModal';
-import { getEffectiveFitLabel } from '../lib/scoreBands';
+import { getEffectiveFitLabel, getFitLabelText } from '../lib/scoreBands';
 
 const FIT_LABEL_STYLES: Record<FitLabel, string> = {
   Pursue: 'text-green-700 bg-green-50 border border-green-200',
@@ -283,6 +283,7 @@ export function JobWorkspacePage() {
   const scoreAndUpdateJob = useStore((s) => s.scoreAndUpdateJob);
   const moveJobToStage = useStore((s) => s.moveJobToStage);
   const updateJob = useStore((s) => s.updateJob);
+  const profile = useStore((s) => s.profile);
   const [isEditModalOpen, setEditModalOpen] = useState(false);
 
   const job = useMemo(() => jobs.find((j) => j.id === jobId), [jobs, jobId]);
@@ -329,9 +330,19 @@ export function JobWorkspacePage() {
 
   const breakdown = job.scoreBreakdown;
   const fitLabel = getEffectiveFitLabel(job.fitScore, job.fitLabel);
+  const fitLabelText = getFitLabelText(fitLabel);
   const riskWarnings = job.riskWarnings ?? [];
   const gapSuggestions = job.gapSuggestions ?? [];
   const mustHaveSummary = job.mustHaveSummary;
+  const missingMustHaves = (job.requirementsExtracted ?? [])
+    .filter((requirement) => requirement.priority === 'Must' && requirement.match === 'Missing')
+    .slice(0, 3);
+  const seedStagePolicy = profile?.scoringPolicy?.seedStagePolicy ?? 'warn';
+  const seedStagePolicyLabel = seedStagePolicy === 'disqualify'
+    ? 'Hard disqualify'
+    : seedStagePolicy === 'ignore'
+      ? 'Ignore stage'
+      : 'Warn';
 
   return (
     <div className="flex flex-col h-full min-w-0">
@@ -349,7 +360,7 @@ export function JobWorkspacePage() {
               <h2 className="text-sm font-semibold text-neutral-900 truncate">{job.title}</h2>
               {fitLabel && (
                 <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-md shrink-0 ${FIT_LABEL_STYLES[fitLabel]}`}>
-                  {fitLabel} {job.fitScore !== undefined && job.fitScore}
+                  {fitLabelText} {job.fitScore !== undefined && job.fitScore}
                 </span>
               )}
             </div>
@@ -421,7 +432,7 @@ export function JobWorkspacePage() {
                 <ScoreDial score={job.fitScore} label={fitLabel} />
                 <div className="mt-3">
                   <span className={`inline-block text-sm font-semibold px-3 py-1 rounded-md ${FIT_LABEL_STYLES[fitLabel]}`}>
-                    {fitLabel}
+                    {fitLabelText}
                   </span>
                 </div>
               </div>
@@ -455,8 +466,13 @@ export function JobWorkspacePage() {
                   mustHaveSummary.hasBlockers ? 'text-red-700' : 'text-emerald-700'
                 }`}>
                   <ListChecks size={14} />
-                  Must-have Gate
+                  Must-have Checklist
                 </h4>
+                <p className="text-xs text-neutral-600 mb-3">
+                  {mustHaveSummary.hasBlockers
+                    ? 'This role is blocked until missing must-haves are met.'
+                    : 'No must-have blockers detected based on current evidence.'}
+                </p>
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
                   <div className="rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1.5">
                     <p className="text-neutral-500">Total</p>
@@ -483,6 +499,27 @@ export function JobWorkspacePage() {
                     <p className="font-semibold">{mustHaveSummary.hasBlockers ? 'Blocked' : 'Clear'}</p>
                   </div>
                 </div>
+                {missingMustHaves.length > 0 && (
+                  <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2">
+                    <p className="text-[11px] font-semibold text-red-700 mb-1">Top missing must-haves</p>
+                    <ul className="space-y-1">
+                      {missingMustHaves.map((requirement) => (
+                        <li key={requirement.description} className="text-xs text-red-700">
+                          • {requirement.description}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {job.fitScore !== undefined && (
+              <div className="bg-white rounded-lg border border-neutral-200 p-3 shadow-sm">
+                <p className="text-xs text-neutral-600">
+                  Early-stage policy: <span className="font-semibold text-neutral-800">{seedStagePolicyLabel}</span>.
+                  Change this in Settings under Hard Filters.
+                </p>
               </div>
             )}
 

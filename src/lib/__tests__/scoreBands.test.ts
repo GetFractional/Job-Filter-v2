@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getEffectiveFitLabel, getFitLabel } from '../scoreBands';
+import { getEffectiveFitLabel, getFitLabel, getFitLabelText } from '../scoreBands';
 
 describe('score band contract', () => {
   it('maps 0-39 to Pass', () => {
@@ -20,5 +20,10 @@ describe('score band contract', () => {
   it('prefers score-derived label when score is present', () => {
     expect(getEffectiveFitLabel(15, 'Pursue')).toBe('Pass');
     expect(getEffectiveFitLabel(undefined, 'Maybe')).toBe('Maybe');
+  });
+
+  it('renders user-facing pass label text clearly', () => {
+    expect(getFitLabelText('Pass')).toBe('Pass on this job');
+    expect(getFitLabelText('Maybe')).toBe('Maybe');
   });
 });

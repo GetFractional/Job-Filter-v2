@@ -16,7 +16,7 @@ import {
 import { useStore } from '../store/useStore';
 import { STAGE_CATEGORIES } from '../types';
 import type { Job, FitLabel, PipelineStage } from '../types';
-import { getEffectiveFitLabel } from '../lib/scoreBands';
+import { getEffectiveFitLabel, getFitLabelText } from '../lib/scoreBands';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -40,7 +40,7 @@ function formatTimeAgo(dateStr: string): string {
 function formatComp(job: Job): string | null {
   if (job.compRange) return job.compRange;
   if (job.compMin && job.compMax) {
-    return `$${Math.round(job.compMin / 1000)}k-$${Math.round(job.compMax / 1000)}k`;
+    return `$${Math.round(job.compMin / 1000)}k - $${Math.round(job.compMax / 1000)}k`;
   }
   if (job.compMin) return `$${Math.round(job.compMin / 1000)}k+`;
   if (job.compMax) return `up to $${Math.round(job.compMax / 1000)}k`;
@@ -128,6 +128,7 @@ function JobCard({ job, onClick }: { job: Job; onClick: () => void }) {
   const loc = formatLocation(job);
   const action = NEXT_ACTION[job.stage];
   const fitLabel = getEffectiveFitLabel(job.fitScore, job.fitLabel);
+  const fitLabelText = getFitLabelText(fitLabel);
 
   return (
     <div
@@ -145,9 +146,9 @@ function JobCard({ job, onClick }: { job: Job; onClick: () => void }) {
         <div className="flex items-center gap-1.5 shrink-0">
           {fitLabel && (
             <span
-              className={`text-[10px] font-semibold uppercase tracking-wide px-1.5 py-px rounded ${FIT_LABEL_STYLES[fitLabel]}`}
+              className={`text-[10px] font-semibold px-1.5 py-px rounded ${FIT_LABEL_STYLES[fitLabel]}`}
             >
-              {fitLabel}
+              {fitLabelText}
             </span>
           )}
           <ChevronRight
@@ -181,10 +182,7 @@ function JobCard({ job, onClick }: { job: Job; onClick: () => void }) {
             </span>
           )}
           {comp && (
-            <span className="flex items-center gap-0.5 shrink-0">
-              <DollarSign size={10} className="text-neutral-400" />
-              {comp}
-            </span>
+            <span className="flex items-center gap-0.5 shrink-0">{comp}</span>
           )}
         </div>
       )}

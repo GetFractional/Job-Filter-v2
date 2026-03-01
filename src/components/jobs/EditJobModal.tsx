@@ -1,9 +1,18 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { X } from 'lucide-react';
-import type { EmploymentType, Job, LocationType } from '../../types';
+import type { EmploymentType, Job, JobScoringInputs, JobStageHint, LocationType } from '../../types';
 
 const LOCATION_TYPES: LocationType[] = ['Remote', 'Hybrid', 'In-person', 'Unknown'];
 const EMPLOYMENT_TYPES: EmploymentType[] = ['Full-time', 'Contract', 'Part-time', 'Freelance', 'Unknown'];
+const STAGE_HINT_OPTIONS: Array<{ value: JobStageHint; label: string }> = [
+  { value: 'unknown', label: 'Unknown' },
+  { value: 'seed', label: 'Seed / Pre-seed' },
+  { value: 'series_a', label: 'Series A' },
+  { value: 'series_b', label: 'Series B' },
+  { value: 'series_c_plus', label: 'Series C+' },
+  { value: 'public', label: 'Public company' },
+  { value: 'profitable_private', label: 'Profitable private' },
+];
 
 interface EditJobModalProps {
   open: boolean;
@@ -20,6 +29,61 @@ function parseNumberInput(value: string): number | undefined {
   return parsed;
 }
 
+function listToMultiline(values: string[]): string {
+  return values.join('\n');
+}
+
+function multilineToList(value: string): string[] {
+  return value
+    .split('\n')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function deriveScoringInputs(job: Job): JobScoringInputs {
+  if (job.scoringInputs) {
+    return {
+      mustHaveRequirements: [...(job.scoringInputs.mustHaveRequirements ?? [])],
+      experienceRequirements: [...(job.scoringInputs.experienceRequirements ?? [])],
+      skills: [...(job.scoringInputs.skills ?? [])],
+      tools: [...(job.scoringInputs.tools ?? [])],
+      benefits: [...(job.scoringInputs.benefits ?? [])],
+      stageHint: job.scoringInputs.stageHint ?? 'unknown',
+    };
+  }
+
+  const mustHaveRequirements = (job.requirementsExtracted ?? [])
+    .filter((requirement) => requirement.priority === 'Must')
+    .map((requirement) => requirement.description)
+    .filter(Boolean);
+  const experienceRequirements = (job.requirementsExtracted ?? [])
+    .filter((requirement) => requirement.type === 'experience')
+    .map((requirement) => requirement.description)
+    .filter(Boolean);
+  const skills = (job.requirementsExtracted ?? [])
+    .filter((requirement) => requirement.type === 'skill')
+    .map((requirement) => requirement.description)
+    .filter(Boolean);
+  const tools = (job.requirementsExtracted ?? [])
+    .filter((requirement) => requirement.type === 'tool')
+    .map((requirement) => requirement.description)
+    .filter(Boolean);
+  const stageHint = /seed-stage|seed stage/i.test(
+    [...(job.disqualifiers ?? []), ...(job.riskWarnings ?? [])].join(' ')
+  )
+    ? 'seed'
+    : 'unknown';
+
+  return {
+    mustHaveRequirements,
+    experienceRequirements,
+    skills,
+    tools,
+    benefits: [],
+    stageHint,
+  };
+}
+
 export function EditJobModal({ open, job, onClose, onSave }: EditJobModalProps) {
   const [title, setTitle] = useState(job.title);
   const [company, setCompany] = useState(job.company);
@@ -27,9 +91,15 @@ export function EditJobModal({ open, job, onClose, onSave }: EditJobModalProps) 
   const [locationType, setLocationType] = useState<LocationType>(job.locationType);
   const [employmentType, setEmploymentType] = useState<EmploymentType>(job.employmentType);
   const [compRange, setCompRange] = useState(job.compRange ?? '');
-  const [compMin, setCompMin] = useState(job.compMin ? String(job.compMin) : '');
-  const [compMax, setCompMax] = useState(job.compMax ? String(job.compMax) : '');
+  const [compMin, setCompMin] = useState(job.compMin !== undefined ? String(job.compMin) : '');
+  const [compMax, setCompMax] = useState(job.compMax !== undefined ? String(job.compMax) : '');
   const [jobDescription, setJobDescription] = useState(job.jobDescription);
+  const [mustHaveRequirements, setMustHaveRequirements] = useState('');
+  const [experienceRequirements, setExperienceRequirements] = useState('');
+  const [skills, setSkills] = useState('');
+  const [tools, setTools] = useState('');
+  const [benefits, setBenefits] = useState('');
+  const [stageHint, setStageHint] = useState<JobStageHint>('unknown');
   const [submitting, setSubmitting] = useState<'save' | 'rescore' | null>(null);
 
   useEffect(() => {
@@ -40,9 +110,16 @@ export function EditJobModal({ open, job, onClose, onSave }: EditJobModalProps) 
     setLocationType(job.locationType);
     setEmploymentType(job.employmentType);
     setCompRange(job.compRange ?? '');
-    setCompMin(job.compMin ? String(job.compMin) : '');
-    setCompMax(job.compMax ? String(job.compMax) : '');
+    setCompMin(job.compMin !== undefined ? String(job.compMin) : '');
+    setCompMax(job.compMax !== undefined ? String(job.compMax) : '');
     setJobDescription(job.jobDescription);
+    const derived = deriveScoringInputs(job);
+    setMustHaveRequirements(listToMultiline(derived.mustHaveRequirements));
+    setExperienceRequirements(listToMultiline(derived.experienceRequirements));
+    setSkills(listToMultiline(derived.skills));
+    setTools(listToMultiline(derived.tools));
+    setBenefits(listToMultiline(derived.benefits));
+    setStageHint(derived.stageHint ?? 'unknown');
   }, [open, job]);
 
   if (!open) return null;
@@ -63,6 +140,14 @@ export function EditJobModal({ open, job, onClose, onSave }: EditJobModalProps) 
         compMin: parseNumberInput(compMin),
         compMax: parseNumberInput(compMax),
         jobDescription: jobDescription.trim(),
+        scoringInputs: {
+          mustHaveRequirements: multilineToList(mustHaveRequirements),
+          experienceRequirements: multilineToList(experienceRequirements),
+          skills: multilineToList(skills),
+          tools: multilineToList(tools),
+          benefits: multilineToList(benefits),
+          stageHint,
+        },
       }, { rescore });
       onClose();
     } finally {
@@ -171,9 +256,85 @@ export function EditJobModal({ open, job, onClose, onSave }: EditJobModalProps) 
             <input
               value={compRange}
               onChange={(event) => setCompRange(event.target.value)}
-              placeholder="$120k-$180k + bonus"
+              placeholder="$120k-$180k + bonus (optional)"
               className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm"
             />
+          </div>
+
+          <div className="rounded-lg border border-neutral-200 p-3 space-y-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-neutral-600">Scoring inputs</h3>
+            <p className="text-[11px] text-neutral-500">
+              Update extracted requirements, skills, and company stage before scoring.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-neutral-600 mb-1 block">Must-have requirements</label>
+                <textarea
+                  value={mustHaveRequirements}
+                  onChange={(event) => setMustHaveRequirements(event.target.value)}
+                  rows={5}
+                  placeholder={'One per line\n8+ years in growth marketing'}
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm resize-y"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-neutral-600 mb-1 block">Experience requirements</label>
+                <textarea
+                  value={experienceRequirements}
+                  onChange={(event) => setExperienceRequirements(event.target.value)}
+                  rows={5}
+                  placeholder={'One per line\nPeople leadership for 5+ years'}
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm resize-y"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="text-xs font-medium text-neutral-600 mb-1 block">Skills</label>
+                <textarea
+                  value={skills}
+                  onChange={(event) => setSkills(event.target.value)}
+                  rows={4}
+                  placeholder={'One per line\nLifecycle marketing'}
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm resize-y"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-neutral-600 mb-1 block">Tools</label>
+                <textarea
+                  value={tools}
+                  onChange={(event) => setTools(event.target.value)}
+                  rows={4}
+                  placeholder={'One per line\nHubSpot'}
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm resize-y"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-neutral-600 mb-1 block">Benefits</label>
+                <textarea
+                  value={benefits}
+                  onChange={(event) => setBenefits(event.target.value)}
+                  rows={4}
+                  placeholder={'One per line\nHealth insurance'}
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm resize-y"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-neutral-600 mb-1 block">Company stage</label>
+              <select
+                value={stageHint}
+                onChange={(event) => setStageHint(event.target.value as JobStageHint)}
+                className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm"
+              >
+                {STAGE_HINT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div>

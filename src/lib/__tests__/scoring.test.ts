@@ -238,6 +238,30 @@ describe('scoreJob', () => {
     expect(result.mustHaveSummary.total).toBeGreaterThanOrEqual(0);
     expect(Array.isArray(result.gapSuggestions)).toBe(true);
   });
+
+  it('uses editable scoring inputs for extraction and seed-stage policy checks', () => {
+    const strictProfile: Profile = {
+      ...baseProfile,
+      scoringPolicy: { seedStagePolicy: 'disqualify' },
+    };
+    const editableJob: Partial<Job> = {
+      ...baseJob,
+      jobDescription: 'Director of Growth role with sparse details.',
+      scoringInputs: {
+        mustHaveRequirements: ['8+ years in growth marketing', 'HubSpot expertise'],
+        experienceRequirements: ['5+ years leading cross-functional teams'],
+        skills: ['Lifecycle strategy'],
+        tools: ['HubSpot'],
+        benefits: ['Health insurance'],
+        stageHint: 'seed',
+      },
+    };
+
+    const result = scoreJob(editableJob, strictProfile, testClaims);
+    expect(result.disqualifiers.some((entry) => entry.toLowerCase().includes('seed-stage'))).toBe(true);
+    expect(result.requirementsExtracted.some((entry) => entry.type === 'experience')).toBe(true);
+    expect(result.requirementsExtracted.some((entry) => entry.type === 'tool' && entry.description.toLowerCase().includes('hubspot'))).toBe(true);
+  });
 });
 
 describe('parseCompFromText', () => {

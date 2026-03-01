@@ -31,6 +31,7 @@ export const STAGE_CATEGORIES: Record<string, PipelineStage[]> = {
 
 export type FitLabel = 'Pursue' | 'Maybe' | 'Pass';
 export type SeedStagePolicy = 'warn' | 'disqualify' | 'ignore';
+export type JobStageHint = 'seed' | 'series_a' | 'series_b' | 'series_c_plus' | 'public' | 'profitable_private' | 'unknown';
 
 export type EmploymentType = 'Full-time' | 'Contract' | 'Part-time' | 'Freelance' | 'Unknown';
 
@@ -112,11 +113,21 @@ export interface Job {
   redFlags: string[];
   requirementsExtracted: Requirement[];
   scoreBreakdown?: ScoreBreakdownStored;
+  scoringInputs?: JobScoringInputs;
   researchBrief?: ResearchBrief;
   notes?: string;
   source?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface JobScoringInputs {
+  mustHaveRequirements: string[];
+  experienceRequirements: string[];
+  skills: string[];
+  tools: string[];
+  benefits: string[];
+  stageHint?: JobStageHint;
 }
 
 export type RequirementPriority = 'Must' | 'Preferred';

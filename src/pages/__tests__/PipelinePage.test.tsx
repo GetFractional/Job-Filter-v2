@@ -77,4 +77,21 @@ describe('PipelinePage stage transitions', () => {
     expect(screen.getAllByText('Pursue').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Maybe').length).toBeGreaterThan(0);
   });
+
+  it('shows unambiguous pass label text', () => {
+    const state = {
+      jobs: [makeJob({ id: 'job-pass', title: 'Low Fit', fitScore: 15, fitLabel: 'Maybe' })],
+      moveJobToStage: vi.fn(),
+    };
+
+    mockUseStore.mockImplementation((selector: (store: typeof state) => unknown) => selector(state));
+
+    render(
+      <MemoryRouter>
+        <PipelinePage />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText('Pass on this job')).toBeTruthy();
+  });
 });

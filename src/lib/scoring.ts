@@ -12,6 +12,7 @@ import type {
   RequirementMatch,
   MustHaveSummary,
   SeedStagePolicy,
+  JobScoringInputs,
 } from '../types';
 import { BENEFITS_CATALOG, legacyBenefitsToIds } from './benefitsCatalog';
 import { sanitizeHardFilters } from './profilePreferences';
@@ -149,6 +150,67 @@ function hasKnownBenefitsSignal(jd: string): boolean {
   return false;
 }
 
+function normalizeScoringInputs(input: JobScoringInputs | undefined): JobScoringInputs {
+  if (!input) {
+    return {
+      mustHaveRequirements: [],
+      experienceRequirements: [],
+      skills: [],
+      tools: [],
+      benefits: [],
+      stageHint: 'unknown',
+    };
+  }
+
+  const sanitizeList = (values: string[] | undefined): string[] => {
+    if (!values) return [];
+    return values
+      .map((value) => value.trim())
+      .filter(Boolean);
+  };
+
+  return {
+    mustHaveRequirements: sanitizeList(input.mustHaveRequirements),
+    experienceRequirements: sanitizeList(input.experienceRequirements),
+    skills: sanitizeList(input.skills),
+    tools: sanitizeList(input.tools),
+    benefits: sanitizeList(input.benefits),
+    stageHint: input.stageHint ?? 'unknown',
+  };
+}
+
+function buildScoringContext(jobDescription: string, scoringInputs: JobScoringInputs): string {
+  const sections: string[] = [jobDescription];
+
+  if (scoringInputs.mustHaveRequirements.length > 0) {
+    sections.push(
+      'Requirements:',
+      ...scoringInputs.mustHaveRequirements.map((item) => `- Must have ${item}`),
+    );
+  }
+
+  if (scoringInputs.experienceRequirements.length > 0) {
+    sections.push(
+      'Experience requirements:',
+      ...scoringInputs.experienceRequirements.map((item) => `- ${item}`),
+    );
+  }
+
+  if (scoringInputs.skills.length > 0) {
+    sections.push(`Skills: ${scoringInputs.skills.join(', ')}`);
+  }
+
+  if (scoringInputs.tools.length > 0) {
+    sections.push(`Tools: ${scoringInputs.tools.join(', ')}`);
+  }
+
+  if (scoringInputs.benefits.length > 0) {
+    sections.push(`Benefits: ${scoringInputs.benefits.join(', ')}`);
+  }
+
+  return sections.filter(Boolean).join('\n');
+}
+
 function buildMustHaveSummary(requirements: Requirement[]): MustHaveSummary {
   const mustHave = requirements.filter((requirement) => requirement.priority === 'Must');
   const met = mustHave.filter((requirement) => requirement.match === 'Met').length;
@@ -187,17 +249,17 @@ function buildGapSuggestions(requirements: Requirement[]): string[] {
     const descriptor = requirement.description;
     if (requirement.match === 'Missing') {
       if (requirement.priority === 'Must') {
-        suggestions.push(`Add strong evidence for "${descriptor}" if true, or deprioritize this role.`);
+        suggestions.push(`Missing must-have: ${descriptor}. Add evidence or pass on this role.`);
       } else {
-        suggestions.push(`Add supporting evidence for "${descriptor}" if true.`);
+        suggestions.push(`Add evidence for: ${descriptor}.`);
       }
       continue;
     }
 
-    suggestions.push(`Strengthen evidence for "${descriptor}" with a concrete outcome or metric.`);
+    suggestions.push(`Strengthen evidence for: ${descriptor}.`);
   }
 
-  return suggestions;
+  return dedupeMessages(suggestions);
 }
 
 function dedupeMessages(messages: string[]): string[] {
@@ -234,7 +296,9 @@ function matchesLocationPreferences(job: Partial<Job>, profile: Profile): boolea
 }
 
 export function scoreJob(job: Partial<Job>, profile: Profile, claims?: Claim[]): ScoringResult {
-  const jd = (job.jobDescription || '').toLowerCase();
+  const scoringInputs = normalizeScoringInputs(job.scoringInputs);
+  const scoringContext = buildScoringContext(job.jobDescription || '', scoringInputs);
+  const jd = scoringContext.toLowerCase();
   const title = (job.title || '').toLowerCase();
   const hardFilters = sanitizeHardFilters({
     ...(profile.hardFilters ?? {}),
@@ -274,7 +338,8 @@ export function scoreJob(job: Partial<Job>, profile: Profile, claims?: Claim[]):
   // 2. Seed-stage
   const isSeedStage =
     SEED_STAGE_KEYWORDS.some((kw) => jd.includes(kw)) ||
-    job.compRange?.toLowerCase().includes('seed');
+    job.compRange?.toLowerCase().includes('seed') ||
+    scoringInputs.stageHint === 'seed';
 
   if (isSeedStage) {
     if (seedStagePolicy === 'disqualify') {
@@ -488,7 +553,7 @@ export function scoreJob(job: Partial<Job>, profile: Profile, claims?: Claim[]):
   // Extract requirements (with claim matching)
   // ----------------------------------------------------------
 
-  const requirements = extractRequirements(jd, claims);
+  const requirements = extractRequirements(scoringContext, claims);
   const mustHaveSummary = buildMustHaveSummary(requirements);
   const gapSuggestions = buildGapSuggestions(requirements);
 
@@ -634,6 +699,16 @@ function cleanDescription(raw: string): string {
   return desc;
 }
 
+function isPrioritySectionHeader(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed) return false;
+  if (BULLET_PREFIX_RE.test(trimmed)) return false;
+  if (trimmed.length > 48) return false;
+  const tokenCount = trimmed.split(/\s+/).length;
+  if (tokenCount > 6) return false;
+  return /:$/.test(trimmed) || /^[A-Z\s/&-]+$/.test(trimmed);
+}
+
 // ============================================================
 // Similarity / deduplication helpers
 // ============================================================
@@ -737,11 +812,11 @@ function extractRequirements(jd: string, claims?: Claim[]): Requirement[] {
     const lineLower = line.toLowerCase();
 
     // Check if this line is a section header that changes priority
-    if (PREFERRED_PATTERNS.some((p) => p.test(line))) {
+    if (isPrioritySectionHeader(line) && PREFERRED_PATTERNS.some((p) => p.test(line))) {
       currentPriority = 'Preferred';
       continue;
     }
-    if (MUST_PATTERNS.some((p) => p.test(line))) {
+    if (isPrioritySectionHeader(line) && MUST_PATTERNS.some((p) => p.test(line))) {
       currentPriority = 'Must';
       continue;
     }

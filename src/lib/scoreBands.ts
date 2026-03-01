@@ -21,3 +21,9 @@ export function getEffectiveFitLabel(score: number | undefined, label: FitLabel 
   if (score === undefined) return label;
   return getFitLabel(score);
 }
+
+export function getFitLabelText(label: FitLabel | undefined): string {
+  if (!label) return '';
+  if (label === 'Pass') return 'Pass on this job';
+  return label;
+}
