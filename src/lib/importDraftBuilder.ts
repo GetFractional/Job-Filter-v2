@@ -32,6 +32,12 @@ const BULLET_LINE_RE = /^[\s]*[•●◦▪▫‣⁃\-–—*✅✔➤➔][\s\t]
 const CONTINUATION_PREFIX_RE = /^[\s]*([+%(|[a-z])/;
 const LOCAL_MAX_PREVIEW_LINES = 40;
 const AUTO_SEGMENTATION_MODES: SegmentationMode[] = ['default', 'newlines', 'bullets', 'headings'];
+const ROLE_KEYWORD_RE =
+  /\b(director|manager|head|lead|leader|officer|chief|vp|vice president|president|owner|specialist|analyst|coordinator|consultant|engineer|marketing|growth|operations|guide)\b/i;
+const COMPANY_VERB_RE =
+  /\b(led|built|managed|negotiated|improved|increased|reduced|launched|grew|responsible|coordinated|oversaw|drove|implemented|created|worked|was)\b/i;
+const MONTH_YEAR_RE = /\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\w*\s+\d{4}\b/i;
+const CITY_STATE_RE = /^[A-Z][A-Za-z.\s]+,\s*[A-Z]{2}$/;
 const QUALITY_PENALTY_CODES = new Set<ParseReasonCode>([
   'FILTERED_ALL',
   'LAYOUT_COLLAPSE',
@@ -77,6 +83,78 @@ function normalizeMatchToken(value: string): string {
     .replace(/[^a-z0-9$%\s-]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function normalizeEntityKey(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function isSuspiciousRoleTitle(value: string): boolean {
+  const normalized = value.trim();
+  if (!normalized) return true;
+  if (normalized.length > 90) return true;
+  if (/[;%]/.test(normalized)) return true;
+  if (/^\d/.test(normalized)) return true;
+  if (/^[A-Z]{2}\s*\|/.test(normalized)) return true;
+  if (MONTH_YEAR_RE.test(normalized)) return true;
+  if (CITY_STATE_RE.test(normalized)) return true;
+  if (/(^|\s)(remote|hybrid|onsite|on-site)\b/i.test(normalized)) return true;
+  if (/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/.test(normalized)) return true;
+  return false;
+}
+
+function isSuspiciousCompanyName(value: string): boolean {
+  const normalized = value.trim();
+  if (!normalized) return true;
+  if (normalized.length > 70) return true;
+  if (/^\d/.test(normalized)) return true;
+  if (/[;%]/.test(normalized)) return true;
+  if (/^[A-Z]{2}\s*\|/.test(normalized)) return true;
+  if (MONTH_YEAR_RE.test(normalized)) return true;
+  if (CITY_STATE_RE.test(normalized)) return true;
+  if (/(^|\s)(remote|hybrid|onsite|on-site)\b/i.test(normalized)) return true;
+  if (/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/.test(normalized)) return true;
+  if (/https?:\/\//i.test(normalized)) return true;
+  if (/, [a-z]/.test(normalized)) return true;
+  if (/\bi was\b/i.test(normalized)) return true;
+  if (/\b(role|accountabilities|achievements)\b/i.test(normalized)) return true;
+  if (/\bclients?\b/i.test(normalized)) return true;
+  if (/\barea\b/i.test(normalized) && normalized.split(/\s+/).length <= 3) return true;
+  if (COMPANY_VERB_RE.test(normalized)) return true;
+  if (ROLE_KEYWORD_RE.test(normalized) && normalized.split(/\s+/).length <= 4) return true;
+  return false;
+}
+
+function sanitizeClaimIdentity(claim: ParsedClaim): ParsedClaim {
+  let role = claim.role.trim();
+  let company = claim.company.trim();
+
+  const roleLooksLikeRole = ROLE_KEYWORD_RE.test(role);
+  const companyLooksLikeRole = ROLE_KEYWORD_RE.test(company);
+
+  if (companyLooksLikeRole && !roleLooksLikeRole && !isSuspiciousCompanyName(role)) {
+    const previousRole = role;
+    role = company;
+    company = previousRole;
+  }
+
+  if (isSuspiciousRoleTitle(role)) {
+    role = '';
+  }
+
+  if (isSuspiciousCompanyName(company)) {
+    company = '';
+  }
+
+  return {
+    ...claim,
+    role,
+    company,
+  };
 }
 
 function findSourceRefs(lines: string[], snippets: string[]): SourceRef[] {
@@ -479,7 +557,8 @@ function buildImportDraftForMode(
   const grouped = new Map<string, ImportDraftCompany>();
   let roleCounter = 0;
 
-  for (const claim of claims) {
+  for (const rawClaim of claims) {
+    const claim = sanitizeClaimIdentity(rawClaim);
     const hasItems = claim.responsibilities.length + claim.outcomes.length + claim.tools.length > 0;
     if (!hasItems && !claim.role.trim() && !claim.company.trim()) {
       continue;
@@ -487,7 +566,7 @@ function buildImportDraftForMode(
 
     const unresolvedIdentity = !claim.role.trim() || !claim.company.trim();
     const companyName = claim.company.trim() || 'Unassigned';
-    const groupKey = companyName.toLowerCase();
+    const groupKey = normalizeEntityKey(companyName) || 'unassigned';
 
     if (!grouped.has(groupKey)) {
       const companyConfidence = unresolvedIdentity ? 0.5 : 0.85;
@@ -532,11 +611,33 @@ function scoreCandidate(result: ImportDraftParseResult): number {
   const bulletCandidates = result.diagnostics.bulletCandidatesCount;
   const hasUsableDraft = hasUsableImportDraft(result.draft);
   const unresolvedCompanyCount = result.draft.companies.filter((company) => company.name === 'Unassigned').length;
+  let suspiciousCompanyCount = 0;
+  let totalRoles = 0;
+  let resolvedRoles = 0;
+
+  for (const company of result.draft.companies) {
+    const companySuspicious = company.name !== 'Unassigned' && isSuspiciousCompanyName(company.name);
+    if (companySuspicious) suspiciousCompanyCount += 1;
+
+    for (const role of company.roles) {
+      totalRoles += 1;
+      const roleResolved = company.name !== 'Unassigned'
+        && role.title.trim() !== 'Unassigned'
+        && !isSuspiciousRoleTitle(role.title)
+        && !companySuspicious;
+      if (roleResolved) resolvedRoles += 1;
+    }
+  }
+
+  const unresolvedRoles = Math.max(0, totalRoles - resolvedRoles);
 
   let score = items * 1 + roles * 4 + companies * 3 + bulletCandidates * 0.2;
   if (!hasUsableDraft) score -= 6;
   score -= result.diagnostics.reasonCodes.filter((code) => QUALITY_PENALTY_CODES.has(code)).length * 2;
-  score -= Math.max(0, unresolvedCompanyCount - 1);
+  score -= Math.max(0, unresolvedCompanyCount - 1) * 4;
+  score -= unresolvedRoles * 2.5;
+  score -= suspiciousCompanyCount * 6;
+  score += resolvedRoles * 1.2;
 
   return score;
 }

@@ -41,6 +41,7 @@ import {
 } from '../../lib/profilePreferences';
 import { getImportSessionStorageNotice } from '../../lib/importSessionStorage';
 import { BUILD_INFO } from '../../lib/buildInfo';
+import { UI_TERMS } from '../../lib/terminology';
 import {
   BENEFITS_CATALOG,
   benefitIdsToLabels,
@@ -55,6 +56,7 @@ import type {
   ImportDraft,
   ImportDraftRole,
   ImportSession,
+  JobFeed,
   LocationPreference,
   ParseReasonCode,
   SegmentationMode,
@@ -64,13 +66,14 @@ interface OnboardingWizardProps {
   onComplete: () => void;
 }
 
-type Step = 'welcome' | 'resume' | 'preferences' | 'ready';
+type Step = 'welcome' | 'import' | 'review' | 'preferences' | 'feeds';
 
 const STEPS: { id: Step; label: string }[] = [
   { id: 'welcome', label: 'Welcome' },
-  { id: 'resume', label: 'Resume' },
+  { id: 'import', label: 'Import' },
+  { id: 'review', label: 'Review' },
   { id: 'preferences', label: 'Preferences' },
-  { id: 'ready', label: 'Ready' },
+  { id: 'feeds', label: 'Job Feeds' },
 ];
 
 const SEGMENTATION_MODE_ORDER: SegmentationMode[] = ['default', 'newlines', 'bullets', 'headings'];
@@ -168,6 +171,61 @@ function createParsedSession(
   };
 }
 
+function createJobFeed(role: string): JobFeed {
+  const normalizedRole = role.trim().replace(/\s+/g, ' ');
+  return {
+    id: `feed-${crypto.randomUUID()}`,
+    key: normalizeRoleValue(normalizedRole),
+    role: normalizedRole,
+    active: true,
+  };
+}
+
+function normalizeRoleValue(value: string): string {
+  const normalized = value
+    .toLowerCase()
+    .replace(/[^\w\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const tokens = normalized
+    .split(' ')
+    .filter(Boolean)
+    .map((token) => {
+      if (token === 'head') return 'director';
+      if (token === 'vp' || token === 'vice') return 'vice-president';
+      return token;
+    })
+    .filter((token) => !['of', 'the', 'and', 'for', 'in', 'at', 'to'].includes(token))
+    .sort();
+
+  return tokens.join(' ');
+}
+
+function dedupeJobFeeds(feeds: JobFeed[]): JobFeed[] {
+  const seen = new Set<string>();
+  const deduped: JobFeed[] = [];
+
+  for (const feed of feeds) {
+    const role = feed.role.trim();
+    if (!role) continue;
+    const key = feed.key || normalizeRoleValue(role);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    deduped.push({
+      ...feed,
+      key,
+      role,
+    });
+  }
+
+  return deduped;
+}
+
+function deriveFeedsFromRoles(roles: string[]): JobFeed[] {
+  return dedupeJobFeeds(roles.filter((role) => role.trim()).map((role) => createJobFeed(role)));
+}
+
 function BenefitCatalogPicker({
   label,
   selectedIds,
@@ -248,6 +306,11 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const [firstName, setFirstName] = useState(profile?.firstName || profile?.name.split(' ')[0] || '');
   const [lastName, setLastName] = useState(profile?.lastName || profile?.name.split(' ').slice(1).join(' ') || '');
   const [targetRoles, setTargetRoles] = useState(profile?.targetRoles || []);
+  const [targetRoleDraft, setTargetRoleDraft] = useState('');
+  const [jobFeeds, setJobFeeds] = useState<JobFeed[]>(
+    profile?.jobFeeds?.length ? dedupeJobFeeds(profile.jobFeeds) : deriveFeedsFromRoles(profile?.targetRoles || []),
+  );
+  const [jobFeedInput, setJobFeedInput] = useState('');
   const [skills, setSkills] = useState(profile?.skills ?? []);
   const [tools, setTools] = useState(profile?.tools ?? []);
 
@@ -255,7 +318,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const [requiredBenefitIds, setRequiredBenefitIds] = useState<string[]>(
     sanitizeBenefitIds(profile?.requiredBenefitIds?.length ? profile.requiredBenefitIds : legacyBenefitsToIds(profile?.requiredBenefits)),
   );
-  const [preferredBenefitIds, setPreferredBenefitIds] = useState<string[]>(
+  const [preferredBenefitIds] = useState<string[]>(
     sanitizeBenefitIds(profile?.preferredBenefitIds?.length ? profile.preferredBenefitIds : legacyBenefitsToIds(profile?.preferredBenefits)),
   );
   const [locationPreferences, setLocationPreferences] = useState<LocationPreference[]>(
@@ -282,9 +345,9 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const [fileImportError, setFileImportError] = useState<string | null>(null);
   const [troubleshootOpen, setTroubleshootOpen] = useState(false);
   const [showAllStatuses, setShowAllStatuses] = useState(false);
-  const [showAdvancedPreferences, setShowAdvancedPreferences] = useState(false);
   const [recentCities, setRecentCities] = useState<string[]>(() => loadRecentCities());
   const [debugReportNotice, setDebugReportNotice] = useState<string | null>(null);
+  const [locationSuggestionApplied, setLocationSuggestionApplied] = useState(false);
 
   useEffect(() => {
     hydrateImportSession();
@@ -299,6 +362,20 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     setStorageNotice(getImportSessionStorageNotice(importSession.storage));
   }, [importSession]);
 
+  useEffect(() => {
+    setJobFeeds((previous) => {
+      const existingRoles = new Set(previous.map((feed) => normalizeRoleValue(feed.role)));
+      const next = [...previous];
+      for (const role of targetRoles) {
+        const normalized = normalizeRoleValue(role);
+        if (!normalized || existingRoles.has(normalized)) continue;
+        next.push(createJobFeed(role));
+        existingRoles.add(normalized);
+      }
+      return dedupeJobFeeds(next);
+    });
+  }, [targetRoles]);
+
   const stepIndex = STEPS.findIndex((s) => s.id === step);
 
   const fullDraftCounts = useMemo(
@@ -312,6 +389,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const parseLooksLowQuality = importSession
     ? (importSession.diagnostics.mappingStage?.finalItemsCount ?? fullDraftCounts.highlights + fullDraftCounts.outcomes) < 20 || hasCollapseCode
     : false;
+  const hasLocationSuggestions = Boolean(importSession?.profileSuggestion.locationHints.length);
   const bulletDotCount = importSession
     ? (importSession.diagnostics.topBulletGlyphs ?? []).find((entry) => entry.glyph === '•')?.count ?? 0
     : 0;
@@ -406,6 +484,33 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     willingToRelocate,
   ]);
 
+  const addJobFeed = useCallback(() => {
+    const role = jobFeedInput.trim();
+    if (!role) return;
+
+    setJobFeeds((previous) => dedupeJobFeeds([createJobFeed(role), ...previous]));
+    setPreferenceErrors([]);
+    setJobFeedInput('');
+  }, [jobFeedInput]);
+
+  const handleSaveJobFeeds = useCallback(async (): Promise<boolean> => {
+    const normalizedFeeds = dedupeJobFeeds(jobFeeds).filter((feed) => feed.role.trim());
+    if (normalizedFeeds.length === 0 || normalizedFeeds.every((feed) => !feed.active)) {
+      return false;
+    }
+
+    setSaving(true);
+    try {
+      await updateProfile({
+        jobFeeds: normalizedFeeds,
+      });
+      setJobFeeds(normalizedFeeds);
+      return true;
+    } finally {
+      setSaving(false);
+    }
+  }, [jobFeeds, updateProfile]);
+
   const addLocationPreference = useCallback((type: LocationPreference['type']) => {
     setLocationPreferences((prev) => [...prev, createLocationPreference(type)]);
   }, []);
@@ -434,6 +539,28 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     setRecentCities(next);
   }, []);
 
+  const addTargetRole = useCallback(() => {
+    const value = targetRoleDraft.trim();
+    if (!value) return;
+    setTargetRoles((prev) => (prev.includes(value) ? prev : [...prev, value]));
+    setTargetRoleDraft('');
+  }, [targetRoleDraft]);
+
+  const removeTargetRole = useCallback((value: string) => {
+    setTargetRoles((prev) => prev.filter((entry) => entry !== value));
+  }, []);
+
+  const applyLocationSuggestions = useCallback(() => {
+    if (!importSession) return;
+    const locationHints = importSession.profileSuggestion.locationHints;
+    if (locationHints.length === 0) return;
+    setLocationPreferences((prev) => {
+      if (prev.length > 0) return prev;
+      return locationHints.slice(0, 3).map((hint) => locationPreferenceFromHint(hint));
+    });
+    setLocationSuggestionApplied(true);
+  }, [importSession]);
+
   const applyParsedSuggestions = useCallback((session: ImportSession) => {
     const suggestion = session.profileSuggestion;
 
@@ -452,12 +579,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
       setTools((prev) => [...new Set([...prev, ...suggestion.toolHints])]);
     }
 
-    if (suggestion.locationHints.length > 0) {
-      setLocationPreferences((prev) => {
-        if (prev.length > 0) return prev;
-        return suggestion.locationHints.slice(0, 3).map((hint) => locationPreferenceFromHint(hint));
-      });
-    }
+    setLocationSuggestionApplied(false);
 
     if (suggestion.compensation?.floor) {
       setHardFilters((prev) => (
@@ -510,7 +632,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     setDebugReportNotice(null);
     setFileImportError(null);
     setTroubleshootOpen(false);
-    setShowAdvancedPreferences(false);
+    setLocationSuggestionApplied(false);
   }, [applyParsedSuggestions, extractionDiagnostics, resumeText, selectedFileMeta, setImportSession]);
 
   const handleTryAnotherMethod = useCallback(() => {
@@ -604,8 +726,8 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     setImportedClaimsCount(0);
     setTroubleshootOpen(false);
     setShowAllStatuses(false);
-    setShowAdvancedPreferences(false);
     setDebugReportNotice(null);
+    setLocationSuggestionApplied(false);
 
     try {
       const extraction = await extractClaimsImportTextWithMetrics(file);
@@ -653,22 +775,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     }
   }, [addClaim, importSession, setImportSession, updateProfile]);
 
-  const handleDiscardDraft = useCallback(() => {
-    setImportSession(null);
-    setResumeText('');
-    setImportedClaimsCount(0);
-    setSelectedFileName(null);
-    setSelectedFileMeta(null);
-    setFileImportError(null);
-    setStorageNotice(null);
-    setExtractionDiagnostics(null);
-    setTroubleshootOpen(false);
-    setShowAllStatuses(false);
-    setShowAdvancedPreferences(false);
-    setDebugReportNotice(null);
-  }, [setImportSession]);
-
-  const handleResetImport = useCallback(() => {
+  const handleStartOver = useCallback(() => {
     setImportSession(null);
     setResumeText('');
     setImportedClaimsCount(0);
@@ -680,8 +787,8 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     setExtractionDiagnostics(null);
     setTroubleshootOpen(false);
     setShowAllStatuses(false);
-    setShowAdvancedPreferences(false);
     setDebugReportNotice(null);
+    setLocationSuggestionApplied(false);
   }, [setImportSession]);
 
   const markSkipped = useCallback(() => {
@@ -693,38 +800,58 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     });
   }, [importSession, setImportSession]);
 
-  const canContinueFromResume = !resumeText.trim()
-    ? importSession?.state === 'saved' || importSession?.state === 'skipped'
-    : importSession?.state === 'saved' || importSession?.state === 'skipped';
-
   const handleNext = async () => {
-    if (step === 'resume') {
+    if (step === 'import') {
+      if (!resumeText.trim()) {
+        setFileImportError('Upload a resume or paste text before parsing, or skip for now.');
+        return;
+      }
+
+      handleParseResume();
+      setStep('review');
+      return;
+    }
+
+    if (step === 'review') {
       if (!importSession || importSession.state === 'skipped') {
-        if (resumeText.trim()) {
-          handleParseResume();
-          return;
-        }
+        setStep('preferences');
+        return;
       }
 
-      if (importSession?.state === 'parsed') {
+      if (importSession.state === 'parsed') {
         await handleSaveParsedDraft();
-        const nextIndex = stepIndex + 1;
-        if (nextIndex < STEPS.length) {
-          setStep(STEPS[nextIndex].id);
-        } else {
-          onComplete();
-        }
+        setStep('preferences');
         return;
       }
 
-      if (!canContinueFromResume) {
+      if (importSession.state === 'saved') {
+        setStep('preferences');
         return;
       }
+
+      return;
     }
 
     if (step === 'preferences') {
       const saved = await handleSavePreferences();
       if (!saved) return;
+      setStep('feeds');
+      return;
+    }
+
+    if (step === 'feeds') {
+      const saved = await handleSaveJobFeeds();
+      if (!saved) {
+        setPreferenceErrors(['Add at least one active job feed before continuing.']);
+        return;
+      }
+      setPreferenceErrors([]);
+      if (!hasNoJobs) {
+        onComplete();
+        return;
+      }
+      handleAddJobManually();
+      return;
     }
 
     const nextIndex = stepIndex + 1;
@@ -743,18 +870,12 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   };
 
   const handleSkip = () => {
-    if (step !== 'resume') return;
+    if (step !== 'import' && step !== 'review') return;
 
-    if (importSession?.state !== 'saved') {
+    if (importSession?.state && importSession.state !== 'saved') {
       markSkipped();
     }
-
-    const nextIndex = stepIndex + 1;
-    if (nextIndex < STEPS.length) {
-      setStep(STEPS[nextIndex].id);
-    } else {
-      onComplete();
-    }
+    setStep('preferences');
   };
 
   const hasInvalidRequiredLocation = locationPreferences.some((preference) => (
@@ -767,7 +888,6 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     || hasInvalidRequiredLocation
   );
 
-  const isPreviewOrDev = BUILD_INFO.appEnv !== 'production' && BUILD_INFO.appEnv !== 'prod';
   const hasNoJobs = jobs.length === 0;
 
   const handleAddJobManually = useCallback(() => {
@@ -778,15 +898,19 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   }, [onComplete]);
 
   const primaryLabel = useMemo(() => {
-    if (step === 'ready') return 'Find Jobs';
-    if (step === 'resume') {
-      if (importSession?.state === 'parsed') return 'Approve & Save';
-      if (!importSession && resumeText.trim()) return 'Parse & Review';
-      if (importSession?.state === 'saved' || importSession?.state === 'skipped') return 'Continue';
+    if (step === 'import') {
       return 'Parse & Review';
     }
+    if (step === 'review') {
+      if (importSession?.state === 'parsed') return 'Approve & Save';
+      if (importSession?.state === 'saved' || importSession?.state === 'skipped') return 'Continue';
+      return 'Continue';
+    }
+    if (step === 'feeds') {
+      return hasNoJobs ? 'Add a Job to Score' : 'Browse Jobs';
+    }
     return 'Continue';
-  }, [importSession, resumeText, step]);
+  }, [hasNoJobs, importSession, step]);
 
   return (
     <div className="min-h-screen bg-neutral-50 flex flex-col">
@@ -860,70 +984,84 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
             </div>
           )}
 
-          {step === 'resume' && (
+          {(step === 'import' || step === 'review') && (
             <div className="space-y-4">
-              <div className="bg-white rounded-xl border border-neutral-200 p-5 space-y-4">
-                <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-brand-50 rounded-lg flex items-center justify-center">
-                  <FileText size={20} className="text-brand-600" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <h2 className="text-lg font-semibold text-neutral-900">Import Your Resume</h2>
-                    <span
-                      className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-neutral-200 text-neutral-500"
-                      title={"We’ll use your resume to build your Digital Resume. You can edit everything before saving. AI features (later) require opt-in."}
-                      aria-label="Import details"
-                    >
-                      <Info size={12} />
-                    </span>
+              {step === 'import' && (
+                <div className="bg-white rounded-xl border border-neutral-200 p-5 space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-brand-50 rounded-lg flex items-center justify-center">
+                      <FileText size={20} className="text-brand-600" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <h2 className="text-lg font-semibold text-neutral-900">Import Resume</h2>
+                        <span
+                          className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-neutral-200 text-neutral-500"
+                          title={"We’ll use your resume to build your Digital Resume. You can edit everything before saving. AI features (later) require opt-in."}
+                          aria-label="Import details"
+                        >
+                          <Info size={12} />
+                        </span>
+                      </div>
+                      <p className="text-xs text-neutral-500">Upload PDF, DOCX, TXT, or paste text, then continue to review and edit.</p>
+                    </div>
                   </div>
-                  <p className="text-xs text-neutral-500">Upload PDF, DOCX, TXT, or paste text, then continue to review and edit.</p>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <label className="inline-flex items-center gap-1.5 px-3 py-2 border border-neutral-200 rounded-lg text-xs font-medium text-neutral-700 hover:bg-neutral-50 cursor-pointer">
+                      <Upload size={13} />
+                      {readingFile ? 'Reading file...' : 'Upload PDF, DOCX, or TXT'}
+                      <input
+                        type="file"
+                        accept={getClaimsImportAcceptValue()}
+                        onChange={handleImportFile}
+                        className="sr-only"
+                      />
+                    </label>
+                    {selectedFileName && <span className="text-[11px] text-neutral-500 truncate">{selectedFileName}</span>}
+                  </div>
+
+                  {fileImportError && <p className="text-xs text-red-600">{fileImportError}</p>}
+
+                  <textarea
+                    value={resumeText}
+                    onChange={(event) => {
+                      setImportSession(null);
+                      setResumeText(event.target.value);
+                      setSelectedFileName(null);
+                      setSelectedFileMeta(null);
+                      setExtractionDiagnostics(null);
+                      setImportedClaimsCount(0);
+                      setTroubleshootOpen(false);
+                      setShowAllStatuses(false);
+                      setDebugReportNotice(null);
+                    }}
+                    placeholder="Paste your resume text if you prefer manual input"
+                    rows={10}
+                    className="w-full px-3.5 py-2.5 bg-white border border-neutral-200 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                  />
                 </div>
-              </div>
+              )}
 
-                <div className="flex flex-wrap items-center gap-2">
-                  <label className="inline-flex items-center gap-1.5 px-3 py-2 border border-neutral-200 rounded-lg text-xs font-medium text-neutral-700 hover:bg-neutral-50 cursor-pointer">
-                    <Upload size={13} />
-                    {readingFile ? 'Reading file...' : 'Upload PDF, DOCX, or TXT'}
-                    <input
-                      type="file"
-                      accept={getClaimsImportAcceptValue()}
-                      onChange={handleImportFile}
-                      className="sr-only"
-                    />
-                  </label>
-                  {selectedFileName && <span className="text-[11px] text-neutral-500 truncate">{selectedFileName}</span>}
+              {step === 'review' && !importSession && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle size={16} className="text-amber-600 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-amber-800">No import draft yet</p>
+                      <p className="text-xs text-amber-700 mt-1">Go back to Import Resume, parse your content, then continue to review.</p>
+                    </div>
+                  </div>
                 </div>
+              )}
 
-                {fileImportError && <p className="text-xs text-red-600">{fileImportError}</p>}
-
-                <textarea
-                  value={resumeText}
-                  onChange={(event) => {
-                    setImportSession(null);
-                    setResumeText(event.target.value);
-                    setSelectedFileName(null);
-                    setSelectedFileMeta(null);
-                    setExtractionDiagnostics(null);
-                    setImportedClaimsCount(0);
-                    setTroubleshootOpen(false);
-                    setShowAllStatuses(false);
-                    setDebugReportNotice(null);
-                  }}
-                  placeholder="Paste your resume text if you prefer manual input"
-                  rows={10}
-                  className="w-full px-3.5 py-2.5 bg-white border border-neutral-200 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
-                />
-              </div>
-
-              {importSession && (
+              {step === 'review' && importSession && (
                 <div className="bg-white rounded-xl border border-neutral-200 p-5 space-y-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <h3 className="text-sm font-semibold text-neutral-900">Import Draft</h3>
+                      <h3 className="text-sm font-semibold text-neutral-900">Digital Resume Review</h3>
                       <p className="text-xs text-neutral-500 mt-1">
-                        {fullDraftCounts.companies} companies, {fullDraftCounts.roles} roles, {fullDraftCounts.highlights} highlights, {fullDraftCounts.outcomes} outcomes
+                        {fullDraftCounts.companies} companies, {fullDraftCounts.roles} roles, {fullDraftCounts.highlights} {UI_TERMS.accountabilityPlural.toLowerCase()}, {fullDraftCounts.outcomes} outcomes
                       </p>
                       {storageNotice && <p className="text-xs text-amber-700 mt-1">{storageNotice}</p>}
                       {(importSession.profileSuggestion.firstName
@@ -934,22 +1072,19 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                           Added suggested profile details where fields were empty. You can edit everything before saving.
                         </p>
                       )}
+                      <p className="text-xs text-neutral-500 mt-1">
+                        Needs attention means we are not fully confident the item is correct, review those entries before saving.
+                      </p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-col items-end gap-1.5">
                       <button
                         type="button"
-                        onClick={handleDiscardDraft}
+                        onClick={handleStartOver}
                         className="px-3 py-1.5 text-xs border border-neutral-200 rounded-lg text-neutral-600 hover:bg-neutral-50"
                       >
-                        Discard Draft
+                        Start Over
                       </button>
-                      <button
-                        type="button"
-                        onClick={handleResetImport}
-                        className="px-3 py-1.5 text-xs border border-neutral-200 rounded-lg text-neutral-600 hover:bg-neutral-50"
-                      >
-                        Reset Import Session
-                      </button>
+                      <p className="text-[11px] text-neutral-500">Clears parsed draft, import text, and diagnostics.</p>
                     </div>
                   </div>
 
@@ -973,9 +1108,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                         <AlertTriangle size={16} className="text-amber-600 mt-0.5" />
                         <div>
                           <p className="text-sm font-medium text-amber-800">No structured draft yet</p>
-                          <p className="text-xs text-amber-700 mt-1">
-                            Open Troubleshoot to try another method, upload a different format, or skip and continue manually.
-                          </p>
+                          <p className="text-xs text-amber-700 mt-1">Open Troubleshoot to try another method, upload a different format, or skip and continue manually.</p>
                         </div>
                       </div>
                     </div>
@@ -983,7 +1116,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
                   {parseLooksLowQuality && (
                     <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-                      We imported {fullDraftCounts.companies} companies, {fullDraftCounts.roles} roles, and {fullDraftCounts.highlights + fullDraftCounts.outcomes} highlights/outcomes.
+                      We imported {fullDraftCounts.companies} companies, {fullDraftCounts.roles} roles, and {fullDraftCounts.highlights + fullDraftCounts.outcomes} {UI_TERMS.accountabilityPlural.toLowerCase()}/outcomes.
                       If this looks incomplete, open Troubleshoot, try another method, or continue manually.
                     </div>
                   )}
@@ -1012,7 +1145,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                           <div>mode: {importSession.selectedMode ?? importSession.mode}</div>
                           <div>companies: {fullDraftCounts.companies}</div>
                           <div>roles: {fullDraftCounts.roles}</div>
-                          <div>highlights: {fullDraftCounts.highlights}</div>
+                          <div>{UI_TERMS.accountabilityPlural.toLowerCase()}: {fullDraftCounts.highlights}</div>
                           <div>outcomes: {fullDraftCounts.outcomes}</div>
                         </div>
                         <div>
@@ -1103,6 +1236,64 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                 </div>
               )}
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-neutral-600 mb-1 block">First Name</label>
+                  <input
+                    type="text"
+                    value={firstName}
+                    onChange={(event) => setFirstName(event.target.value)}
+                    placeholder={importSession?.profileSuggestion.firstName || 'First name'}
+                    className="h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-neutral-600 mb-1 block">Last Name</label>
+                  <input
+                    type="text"
+                    value={lastName}
+                    onChange={(event) => setLastName(event.target.value)}
+                    placeholder={importSession?.profileSuggestion.lastName || 'Last name'}
+                    className="h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-neutral-600 mb-1 block">Target Roles</label>
+                <div className="rounded-lg border border-neutral-200 bg-white px-3 py-2 space-y-2">
+                  <div className="flex flex-wrap gap-1.5">
+                    {targetRoles.map((role) => (
+                      <span key={role} className="inline-flex items-center gap-1 rounded-full bg-brand-50 text-brand-700 text-xs px-2.5 py-1">
+                        {role}
+                        <button
+                          type="button"
+                          onClick={() => removeTargetRole(role)}
+                          className="text-brand-700 hover:text-brand-900"
+                          aria-label={`Remove target role ${role}`}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                  <input
+                    type="text"
+                    value={targetRoleDraft}
+                    onChange={(event) => setTargetRoleDraft(event.target.value)}
+                    onBlur={addTargetRole}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ',') {
+                        event.preventDefault();
+                        addTargetRole();
+                      }
+                    }}
+                    placeholder="Add a role and press Enter"
+                    className="w-full border-0 p-0 text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none"
+                  />
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <label className="text-sm font-medium text-neutral-700 flex items-center gap-1.5">
                   <MapPin size={14} className="text-neutral-400" /> Location preferences
@@ -1140,7 +1331,22 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                   >
                     + Willing to relocate
                   </button>
+                  {hasLocationSuggestions && locationPreferences.length === 0 && (
+                    <button
+                      type="button"
+                      onClick={applyLocationSuggestions}
+                      className="rounded-full border border-brand-200 bg-brand-50 px-3 py-1 text-xs text-brand-700 hover:bg-brand-100"
+                    >
+                      Apply suggested locations
+                    </button>
+                  )}
                 </div>
+
+                {locationSuggestionApplied && (
+                  <p className="text-[11px] text-neutral-500">
+                    Applied location suggestions from your resume. Edit or remove anything that looks off.
+                  </p>
+                )}
 
                 <div className="space-y-2">
                   {locationPreferences.length === 0 && (
@@ -1326,14 +1532,13 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                       type="number"
                       min={0}
                       max={5}
-                      value={hardFilters.maxOnsiteDaysPerWeek === DEFAULT_HARD_FILTERS.maxOnsiteDaysPerWeek ? '' : hardFilters.maxOnsiteDaysPerWeek}
+                      value={hardFilters.maxOnsiteDaysPerWeek}
                       onChange={(event) => setHardFilters((prev) => ({
                         ...prev,
                         maxOnsiteDaysPerWeek: event.target.value === ''
                           ? DEFAULT_HARD_FILTERS.maxOnsiteDaysPerWeek
-                          : Number(event.target.value),
+                          : Math.max(0, Math.min(5, Number(event.target.value))),
                       }))}
-                      placeholder="5"
                       className="h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
                     />
                   </div>
@@ -1376,68 +1581,111 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
               <p className="text-[11px] text-neutral-500">
                 If a job does not list benefits, we treat benefits as unknown instead of an automatic fail.
               </p>
-
-              <div className="rounded-lg border border-neutral-200">
-                <button
-                  type="button"
-                  onClick={() => setShowAdvancedPreferences((open) => !open)}
-                  className="w-full px-3 py-2.5 flex items-center justify-between text-sm font-medium text-neutral-700 hover:bg-neutral-50"
-                >
-                  Advanced Preferences
-                  {showAdvancedPreferences ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                </button>
-                {showAdvancedPreferences && (
-                  <div className="border-t border-neutral-200 p-3">
-                    <BenefitCatalogPicker
-                      label="Preferred Benefits"
-                      selectedIds={preferredBenefitIds}
-                      onChange={setPreferredBenefitIds}
-                    />
-                  </div>
-                )}
-              </div>
             </div>
           )}
 
-          {step === 'ready' && (
-            <div className="text-center py-10">
-              <div className="w-20 h-20 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <Check size={36} className="text-emerald-600" />
-              </div>
-              <h1 className="text-2xl font-bold text-neutral-900 mb-3">Ready to find strong-fit jobs</h1>
-              <p className="text-sm text-neutral-600 max-w-md mx-auto mb-8 leading-relaxed">
-                Your Digital Resume and preferences are saved. Find jobs now, then score and prioritize your best opportunities.
-              </p>
-              <div className="bg-white rounded-lg border border-neutral-200 p-4 text-left max-w-md mx-auto space-y-3">
-                <h4 className="text-xs font-bold text-neutral-700 uppercase tracking-wider">Next step</h4>
-                <p className="text-sm text-neutral-600">
-                  {hasNoJobs
-                    ? 'Start with your first jobs so you can score match quality and focus your effort.'
-                    : 'You already have jobs in your pipeline. Open them now and prioritize the best fits.'}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={handleAddJobManually}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 px-3 py-2 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
-                  >
-                    <Plus size={13} />
-                    Add Job Manually
-                  </button>
-                  {hasNoJobs && isPreviewOrDev && (
-                    <button
-                      type="button"
-                      disabled
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 px-3 py-2 text-xs font-medium text-neutral-400 cursor-not-allowed"
-                      title="Sample jobs will be available in A2.1 for preview and development environments."
-                    >
-                      Load Sample Jobs (Soon)
-                    </button>
-                  )}
+          {step === 'feeds' && (
+            <div className="bg-white rounded-xl border border-neutral-200 p-5 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-brand-50 rounded-lg flex items-center justify-center">
+                  <Briefcase size={20} className="text-brand-600" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-neutral-900">Job Feeds</h2>
+                  <p className="text-xs text-neutral-500">
+                    Feeds are role-based job lists. We&apos;ll use them to organize jobs and alerts.
+                  </p>
                 </div>
               </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="text"
+                  value={jobFeedInput}
+                  onChange={(event) => setJobFeedInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      addJobFeed();
+                    }
+                  }}
+                  placeholder="Add a role feed"
+                  className="h-10 min-w-[220px] flex-1 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                />
+                <button
+                  type="button"
+                  onClick={addJobFeed}
+                  className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-neutral-200 px-3 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+                >
+                  <Plus size={13} />
+                  Add Feed
+                </button>
+              </div>
+
+              {preferenceErrors.length > 0 && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+                  <ul className="text-xs text-red-700 list-disc pl-4 space-y-1">
+                    {preferenceErrors.map((error) => (
+                      <li key={error}>{error}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {jobFeeds.length === 0 && (
+                <p className="rounded-lg border border-dashed border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-neutral-500">
+                  Add at least one role feed to organize your job search.
+                </p>
+              )}
+
+              <div className="space-y-2">
+                {jobFeeds.map((feed) => (
+                  <div key={feed.id} className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-2 items-center rounded-lg border border-neutral-200 bg-neutral-50 p-3">
+                    <input
+                      type="text"
+                      value={feed.role}
+                      onChange={(event) => {
+                        const role = event.target.value;
+                        setPreferenceErrors([]);
+                        setJobFeeds((previous) => previous.map((entry) => (
+                          entry.id === feed.id ? { ...entry, role } : entry
+                        )));
+                      }}
+                      placeholder="Role name"
+                      className="h-10 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPreferenceErrors([]);
+                        setJobFeeds((previous) => previous.map((entry) => (
+                          entry.id === feed.id ? { ...entry, active: !entry.active } : entry
+                        )));
+                      }}
+                      className={`h-10 rounded-lg border px-3 text-xs font-medium ${
+                        feed.active
+                          ? 'border-brand-300 bg-brand-50 text-brand-700'
+                          : 'border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-100'
+                      }`}
+                    >
+                      {feed.active ? 'Active' : 'Inactive'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPreferenceErrors([]);
+                        setJobFeeds((previous) => previous.filter((entry) => entry.id !== feed.id));
+                      }}
+                      className="h-10 rounded-lg border border-neutral-200 px-3 text-xs text-neutral-600 hover:bg-neutral-100"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
+
         </div>
       </div>
 
@@ -1456,13 +1704,13 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
           </div>
 
           <div className="flex items-center gap-3">
-            {step === 'resume' && (
+            {(step === 'import' || step === 'review') && (
               <button onClick={handleSkip} className="px-4 py-2 text-sm text-neutral-500 hover:text-neutral-700">
                 Skip
               </button>
             )}
             <button
-              onClick={step === 'ready' ? onComplete : handleNext}
+              onClick={handleNext}
               disabled={saving || readingFile}
               className="inline-flex items-center gap-1.5 px-6 py-2.5 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 disabled:opacity-50"
             >
@@ -1474,7 +1722,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
               ) : (
                 <>
                   {primaryLabel}
-                  {step === 'ready' ? <Rocket size={14} /> : <ChevronRight size={14} />}
+                  <ChevronRight size={14} />
                 </>
               )}
             </button>

@@ -23,6 +23,7 @@ import {
 import { getCityTypeaheadOptions, loadRecentCities, saveRecentCity } from '../lib/cityOptions';
 import { DigitalResumeBuilder } from '../components/resume/DigitalResumeBuilder';
 import { hasUsableImportDraft } from '../lib/importDraftBuilder';
+import { UI_TERMS } from '../lib/terminology';
 import type { Claim, ImportDraftRole, ImportSession, LocationPreference, Profile } from '../types';
 
 function parseIntegerInput(value: string): number {
@@ -536,17 +537,16 @@ function ProfileSection({
               type="number"
               min={0}
               max={5}
-              value={form.hardFilters.maxOnsiteDaysPerWeek === DEFAULT_HARD_FILTERS.maxOnsiteDaysPerWeek ? '' : form.hardFilters.maxOnsiteDaysPerWeek}
+              value={form.hardFilters.maxOnsiteDaysPerWeek}
               onChange={(event) => setForm((prev) => ({
                 ...prev,
                 hardFilters: {
                   ...prev.hardFilters,
                   maxOnsiteDaysPerWeek: event.target.value === ''
                     ? DEFAULT_HARD_FILTERS.maxOnsiteDaysPerWeek
-                    : Number(event.target.value),
+                    : Math.max(0, Math.min(5, Number(event.target.value))),
                 },
               }))}
-              placeholder="5"
               className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm"
             />
           </div>
@@ -784,7 +784,7 @@ function DigitalResumeSection({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h3 className="text-h3 text-neutral-900">Digital Resume</h3>
-            <p className="text-xs text-neutral-500">Update companies, roles, highlights, outcomes, tools, and skills.</p>
+            <p className="text-xs text-neutral-500">Update companies, roles, {UI_TERMS.accountabilityPlural.toLowerCase()}, outcomes, tools, and skills.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             {importSession && (

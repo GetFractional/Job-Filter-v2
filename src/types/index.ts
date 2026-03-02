@@ -295,6 +295,13 @@ export interface MustHaveSummary {
   hasBlockers: boolean;
 }
 
+export interface JobFeed {
+  id: string;
+  key?: string;
+  role: string;
+  active: boolean;
+}
+
 export interface Profile {
   id: string;
   name: string;
@@ -315,6 +322,7 @@ export interface Profile {
   preferredBenefitIds: string[];
   hardFilters: HardFilters;
   scoringPolicy?: ScoringPolicy;
+  jobFeeds?: JobFeed[];
   digitalResume?: ImportDraft;
   updatedAt: string;
 }
