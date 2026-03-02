@@ -537,17 +537,16 @@ function ProfileSection({
               type="number"
               min={0}
               max={5}
-              value={form.hardFilters.maxOnsiteDaysPerWeek === DEFAULT_HARD_FILTERS.maxOnsiteDaysPerWeek ? '' : form.hardFilters.maxOnsiteDaysPerWeek}
+              value={form.hardFilters.maxOnsiteDaysPerWeek}
               onChange={(event) => setForm((prev) => ({
                 ...prev,
                 hardFilters: {
                   ...prev.hardFilters,
                   maxOnsiteDaysPerWeek: event.target.value === ''
                     ? DEFAULT_HARD_FILTERS.maxOnsiteDaysPerWeek
-                    : Number(event.target.value),
+                    : Math.max(0, Math.min(5, Number(event.target.value))),
                 },
               }))}
-              placeholder="5"
               className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm"
             />
           </div>

@@ -101,4 +101,26 @@ describe('importDraftBuilder', () => {
     expect(marketingResult.diagnostics.candidateModes?.length).toBe(4);
     expect(profileResult.diagnostics.candidateModes?.length).toBe(4);
   });
+
+  it('keeps suspicious company tokens from becoming primary grouping buckets', () => {
+    const noisyInput = [
+      'TN | Jun 2020',
+      '55% conversion; negotiated a $5M LOI to purchase the company.',
+      'Chief Marketing Officer',
+      '● Built lifecycle strategy across paid and owned channels',
+      '● Increased qualified pipeline by 38%',
+      'BC | Aug 2019',
+      'Director of Marketing',
+      '● Led launch calendar across product lines',
+      '● Improved SQL conversion by 22%',
+    ].join('\n');
+
+    const result = buildBestImportDraftFromText(noisyInput);
+    const companyNames = result.draft.companies.map((company) => company.name);
+    const suspiciousNamePattern = /(^[A-Z]{2}\s*\||%|negotiated a \$5M|^BC\s*\|)/i;
+
+    expect(companyNames.some((name) => suspiciousNamePattern.test(name))).toBe(false);
+    expect(companyNames).toContain('Unassigned');
+    expect(result.draft.companies.reduce((sum, company) => sum + company.roles.length, 0)).toBeGreaterThanOrEqual(1);
+  });
 });

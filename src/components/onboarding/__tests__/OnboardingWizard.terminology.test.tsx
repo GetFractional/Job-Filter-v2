@@ -107,4 +107,59 @@ describe('OnboardingWizard terminology guard', () => {
     expect(screen.getByPlaceholderText(/City \(required\)/i)).toBeTruthy();
     expect(screen.getByText(/Radius \(miles\)/i)).toBeTruthy();
   });
+
+  it('keeps location preferences empty by default and hides advanced preferences in onboarding', async () => {
+    render(<OnboardingWizard onComplete={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Continue/i }));
+    await waitFor(() => expect(screen.getByRole('heading', { name: /Import Resume/i })).toBeTruthy());
+
+    fireEvent.click(screen.getByRole('button', { name: /Skip/i }));
+    await waitFor(() => expect(screen.getByRole('heading', { name: /Scoring Preferences/i })).toBeTruthy());
+
+    expect(screen.getByText(/Add at least one location preference/i)).toBeTruthy();
+    expect(screen.queryByText(/Remote roles do not need city or radius/i)).toBeNull();
+    expect(screen.queryByText(/Advanced Preferences/i)).toBeNull();
+  });
+
+  it('allows selecting 5 max onsite days per week', async () => {
+    render(<OnboardingWizard onComplete={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Continue/i }));
+    await waitFor(() => expect(screen.getByRole('heading', { name: /Import Resume/i })).toBeTruthy());
+
+    fireEvent.click(screen.getByRole('button', { name: /Skip/i }));
+    await waitFor(() => expect(screen.getByRole('heading', { name: /Scoring Preferences/i })).toBeTruthy());
+
+    const label = screen.getByText(/Max onsite days per week/i);
+    const maxOnsiteInput = label.parentElement?.querySelector('input');
+    expect(maxOnsiteInput).toBeTruthy();
+    fireEvent.change(maxOnsiteInput as HTMLInputElement, { target: { value: '5' } });
+    expect((maxOnsiteInput as HTMLInputElement).value).toBe('5');
+  });
+
+  it('dedupes similar job feed roles using normalized keys', async () => {
+    render(<OnboardingWizard onComplete={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Continue/i }));
+    await waitFor(() => expect(screen.getByRole('heading', { name: /Import Resume/i })).toBeTruthy());
+
+    fireEvent.click(screen.getByRole('button', { name: /Skip/i }));
+    await waitFor(() => expect(screen.getByRole('heading', { name: /Scoring Preferences/i })).toBeTruthy());
+
+    fireEvent.change(screen.getByPlaceholderText('150,000'), { target: { value: '150000' } });
+    fireEvent.click(screen.getByRole('button', { name: /\+ Remote/i }));
+
+    const targetRoleInput = screen.getByPlaceholderText(/Add a role and press Enter/i);
+    fireEvent.change(targetRoleInput, { target: { value: 'Marketing Director' } });
+    fireEvent.keyDown(targetRoleInput, { key: 'Enter' });
+    fireEvent.change(targetRoleInput, { target: { value: 'Director of Marketing' } });
+    fireEvent.keyDown(targetRoleInput, { key: 'Enter' });
+
+    fireEvent.click(screen.getByRole('button', { name: /^Continue$/i }));
+    await waitFor(() => expect(screen.getByRole('heading', { name: /Job Feeds/i })).toBeTruthy());
+
+    const roleInputs = screen.getAllByPlaceholderText(/Role name/i);
+    expect(roleInputs).toHaveLength(1);
+  });
 });

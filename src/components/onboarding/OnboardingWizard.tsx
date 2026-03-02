@@ -66,7 +66,7 @@ interface OnboardingWizardProps {
   onComplete: () => void;
 }
 
-type Step = 'welcome' | 'import' | 'review' | 'preferences' | 'feeds' | 'ready';
+type Step = 'welcome' | 'import' | 'review' | 'preferences' | 'feeds';
 
 const STEPS: { id: Step; label: string }[] = [
   { id: 'welcome', label: 'Welcome' },
@@ -74,7 +74,6 @@ const STEPS: { id: Step; label: string }[] = [
   { id: 'review', label: 'Review' },
   { id: 'preferences', label: 'Preferences' },
   { id: 'feeds', label: 'Job Feeds' },
-  { id: 'ready', label: 'Ready' },
 ];
 
 const SEGMENTATION_MODE_ORDER: SegmentationMode[] = ['default', 'newlines', 'bullets', 'headings'];
@@ -173,16 +172,34 @@ function createParsedSession(
 }
 
 function createJobFeed(role: string): JobFeed {
-  const normalizedRole = role.trim();
+  const normalizedRole = role.trim().replace(/\s+/g, ' ');
   return {
     id: `feed-${crypto.randomUUID()}`,
+    key: normalizeRoleValue(normalizedRole),
     role: normalizedRole,
     active: true,
   };
 }
 
 function normalizeRoleValue(value: string): string {
-  return value.trim().replace(/\s+/g, ' ').toLowerCase();
+  const normalized = value
+    .toLowerCase()
+    .replace(/[^\w\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const tokens = normalized
+    .split(' ')
+    .filter(Boolean)
+    .map((token) => {
+      if (token === 'head') return 'director';
+      if (token === 'vp' || token === 'vice') return 'vice-president';
+      return token;
+    })
+    .filter((token) => !['of', 'the', 'and', 'for', 'in', 'at', 'to'].includes(token))
+    .sort();
+
+  return tokens.join(' ');
 }
 
 function dedupeJobFeeds(feeds: JobFeed[]): JobFeed[] {
@@ -192,11 +209,12 @@ function dedupeJobFeeds(feeds: JobFeed[]): JobFeed[] {
   for (const feed of feeds) {
     const role = feed.role.trim();
     if (!role) continue;
-    const key = normalizeRoleValue(role);
-    if (seen.has(key)) continue;
+    const key = feed.key || normalizeRoleValue(role);
+    if (!key || seen.has(key)) continue;
     seen.add(key);
     deduped.push({
       ...feed,
+      key,
       role,
     });
   }
@@ -288,6 +306,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const [firstName, setFirstName] = useState(profile?.firstName || profile?.name.split(' ')[0] || '');
   const [lastName, setLastName] = useState(profile?.lastName || profile?.name.split(' ').slice(1).join(' ') || '');
   const [targetRoles, setTargetRoles] = useState(profile?.targetRoles || []);
+  const [targetRoleDraft, setTargetRoleDraft] = useState('');
   const [jobFeeds, setJobFeeds] = useState<JobFeed[]>(
     profile?.jobFeeds?.length ? dedupeJobFeeds(profile.jobFeeds) : deriveFeedsFromRoles(profile?.targetRoles || []),
   );
@@ -299,7 +318,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const [requiredBenefitIds, setRequiredBenefitIds] = useState<string[]>(
     sanitizeBenefitIds(profile?.requiredBenefitIds?.length ? profile.requiredBenefitIds : legacyBenefitsToIds(profile?.requiredBenefits)),
   );
-  const [preferredBenefitIds, setPreferredBenefitIds] = useState<string[]>(
+  const [preferredBenefitIds] = useState<string[]>(
     sanitizeBenefitIds(profile?.preferredBenefitIds?.length ? profile.preferredBenefitIds : legacyBenefitsToIds(profile?.preferredBenefits)),
   );
   const [locationPreferences, setLocationPreferences] = useState<LocationPreference[]>(
@@ -326,9 +345,9 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const [fileImportError, setFileImportError] = useState<string | null>(null);
   const [troubleshootOpen, setTroubleshootOpen] = useState(false);
   const [showAllStatuses, setShowAllStatuses] = useState(false);
-  const [showAdvancedPreferences, setShowAdvancedPreferences] = useState(false);
   const [recentCities, setRecentCities] = useState<string[]>(() => loadRecentCities());
   const [debugReportNotice, setDebugReportNotice] = useState<string | null>(null);
+  const [locationSuggestionApplied, setLocationSuggestionApplied] = useState(false);
 
   useEffect(() => {
     hydrateImportSession();
@@ -370,6 +389,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const parseLooksLowQuality = importSession
     ? (importSession.diagnostics.mappingStage?.finalItemsCount ?? fullDraftCounts.highlights + fullDraftCounts.outcomes) < 20 || hasCollapseCode
     : false;
+  const hasLocationSuggestions = Boolean(importSession?.profileSuggestion.locationHints.length);
   const bulletDotCount = importSession
     ? (importSession.diagnostics.topBulletGlyphs ?? []).find((entry) => entry.glyph === '•')?.count ?? 0
     : 0;
@@ -519,6 +539,28 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     setRecentCities(next);
   }, []);
 
+  const addTargetRole = useCallback(() => {
+    const value = targetRoleDraft.trim();
+    if (!value) return;
+    setTargetRoles((prev) => (prev.includes(value) ? prev : [...prev, value]));
+    setTargetRoleDraft('');
+  }, [targetRoleDraft]);
+
+  const removeTargetRole = useCallback((value: string) => {
+    setTargetRoles((prev) => prev.filter((entry) => entry !== value));
+  }, []);
+
+  const applyLocationSuggestions = useCallback(() => {
+    if (!importSession) return;
+    const locationHints = importSession.profileSuggestion.locationHints;
+    if (locationHints.length === 0) return;
+    setLocationPreferences((prev) => {
+      if (prev.length > 0) return prev;
+      return locationHints.slice(0, 3).map((hint) => locationPreferenceFromHint(hint));
+    });
+    setLocationSuggestionApplied(true);
+  }, [importSession]);
+
   const applyParsedSuggestions = useCallback((session: ImportSession) => {
     const suggestion = session.profileSuggestion;
 
@@ -537,12 +579,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
       setTools((prev) => [...new Set([...prev, ...suggestion.toolHints])]);
     }
 
-    if (suggestion.locationHints.length > 0) {
-      setLocationPreferences((prev) => {
-        if (prev.length > 0) return prev;
-        return suggestion.locationHints.slice(0, 3).map((hint) => locationPreferenceFromHint(hint));
-      });
-    }
+    setLocationSuggestionApplied(false);
 
     if (suggestion.compensation?.floor) {
       setHardFilters((prev) => (
@@ -595,7 +632,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     setDebugReportNotice(null);
     setFileImportError(null);
     setTroubleshootOpen(false);
-    setShowAdvancedPreferences(false);
+    setLocationSuggestionApplied(false);
   }, [applyParsedSuggestions, extractionDiagnostics, resumeText, selectedFileMeta, setImportSession]);
 
   const handleTryAnotherMethod = useCallback(() => {
@@ -689,8 +726,8 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     setImportedClaimsCount(0);
     setTroubleshootOpen(false);
     setShowAllStatuses(false);
-    setShowAdvancedPreferences(false);
     setDebugReportNotice(null);
+    setLocationSuggestionApplied(false);
 
     try {
       const extraction = await extractClaimsImportTextWithMetrics(file);
@@ -750,8 +787,8 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     setExtractionDiagnostics(null);
     setTroubleshootOpen(false);
     setShowAllStatuses(false);
-    setShowAdvancedPreferences(false);
     setDebugReportNotice(null);
+    setLocationSuggestionApplied(false);
   }, [setImportSession]);
 
   const markSkipped = useCallback(() => {
@@ -809,27 +846,11 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
         return;
       }
       setPreferenceErrors([]);
-      setStep('ready');
-      return;
-    }
-
-    if (step === 'ready') {
       if (!hasNoJobs) {
         onComplete();
         return;
       }
-
-      if (hasNoJobs && isPreviewOrDev) {
-        handleLoadSampleJobs();
-        return;
-      }
-
-      if (hasNoJobs && !isPreviewOrDev) {
-        handleAddJobManually();
-        return;
-      }
-
-      onComplete();
+      handleAddJobManually();
       return;
     }
 
@@ -867,7 +888,6 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     || hasInvalidRequiredLocation
   );
 
-  const isPreviewOrDev = BUILD_INFO.appEnv !== 'production' && BUILD_INFO.appEnv !== 'prod';
   const hasNoJobs = jobs.length === 0;
 
   const handleAddJobManually = useCallback(() => {
@@ -877,18 +897,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     }, 0);
   }, [onComplete]);
 
-  const handleLoadSampleJobs = useCallback(() => {
-    onComplete();
-    window.setTimeout(() => {
-      window.dispatchEvent(new CustomEvent('load-sample-jobs'));
-    }, 0);
-  }, [onComplete]);
-
   const primaryLabel = useMemo(() => {
-    if (step === 'ready') {
-      if (!hasNoJobs) return 'Browse Jobs';
-      return isPreviewOrDev ? 'Load Sample Jobs' : 'Add a Job to Score';
-    }
     if (step === 'import') {
       return 'Parse & Review';
     }
@@ -897,8 +906,11 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
       if (importSession?.state === 'saved' || importSession?.state === 'skipped') return 'Continue';
       return 'Continue';
     }
+    if (step === 'feeds') {
+      return hasNoJobs ? 'Add a Job to Score' : 'Browse Jobs';
+    }
     return 'Continue';
-  }, [hasNoJobs, importSession, isPreviewOrDev, step]);
+  }, [hasNoJobs, importSession, step]);
 
   return (
     <div className="min-h-screen bg-neutral-50 flex flex-col">
@@ -1060,6 +1072,9 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                           Added suggested profile details where fields were empty. You can edit everything before saving.
                         </p>
                       )}
+                      <p className="text-xs text-neutral-500 mt-1">
+                        Needs attention means we are not fully confident the item is correct, review those entries before saving.
+                      </p>
                     </div>
                     <div className="flex flex-col items-end gap-1.5">
                       <button
@@ -1221,6 +1236,64 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                 </div>
               )}
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-neutral-600 mb-1 block">First Name</label>
+                  <input
+                    type="text"
+                    value={firstName}
+                    onChange={(event) => setFirstName(event.target.value)}
+                    placeholder={importSession?.profileSuggestion.firstName || 'First name'}
+                    className="h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-neutral-600 mb-1 block">Last Name</label>
+                  <input
+                    type="text"
+                    value={lastName}
+                    onChange={(event) => setLastName(event.target.value)}
+                    placeholder={importSession?.profileSuggestion.lastName || 'Last name'}
+                    className="h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-neutral-600 mb-1 block">Target Roles</label>
+                <div className="rounded-lg border border-neutral-200 bg-white px-3 py-2 space-y-2">
+                  <div className="flex flex-wrap gap-1.5">
+                    {targetRoles.map((role) => (
+                      <span key={role} className="inline-flex items-center gap-1 rounded-full bg-brand-50 text-brand-700 text-xs px-2.5 py-1">
+                        {role}
+                        <button
+                          type="button"
+                          onClick={() => removeTargetRole(role)}
+                          className="text-brand-700 hover:text-brand-900"
+                          aria-label={`Remove target role ${role}`}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                  <input
+                    type="text"
+                    value={targetRoleDraft}
+                    onChange={(event) => setTargetRoleDraft(event.target.value)}
+                    onBlur={addTargetRole}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ',') {
+                        event.preventDefault();
+                        addTargetRole();
+                      }
+                    }}
+                    placeholder="Add a role and press Enter"
+                    className="w-full border-0 p-0 text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none"
+                  />
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <label className="text-sm font-medium text-neutral-700 flex items-center gap-1.5">
                   <MapPin size={14} className="text-neutral-400" /> Location preferences
@@ -1258,7 +1331,22 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                   >
                     + Willing to relocate
                   </button>
+                  {hasLocationSuggestions && locationPreferences.length === 0 && (
+                    <button
+                      type="button"
+                      onClick={applyLocationSuggestions}
+                      className="rounded-full border border-brand-200 bg-brand-50 px-3 py-1 text-xs text-brand-700 hover:bg-brand-100"
+                    >
+                      Apply suggested locations
+                    </button>
+                  )}
                 </div>
+
+                {locationSuggestionApplied && (
+                  <p className="text-[11px] text-neutral-500">
+                    Applied location suggestions from your resume. Edit or remove anything that looks off.
+                  </p>
+                )}
 
                 <div className="space-y-2">
                   {locationPreferences.length === 0 && (
@@ -1444,14 +1532,13 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                       type="number"
                       min={0}
                       max={5}
-                      value={hardFilters.maxOnsiteDaysPerWeek === DEFAULT_HARD_FILTERS.maxOnsiteDaysPerWeek ? '' : hardFilters.maxOnsiteDaysPerWeek}
+                      value={hardFilters.maxOnsiteDaysPerWeek}
                       onChange={(event) => setHardFilters((prev) => ({
                         ...prev,
                         maxOnsiteDaysPerWeek: event.target.value === ''
                           ? DEFAULT_HARD_FILTERS.maxOnsiteDaysPerWeek
-                          : Number(event.target.value),
+                          : Math.max(0, Math.min(5, Number(event.target.value))),
                       }))}
-                      placeholder="5"
                       className="h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
                     />
                   </div>
@@ -1494,26 +1581,6 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
               <p className="text-[11px] text-neutral-500">
                 If a job does not list benefits, we treat benefits as unknown instead of an automatic fail.
               </p>
-
-              <div className="rounded-lg border border-neutral-200">
-                <button
-                  type="button"
-                  onClick={() => setShowAdvancedPreferences((open) => !open)}
-                  className="w-full px-3 py-2.5 flex items-center justify-between text-sm font-medium text-neutral-700 hover:bg-neutral-50"
-                >
-                  Advanced Preferences
-                  {showAdvancedPreferences ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                </button>
-                {showAdvancedPreferences && (
-                  <div className="border-t border-neutral-200 p-3">
-                    <BenefitCatalogPicker
-                      label="Preferred Benefits"
-                      selectedIds={preferredBenefitIds}
-                      onChange={setPreferredBenefitIds}
-                    />
-                  </div>
-                )}
-              </div>
             </div>
           )}
 
@@ -1619,62 +1686,6 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
             </div>
           )}
 
-          {step === 'ready' && (
-            <div className="text-center py-10">
-              <div className="w-20 h-20 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <Check size={36} className="text-emerald-600" />
-              </div>
-              <h1 className="text-2xl font-bold text-neutral-900 mb-3">Ready to find strong-fit jobs</h1>
-              <p className="text-sm text-neutral-600 max-w-md mx-auto mb-8 leading-relaxed">
-                Your Digital Resume and preferences are saved. Find jobs now, then score and prioritize your best opportunities.
-              </p>
-              <div className="bg-white rounded-lg border border-neutral-200 p-4 text-left max-w-md mx-auto space-y-3">
-                <h4 className="text-xs font-bold text-neutral-700 uppercase tracking-wider">Next step</h4>
-                <p className="text-sm text-neutral-600">
-                  {hasNoJobs
-                    ? 'Start with your first jobs so you can score match quality and focus your effort.'
-                    : 'You already have jobs in your pipeline. Open them now and prioritize the best fits.'}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {!hasNoJobs && (
-                    <button
-                      type="button"
-                      onClick={onComplete}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 px-3 py-2 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
-                    >
-                      Browse Jobs
-                    </button>
-                  )}
-                  {hasNoJobs && isPreviewOrDev && (
-                    <button
-                      type="button"
-                      onClick={handleLoadSampleJobs}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 px-3 py-2 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
-                    >
-                      Load Sample Jobs
-                    </button>
-                  )}
-                  {hasNoJobs && !isPreviewOrDev && (
-                    <button
-                      type="button"
-                      onClick={handleAddJobManually}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 px-3 py-2 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
-                    >
-                      Add a Job to Score
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={handleAddJobManually}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 px-3 py-2 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
-                  >
-                    <Plus size={13} />
-                    Add a Job Manually
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
@@ -1711,7 +1722,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
               ) : (
                 <>
                   {primaryLabel}
-                  {step === 'ready' ? <Rocket size={14} /> : <ChevronRight size={14} />}
+                  <ChevronRight size={14} />
                 </>
               )}
             </button>

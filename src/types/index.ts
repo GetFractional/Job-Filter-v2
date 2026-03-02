@@ -297,6 +297,7 @@ export interface MustHaveSummary {
 
 export interface JobFeed {
   id: string;
+  key?: string;
   role: string;
   active: boolean;
 }
