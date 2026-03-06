@@ -16,10 +16,12 @@ Use it when you need to answer any of these questions:
 
 ## Reading Order
 
-1. [`PRD_V2.md`](./PRD_V2.md)
-2. [`EPIC_SPECS_V2.md`](./EPIC_SPECS_V2.md)
-3. [`AI_OPERATING_MODEL.md`](./AI_OPERATING_MODEL.md)
-4. [`GOVERNANCE_ALIGNMENT.md`](./GOVERNANCE_ALIGNMENT.md)
+1. [`MASTER_EXECUTION_PLAN.md`](./MASTER_EXECUTION_PLAN.md)
+2. [`PRD_V2.md`](./PRD_V2.md)
+3. [`EPIC_SPECS_V2.md`](./EPIC_SPECS_V2.md)
+4. [`AI_OPERATING_MODEL.md`](./AI_OPERATING_MODEL.md)
+5. [`GOVERNANCE_ALIGNMENT.md`](./GOVERNANCE_ALIGNMENT.md)
+6. [`GPT_5_3_CODEX_PROMPT.md`](./GPT_5_3_CODEX_PROMPT.md)
 
 ## Source-of-Truth Ladder
 
@@ -39,16 +41,19 @@ As of 2026-03-06, the repo is a local-first React/Vite PWA with these verified s
 - Multi-step onboarding in [`src/components/onboarding/OnboardingWizard.tsx`](/Users/mattdimock/Documents/Jobs/Job%20Filter/Job-Filter-v2/src/components/onboarding/OnboardingWizard.tsx)
 - Claims import, scoring, research, assets, CRM, and pipeline logic under [`src/lib`](/Users/mattdimock/Documents/Jobs/Job%20Filter/Job-Filter-v2/src/lib)
 
-Verified GitHub state during this audit:
+Verified GitHub state after Phase 0 cleanup:
 
-- Open PR #19: [P0: Claims Review pre-commit editor with per-role grouping and explicit Approve/Discard](https://github.com/GetFractional/Job-Filter-v2/pull/19)
-- Open PR #27: [B1.8: add job feeds step and accountability UX copy](https://github.com/GetFractional/Job-Filter-v2/pull/27)
+- No open PRs remain
+- Stale PR #19 was audited, replaced by clean task [868hrqhgf](https://app.clickup.com/t/868hrqhgf), and closed
+- Stale PR #27 was audited, replaced by clean task [868hrqhgu](https://app.clickup.com/t/868hrqhgu), and closed
 
-Verified ClickUp state during this audit:
+Verified ClickUp state after Phase 0 cleanup:
 
 - Sync log heartbeat task: [SYSTEM: Delivery OS Sync Log](https://app.clickup.com/t/868hgd4n1)
-- WIP in `in development`: 2 tasks, within current policy limit
-- Canonical docs task created for this package: [PRD v2: Canonical product package + AI operating model](https://app.clickup.com/t/868hrjj5h)
+- WIP in `in development`: 0 tasks
+- Canonical docs package task shipped: [PRD v2: Canonical product package + AI operating model](https://app.clickup.com/t/868hrjj5h)
+- Current governance task: [PROGRAM: Phase 0 governance recovery + Codex execution handoff](https://app.clickup.com/t/868hrqhfy)
+- Current next coding packet: [FEATURE: Proof Library closeout, review gate + lineage contracts](https://app.clickup.com/t/868hrqhgf)
 
 ## How To Use This Package
 
@@ -56,3 +61,5 @@ Verified ClickUp state during this audit:
 - Use `EPIC_SPECS_V2.md` for build packets and delivery sequencing.
 - Use `AI_OPERATING_MODEL.md` when deciding how to split work across GPT-5.4, GPT-5.3-Codex, and human review.
 - Use `GOVERNANCE_ALIGNMENT.md` before changing ClickUp structure, closing stale tasks, or preparing PRs.
+- Use `MASTER_EXECUTION_PLAN.md` for the verified current sequence and active lane decisions.
+- Use `GPT_5_3_CODEX_PROMPT.md` to start the implementation thread from a clean, current prompt instead of reconstructing context from chat.
