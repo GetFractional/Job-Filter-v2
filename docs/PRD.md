@@ -9,10 +9,12 @@ The canonical target-state product package now lives in [`docs/product/`](./prod
 Start here, in this order:
 
 1. [`product/README.md`](./product/README.md)
-2. [`product/PRD_V2.md`](./product/PRD_V2.md)
-3. [`product/EPIC_SPECS_V2.md`](./product/EPIC_SPECS_V2.md)
-4. [`product/AI_OPERATING_MODEL.md`](./product/AI_OPERATING_MODEL.md)
-5. [`product/GOVERNANCE_ALIGNMENT.md`](./product/GOVERNANCE_ALIGNMENT.md)
+2. [`product/MASTER_EXECUTION_PLAN.md`](./product/MASTER_EXECUTION_PLAN.md)
+3. [`product/PRD_V2.md`](./product/PRD_V2.md)
+4. [`product/EPIC_SPECS_V2.md`](./product/EPIC_SPECS_V2.md)
+5. [`product/AI_OPERATING_MODEL.md`](./product/AI_OPERATING_MODEL.md)
+6. [`product/GOVERNANCE_ALIGNMENT.md`](./product/GOVERNANCE_ALIGNMENT.md)
+7. [`product/GPT_5_3_CODEX_PROMPT.md`](./product/GPT_5_3_CODEX_PROMPT.md)
 
 ## What Changed
 

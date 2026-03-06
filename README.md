@@ -34,10 +34,12 @@ npm run dev
 Start with the canonical product package:
 
 - [Canonical Product Package](docs/product/README.md)
+- [Master Execution Plan](docs/product/MASTER_EXECUTION_PLAN.md)
 - [PRD v2](docs/product/PRD_V2.md)
 - [Epic Specs v2](docs/product/EPIC_SPECS_V2.md)
 - [AI Operating Model](docs/product/AI_OPERATING_MODEL.md)
 - [Governance Alignment](docs/product/GOVERNANCE_ALIGNMENT.md)
+- [GPT-5.3-Codex Build Prompt](docs/product/GPT_5_3_CODEX_PROMPT.md)
 
 Legacy or supporting references:
 
