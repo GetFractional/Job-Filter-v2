@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { buildBestImportDraftFromText, buildImportDraftFromText, hasUsableImportDraft } from '../importDraftBuilder';
+import {
+  buildBestImportDraftFromText,
+  buildImportDraftFromText,
+  hasUsableImportDraft,
+  isLikelySuspiciousCompanyName,
+} from '../importDraftBuilder';
 import marketingFixture from './fixtures/matt_marketing_director_sanitized.txt?raw';
 import profileFixture from './fixtures/profile_linkedin_export_sanitized.txt?raw';
 
@@ -100,5 +105,43 @@ describe('importDraftBuilder', () => {
     expect(profileResult.diagnostics.selectedMode).toBeDefined();
     expect(marketingResult.diagnostics.candidateModes?.length).toBe(4);
     expect(profileResult.diagnostics.candidateModes?.length).toBe(4);
+  });
+
+  it('flags obvious date or location headers as suspicious company identities', () => {
+    expect(isLikelySuspiciousCompanyName('TN | Jun 2020')).toBe(true);
+    expect(isLikelySuspiciousCompanyName('BC | Aug 2019')).toBe(true);
+    expect(isLikelySuspiciousCompanyName('CA | Jan 2017')).toBe(true);
+    expect(isLikelySuspiciousCompanyName('San Francisco, CA')).toBe(true);
+    expect(isLikelySuspiciousCompanyName('Acme Corp')).toBe(false);
+  });
+
+  it('routes suspicious company headers into needs-review status', () => {
+    const input = [
+      'TN | Jun 2020',
+      'Dec 2021 - Present',
+      '- Built lifecycle campaign architecture',
+    ].join('\n');
+
+    const result = buildImportDraftFromText(input, { mode: 'default' });
+    const suspiciousCompany = result.draft.companies.find((company) => company.name === 'TN | Jun 2020');
+
+    expect(suspiciousCompany).toBeDefined();
+    expect(suspiciousCompany?.status).toBe('needs_review');
+  });
+
+  it('marks Present roles as currentRole in timeline structure', () => {
+    const input = [
+      'Acme Corp',
+      'Growth Lead',
+      'Jan 2020 - Present',
+      '- Built lifecycle program',
+    ].join('\n');
+
+    const result = buildImportDraftFromText(input, { mode: 'default' });
+    const role = result.draft.companies[0]?.roles[0];
+
+    expect(role).toBeDefined();
+    expect(role?.currentRole).toBe(true);
+    expect(role?.endDate ?? '').toBe('');
   });
 });

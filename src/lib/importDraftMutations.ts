@@ -17,6 +17,7 @@ interface RoleUpdate {
   title?: string;
   startDate?: string;
   endDate?: string;
+  currentRole?: boolean;
   status?: ImportItemStatus;
 }
 
@@ -49,6 +50,7 @@ export function createEmptyRole(overrides: Partial<ImportDraftRole> = {}): Impor
     title: overrides.title ?? 'New Role',
     startDate: overrides.startDate ?? '',
     endDate: overrides.endDate ?? '',
+    currentRole: overrides.currentRole ?? false,
     confidence: overrides.confidence ?? MANUAL_CONFIDENCE,
     status: overrides.status ?? 'active',
     sourceRefs: overrides.sourceRefs ?? [],
@@ -159,7 +161,18 @@ export function updateRole(draft: ImportDraft, ref: RoleRef, updates: RoleUpdate
   return withRole(draft, ref, (role) => {
     if (typeof updates.title === 'string') role.title = updates.title;
     if (typeof updates.startDate === 'string') role.startDate = updates.startDate;
-    if (typeof updates.endDate === 'string') role.endDate = updates.endDate;
+    if (typeof updates.endDate === 'string') {
+      role.endDate = updates.endDate;
+      if (updates.endDate.trim()) {
+        role.currentRole = false;
+      }
+    }
+    if (typeof updates.currentRole === 'boolean') {
+      role.currentRole = updates.currentRole;
+      if (updates.currentRole) {
+        role.endDate = '';
+      }
+    }
     if (updates.status) role.status = normalizeProofStatus(updates.status);
     if ((updates.title && updates.title.trim()) || updates.startDate || updates.endDate) {
       role.confidence = Math.max(role.confidence, MANUAL_CONFIDENCE);

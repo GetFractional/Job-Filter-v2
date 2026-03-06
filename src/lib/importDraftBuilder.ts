@@ -30,6 +30,11 @@ const DATE_RANGE_RE = /(\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|de
 const BULLET_ONLY_RE = /^[\s]*[•●◦▪▫‣⁃\-–—*✅✔➤➔]+[\s]*$/u;
 const BULLET_LINE_RE = /^[\s]*[•●◦▪▫‣⁃\-–—*✅✔➤➔][\s\t]+/u;
 const CONTINUATION_PREFIX_RE = /^[\s]*([+%(|[a-z])/;
+const MONTH_YEAR_RE = /\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\s+\d{4}\b/i;
+const DATE_ONLY_RE = /^(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\s+\d{4}|\d{4})(?:\s*[-–—]\s*(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\s+\d{4}|\d{4}|present|current|now))?$/i;
+const DATE_LOCATION_COMPOSITE_RE = /^[A-Z]{2}\s*[|/,]\s*(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\s+\d{4}$/i;
+const LOCATION_STYLE_RE = /^[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3},\s*[A-Z]{2}$/;
+const LOCATION_STATUS_RE = /^(remote|hybrid|onsite|on-site|in office)$/i;
 const LOCAL_MAX_PREVIEW_LINES = 40;
 const AUTO_SEGMENTATION_MODES: SegmentationMode[] = ['default', 'newlines', 'bullets', 'headings'];
 const QUALITY_PENALTY_CODES = new Set<ParseReasonCode>([
@@ -38,6 +43,54 @@ const QUALITY_PENALTY_CODES = new Set<ParseReasonCode>([
   'ROLE_DETECT_FAIL',
   'COMPANY_DETECT_FAIL',
 ]);
+const STATE_OR_PROVINCE_CODES = new Set([
+  'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
+  'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
+  'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
+  'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
+  'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY',
+  'DC', 'BC', 'AB', 'MB', 'NB', 'NL', 'NS', 'NT', 'NU', 'ON',
+  'PE', 'QC', 'SK', 'YT',
+]);
+
+function normalizeIdentityToken(value: string): string {
+  return value.replace(/\s+/g, ' ').trim();
+}
+
+function isDateLikeIdentity(value: string): boolean {
+  const normalized = normalizeIdentityToken(value);
+  if (!normalized) return false;
+  if (DATE_ONLY_RE.test(normalized)) return true;
+  if (DATE_LOCATION_COMPOSITE_RE.test(normalized)) return true;
+  if (MONTH_YEAR_RE.test(normalized) && !/[A-Za-z]{3,}[^0-9]*(?:inc|corp|llc|ltd|group|labs|technologies|systems|co)\b/i.test(normalized)) {
+    const nonDateWordCount = normalized
+      .split(/[^A-Za-z0-9]+/)
+      .filter(Boolean)
+      .filter((token) => !STATE_OR_PROVINCE_CODES.has(token.toUpperCase()))
+      .filter((token) => !/^(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec|present|current|now)$/i.test(token))
+      .filter((token) => !/^\d{4}$/.test(token))
+      .length;
+    return nonDateWordCount <= 1;
+  }
+  return false;
+}
+
+function isLocationLikeIdentity(value: string): boolean {
+  const normalized = normalizeIdentityToken(value);
+  if (!normalized) return false;
+  if (LOCATION_STYLE_RE.test(normalized)) return true;
+  if (LOCATION_STATUS_RE.test(normalized)) return true;
+  if (STATE_OR_PROVINCE_CODES.has(normalized.toUpperCase())) return true;
+  return false;
+}
+
+function isSuspiciousIdentity(value: string): boolean {
+  return isDateLikeIdentity(value) || isLocationLikeIdentity(value);
+}
+
+export function isLikelySuspiciousCompanyName(value: string): boolean {
+  return isSuspiciousIdentity(value);
+}
 
 export function normalizeImportText(text: string): string {
   return text
@@ -269,6 +322,7 @@ function buildRole(
     title: claim.role.trim() || 'Unassigned',
     startDate: claim.startDate,
     endDate: claim.endDate || undefined,
+    currentRole: Boolean(claim.startDate && !claim.endDate),
     confidence,
     status: forceNeedsAttention ? 'needs_review' : toStatus(confidence),
     sourceRefs: findSourceRefs(lines, roleSourceSnippets),
@@ -486,12 +540,16 @@ function buildImportDraftForMode(
       continue;
     }
 
-    const unresolvedIdentity = !claim.role.trim() || !claim.company.trim();
-    const companyName = claim.company.trim() || 'Unassigned';
+    const roleValue = claim.role.trim();
+    const companyValue = claim.company.trim();
+    const suspiciousRole = isSuspiciousIdentity(roleValue);
+    const suspiciousCompany = isLikelySuspiciousCompanyName(companyValue);
+    const unresolvedIdentity = !roleValue || !companyValue || suspiciousRole || suspiciousCompany;
+    const companyName = companyValue || 'Unassigned';
     const groupKey = companyName.toLowerCase();
 
     if (!grouped.has(groupKey)) {
-      const companyConfidence = unresolvedIdentity ? 0.5 : 0.85;
+      const companyConfidence = unresolvedIdentity ? 0.45 : 0.85;
       grouped.set(groupKey, {
         id: `company-${grouped.size}`,
         name: companyName,
@@ -502,7 +560,16 @@ function buildImportDraftForMode(
       });
     }
 
-    const role = buildRole(claim, lines, roleCounter, unresolvedIdentity);
+    const role = buildRole(
+      {
+        ...claim,
+        role: suspiciousRole ? '' : roleValue,
+        company: companyValue,
+      },
+      lines,
+      roleCounter,
+      unresolvedIdentity,
+    );
     grouped.get(groupKey)?.roles.push(role);
     roleCounter += 1;
   }

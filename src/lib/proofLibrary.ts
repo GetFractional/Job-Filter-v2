@@ -147,7 +147,7 @@ export function buildProofPayloadFromRole(
     company: companyName,
     role: role.title,
     startDate: role.startDate,
-    endDate: role.endDate,
+    endDate: role.currentRole || !role.endDate?.trim() ? undefined : role.endDate,
     responsibilities,
     tools,
     outcomes,

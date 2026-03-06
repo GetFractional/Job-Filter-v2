@@ -353,6 +353,7 @@ export interface ImportDraftRole {
   title: string;
   startDate: string;
   endDate?: string;
+  currentRole?: boolean;
   confidence: number;
   status: ImportItemStatus;
   sourceRefs: SourceRef[];
