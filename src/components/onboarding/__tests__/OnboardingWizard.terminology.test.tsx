@@ -1,8 +1,41 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OnboardingWizard } from '../OnboardingWizard';
+import type { ImportSession } from '../../../types';
 
-const mockState = {
+const mockState: {
+  jobs: unknown[];
+  profile: {
+    id: string;
+    name: string;
+    firstName: string;
+    lastName: string;
+    targetRoles: string[];
+    compFloor: number;
+    compTarget: number;
+    requiredBenefits: string[];
+    preferredBenefits: string[];
+    requiredBenefitIds: string[];
+    preferredBenefitIds: string[];
+    locationPreference: string;
+    disqualifiers: string[];
+    locationPreferences: unknown[];
+    willingToRelocate: boolean;
+    hardFilters: {
+      requiresVisaSponsorship: boolean;
+      minBaseSalary: number;
+      maxOnsiteDaysPerWeek: number;
+      maxTravelPercent: number;
+      employmentTypes: string[];
+    };
+    updatedAt: string;
+  };
+  updateProfile: ReturnType<typeof vi.fn>;
+  addClaim: ReturnType<typeof vi.fn>;
+  importSession: ImportSession | null;
+  setImportSession: ReturnType<typeof vi.fn>;
+  hydrateImportSession: ReturnType<typeof vi.fn>;
+} = {
   jobs: [],
   profile: {
     id: 'default',
@@ -41,6 +74,91 @@ vi.mock('../../../store/useStore', () => ({
 }));
 
 describe('OnboardingWizard terminology guard', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockState.importSession = null;
+  });
+
+  it('shows explicit Approve & Save and Discard controls for parsed proof drafts', async () => {
+    mockState.importSession = {
+      id: 'session-1',
+      mode: 'default',
+      selectedMode: 'default',
+      state: 'parsed',
+      storage: 'localStorage',
+      updatedAt: new Date().toISOString(),
+      profileSuggestion: {
+        targetRoles: [],
+        skillHints: [],
+        toolHints: [],
+        locationHints: [],
+      },
+      diagnostics: {
+        extractedTextLength: 42,
+        detectedLinesCount: 3,
+        bulletCandidatesCount: 1,
+        bulletOnlyLineCount: 0,
+        sectionHeadersDetected: 0,
+        companyCandidatesDetected: 1,
+        roleCandidatesDetected: 1,
+        finalCompaniesCount: 1,
+        rolesCount: 1,
+        bulletsCount: 1,
+        reasonCodes: [],
+        previewLines: ['Acme', 'Growth Lead'],
+        previewLinesWithNumbers: [{ line: 1, text: 'Acme' }],
+      },
+      draft: {
+        companies: [
+          {
+            id: 'company-1',
+            name: 'Acme',
+            confidence: 0.9,
+            status: 'active',
+            sourceRefs: [],
+            roles: [
+              {
+                id: 'role-1',
+                title: 'Growth Lead',
+                startDate: 'Jan 2020',
+                endDate: 'Present',
+                confidence: 0.88,
+                status: 'active',
+                sourceRefs: [],
+                highlights: [
+                  {
+                    id: 'item-1',
+                    type: 'highlight',
+                    text: 'Built lifecycle engine',
+                    confidence: 0.8,
+                    status: 'active',
+                    sourceRefs: [],
+                  },
+                ],
+                outcomes: [],
+                tools: [],
+                skills: [],
+              },
+            ],
+          },
+        ],
+      },
+    };
+
+    render(<OnboardingWizard onComplete={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: /Continue/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Approve & Save/i })).toBeTruthy();
+    });
+    expect(screen.getByRole('button', { name: /^Discard$/i })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: /^Discard$/i }));
+    expect(mockState.setImportSession).toHaveBeenCalledWith(null);
+
+    mockState.importSession = null;
+  });
+
   it('starts onboarding with resume import after welcome', async () => {
     render(<OnboardingWizard onComplete={vi.fn()} />);
 

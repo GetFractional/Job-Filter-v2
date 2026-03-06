@@ -1,8 +1,9 @@
 // Job Filter v2 — Asset Generation (Template-based, no API cost for v1)
-// Uses claim ledger + job data + research to fill templates.
+// Uses Proof Library + job data + research to fill templates.
 // Logs every generation for experimentation tracking.
 
-import type { Job, Claim, ResearchBrief } from '../types';
+import type { AssetType, Job, Claim, ResearchBrief } from '../types';
+import { getAutoUsableProofs, getProofIdsForAsset, getUnresolvedProofIds, getUnresolvedProofs, isProofAutoUseEnabled } from './proofLibrary';
 
 // ============================================================
 // Generation Context & Validation
@@ -21,13 +22,16 @@ export interface ValidationResult {
   valid: boolean;
   missing: string[];
   warnings: string[];
+  blockedProofIds: string[];
+  unresolvedProofIds: string[];
+  autoUsableProofIds: string[];
 }
 
 /**
  * Validates that a GenerationContext has the required data before generation.
  * Returns { valid, missing, warnings }.
  * - job.title, job.company, and userName are required (blocks generation).
- * - At least 1 claim is recommended but not blocking (warning only).
+ * - At least 1 active proof is recommended but not blocking (warning only).
  */
 export function validateContext(ctx: {
   job?: Partial<Job>;
@@ -36,6 +40,7 @@ export function validateContext(ctx: {
 }): ValidationResult {
   const missing: string[] = [];
   const warnings: string[] = [];
+  const blockedProofIds: string[] = [];
 
   if (!ctx.job?.title) {
     missing.push('job.title');
@@ -46,14 +51,48 @@ export function validateContext(ctx: {
   if (!ctx.userName) {
     missing.push('userName');
   }
-  if (!ctx.claims || ctx.claims.length === 0) {
-    warnings.push('No claims provided — generated content will use generic fallbacks.');
+
+  const claims = ctx.claims ?? [];
+  const autoUsableProofIds = getAutoUsableProofs(claims).map((claim) => claim.id);
+  const unresolvedProofIds = getUnresolvedProofIds(claims);
+  const unresolvedAutoUse = getUnresolvedProofs(claims)
+    .filter((claim) => isProofAutoUseEnabled(claim))
+    .map((claim) => claim.id);
+
+  if (claims.length === 0) {
+    warnings.push('No Proof Library items available, generated content will use generic fallbacks.');
+  } else if (autoUsableProofIds.length === 0) {
+    warnings.push('No active proof is set to auto-use, generated content may be generic.');
+  }
+
+  if (unresolvedProofIds.length > 0) {
+    warnings.push(`${unresolvedProofIds.length} unresolved proof item(s) were excluded from auto-use.`);
+  }
+
+  if (unresolvedAutoUse.length > 0) {
+    blockedProofIds.push(...unresolvedAutoUse);
   }
 
   return {
-    valid: missing.length === 0,
+    valid: missing.length === 0 && blockedProofIds.length === 0,
     missing,
     warnings,
+    blockedProofIds,
+    unresolvedProofIds,
+    autoUsableProofIds,
+  };
+}
+
+export function buildAssetProofReferences(type: AssetType, claims: Claim[]): {
+  proofIdsUsed: string[];
+  unresolvedProofIds: string[];
+  usableProofs: Claim[];
+} {
+  const usableProofs = getAutoUsableProofs(claims);
+  return {
+    proofIdsUsed: getProofIdsForAsset(type, claims),
+    unresolvedProofIds: getUnresolvedProofIds(claims),
+    usableProofs,
   };
 }
 
@@ -184,7 +223,7 @@ ${userName}`;
 }
 
 // ============================================================
-// Growth Memo Generator (skeleton with claim ledger integration)
+// Growth Memo Generator (skeleton with Proof Library integration)
 // ============================================================
 
 export function generateGrowthMemo(params: {
@@ -301,7 +340,7 @@ ${gtm}
 
 My approach is built on evidence, not theory. Here is what I have delivered in similar situations:
 
-${claimEvidence || '[Upload resume or LinkedIn experience to populate claim ledger]'}
+${claimEvidence || '[Add Proof Library entries to populate supporting evidence]'}
 
 Every system I have built follows the same pattern: diagnose before prescribing, measure before scaling, and compound before expanding. This plan reflects that discipline applied to ${job.company}'s specific situation.
 

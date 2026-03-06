@@ -99,9 +99,9 @@ function findSourceRefs(lines: string[], snippets: string[]): SourceRef[] {
 }
 
 function toStatus(confidence: number): ImportItemStatus {
-  if (confidence >= 0.75) return 'accepted';
-  if (confidence >= 0.4) return 'needs_attention';
-  return 'needs_attention';
+  if (confidence >= 0.75) return 'active';
+  if (confidence >= 0.4) return 'needs_review';
+  return 'needs_review';
 }
 
 function clampConfidence(value: number): number {
@@ -231,7 +231,7 @@ function buildRole(
       type: 'highlight',
       text,
       confidence: itemScore,
-      status: forceNeedsAttention ? 'needs_attention' : toStatus(itemScore),
+      status: forceNeedsAttention ? 'needs_review' : toStatus(itemScore),
       sourceRefs: findSourceRefs(lines, [text]),
     };
   });
@@ -244,7 +244,7 @@ function buildRole(
       text: outcome.description,
       metric: outcome.metric,
       confidence: itemScore,
-      status: forceNeedsAttention ? 'needs_attention' : toStatus(itemScore),
+      status: forceNeedsAttention ? 'needs_review' : toStatus(itemScore),
       sourceRefs: findSourceRefs(lines, [outcome.description]),
     };
   });
@@ -259,7 +259,7 @@ function buildRole(
       type: 'tool',
       text: tool,
       confidence: itemScore,
-      status: forceNeedsAttention ? 'needs_attention' : toStatus(itemScore),
+      status: forceNeedsAttention ? 'needs_review' : toStatus(itemScore),
       sourceRefs: findSourceRefs(lines, [tool]),
     };
   });
@@ -270,7 +270,7 @@ function buildRole(
     startDate: claim.startDate,
     endDate: claim.endDate || undefined,
     confidence,
-    status: forceNeedsAttention ? 'needs_attention' : toStatus(confidence),
+    status: forceNeedsAttention ? 'needs_review' : toStatus(confidence),
     sourceRefs: findSourceRefs(lines, roleSourceSnippets),
     highlights,
     outcomes,
@@ -362,6 +362,7 @@ function buildDiagnostics(
     reasonCodes,
     previewLines: previewLinesWithNumbers.map((line) => `${line.line}: ${line.text}`),
     previewLinesWithNumbers,
+    rawPreviewLinesWithNumbers: extractionDiagnostics?.previewLinesWithNumbers ?? extractionStage.previewLinesWithNumbers,
     extractionStage: {
       pageCount: extractionStage.pageCount,
       extractedChars: extractionStage.extractedChars,
@@ -495,7 +496,7 @@ function buildImportDraftForMode(
         id: `company-${grouped.size}`,
         name: companyName,
         confidence: companyConfidence,
-        status: unresolvedIdentity ? 'needs_attention' : toStatus(companyConfidence),
+        status: unresolvedIdentity ? 'needs_review' : toStatus(companyConfidence),
         sourceRefs: findSourceRefs(lines, [companyName]),
         roles: [],
       });

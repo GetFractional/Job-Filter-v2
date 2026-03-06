@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import {
+  buildAssetProofReferences,
   generateOutreachEmail,
   generateLinkedInConnect,
   generateCoverLetter,
@@ -103,7 +104,7 @@ function CopyButton({ text }: { text: string }) {
 const QUALITY_CHECKS: Record<string, string[]> = {
   'Outreach Email': [
     'References the specific company by name',
-    'Includes a specific claim or outcome from your experience',
+    'Includes a specific proof item or outcome from your experience',
     'Has a clear call-to-action',
     'Tone is professional and concise',
   ],
@@ -114,7 +115,7 @@ const QUALITY_CHECKS: Record<string, string[]> = {
   ],
   'Cover Letter': [
     'Company-specific opening (not generic)',
-    'Includes 2+ specific claims with outcomes',
+    'Includes 2+ specific proof items with outcomes',
     'Mentions the growth plan / unique value-add',
     'Professional closing with next step',
   ],
@@ -125,7 +126,7 @@ const QUALITY_CHECKS: Record<string, string[]> = {
   ],
   'Growth Memo': [
     'Company context is filled in (not placeholder brackets)',
-    'Claims from ledger are populated',
+    'Proof Library references are populated',
     'Quarterly plan is realistic for this company',
     'Assumptions table is filled in',
   ],
@@ -137,6 +138,7 @@ export function AssetsTab({ job }: AssetsTabProps) {
   const profile = useStore((s) => s.profile);
   const addAsset = useStore((s) => s.addAsset);
   const updateAsset = useStore((s) => s.updateAsset);
+  const linkAssetToProofs = useStore((s) => s.linkAssetToProofs);
   const addGenerationLog = useStore((s) => s.addGenerationLog);
 
   const userName = profile?.name || 'Candidate';
@@ -157,14 +159,14 @@ export function AssetsTab({ job }: AssetsTabProps) {
     [allAssets, job.id]
   );
 
-  const generateContent = useCallback((type: AssetType): string => {
-    const baseCtx = { job, userName, claims, research: job.researchBrief };
+  const generateContent = useCallback((type: AssetType, proofClaims: typeof claims): string => {
+    const baseCtx = { job, userName, claims: proofClaims, research: job.researchBrief };
 
     switch (type) {
       case 'Outreach Email':
         return generateOutreachEmail({ ...baseCtx });
       case 'LinkedIn Connect':
-        return generateLinkedInConnect({ job, userName, claims });
+        return generateLinkedInConnect({ job, userName, claims: proofClaims });
       case 'Cover Letter':
         return generateCoverLetter(baseCtx);
       case 'Follow-up Email':
@@ -174,7 +176,7 @@ export function AssetsTab({ job }: AssetsTabProps) {
       default:
         return `[${type} generation coming soon]`;
     }
-  }, [job, userName, claims]);
+  }, [job, userName]);
 
   const handleGenerate = useCallback(async (type: AssetType) => {
     setContextError(null);
@@ -183,7 +185,13 @@ export function AssetsTab({ job }: AssetsTabProps) {
     // Pre-generation validation
     const validation = validateContext({ job, userName, claims });
     if (!validation.valid) {
-      setContextError(`Missing required context: ${validation.missing.join(', ')}`);
+      if (validation.blockedProofIds.length > 0) {
+        setContextError(
+          `Resolve unresolved or conflicting proof before generating assets. Blocked proof IDs: ${validation.blockedProofIds.join(', ')}`,
+        );
+      } else {
+        setContextError(`Missing required context: ${validation.missing.join(', ')}`);
+      }
       return;
     }
     if (validation.warnings.length > 0) {
@@ -194,7 +202,8 @@ export function AssetsTab({ job }: AssetsTabProps) {
     setGenerating(type);
 
     try {
-      const content = generateContent(type);
+      const proofReferences = buildAssetProofReferences(type, claims);
+      const content = generateContent(type, proofReferences.usableProofs);
 
       const asset = await addAsset({
         jobId: job.id,
@@ -202,7 +211,10 @@ export function AssetsTab({ job }: AssetsTabProps) {
         content,
         modelUsed: 'template-fill',
         modelTier: 'tier-0-free',
+        proofIdsUsed: proofReferences.proofIdsUsed,
+        unresolvedProofIds: proofReferences.unresolvedProofIds,
       });
+      await linkAssetToProofs(asset.id, proofReferences.proofIdsUsed, []);
 
       await addGenerationLog({
         jobId: job.id,
@@ -221,23 +233,35 @@ export function AssetsTab({ job }: AssetsTabProps) {
     } finally {
       setGenerating(null);
     }
-  }, [job, userName, claims, generateContent, addAsset, addGenerationLog]);
+  }, [job, userName, claims, generateContent, addAsset, linkAssetToProofs, addGenerationLog]);
 
   const handleRegenerate = useCallback(async () => {
     if (!currentAsset) return;
     setGenerating(currentAsset.type);
 
     try {
-      const content = generateContent(currentAsset.type);
-      await updateAsset(currentAsset.id, { content });
-      setCurrentAsset({ ...currentAsset, content });
+      const proofReferences = buildAssetProofReferences(currentAsset.type, claims);
+      const previousProofIds = currentAsset.proofIdsUsed ?? [];
+      const content = generateContent(currentAsset.type, proofReferences.usableProofs);
+      await updateAsset(currentAsset.id, {
+        content,
+        proofIdsUsed: proofReferences.proofIdsUsed,
+        unresolvedProofIds: proofReferences.unresolvedProofIds,
+      });
+      await linkAssetToProofs(currentAsset.id, proofReferences.proofIdsUsed, previousProofIds);
+      setCurrentAsset({
+        ...currentAsset,
+        content,
+        proofIdsUsed: proofReferences.proofIdsUsed,
+        unresolvedProofIds: proofReferences.unresolvedProofIds,
+      });
       setQualityChecked(new Set());
     } catch (err) {
       console.error('Failed to regenerate:', err);
     } finally {
       setGenerating(null);
     }
-  }, [currentAsset, generateContent, updateAsset]);
+  }, [currentAsset, claims, generateContent, linkAssetToProofs, updateAsset]);
 
   const handleStartEdit = useCallback(() => {
     if (!currentAsset) return;
@@ -324,13 +348,28 @@ export function AssetsTab({ job }: AssetsTabProps) {
           {showWhyDraft && (
             <div className="px-4 pb-3 space-y-1.5 text-xs text-neutral-600">
               <p><span className="font-medium text-neutral-700">Job:</span> {job.title} at {job.company}</p>
-              <p><span className="font-medium text-neutral-700">Claims used:</span> {claims.length} claims bound</p>
+              <p><span className="font-medium text-neutral-700">Proof IDs used:</span> {(currentAsset.proofIdsUsed ?? []).length > 0 ? currentAsset.proofIdsUsed?.join(', ') : 'none'}</p>
+              <p><span className="font-medium text-neutral-700">Unresolved proof:</span> {(currentAsset.unresolvedProofIds ?? []).length}</p>
               <p><span className="font-medium text-neutral-700">Research:</span> {job.researchBrief ? 'Available' : 'Not available'}</p>
               <p><span className="font-medium text-neutral-700">User name:</span> {userName}</p>
               <p><span className="font-medium text-neutral-700">Generated:</span> template-fill (no API cost)</p>
             </div>
           )}
         </div>
+
+        {(currentAsset.proofIdsUsed?.length || currentAsset.unresolvedProofIds?.length) && (
+          <div className="bg-white rounded-lg border border-neutral-200 p-4 shadow-sm space-y-2">
+            <h4 className="text-xs font-semibold text-neutral-700">Proof References</h4>
+            <p className="text-xs text-neutral-600">
+              Used proof IDs: {(currentAsset.proofIdsUsed ?? []).length > 0 ? currentAsset.proofIdsUsed?.join(', ') : 'none'}
+            </p>
+            {(currentAsset.unresolvedProofIds ?? []).length > 0 && (
+              <p className="text-xs text-amber-700">
+                Unresolved proof IDs (excluded from auto-use): {currentAsset.unresolvedProofIds?.join(', ')}
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Quality checklist */}
         {checks.length > 0 && (
@@ -484,6 +523,20 @@ export function AssetsTab({ job }: AssetsTabProps) {
           </pre>
         </div>
 
+        {(currentAsset.proofIdsUsed?.length || currentAsset.unresolvedProofIds?.length) && (
+          <div className="bg-white rounded-lg border border-neutral-200 p-4 shadow-sm space-y-2">
+            <h4 className="text-xs font-semibold text-neutral-700">Proof References</h4>
+            <p className="text-xs text-neutral-600">
+              Used proof IDs: {(currentAsset.proofIdsUsed ?? []).length > 0 ? currentAsset.proofIdsUsed?.join(', ') : 'none'}
+            </p>
+            {(currentAsset.unresolvedProofIds ?? []).length > 0 && (
+              <p className="text-xs text-amber-700">
+                Unresolved proof IDs (excluded from auto-use): {currentAsset.unresolvedProofIds?.join(', ')}
+              </p>
+            )}
+          </div>
+        )}
+
         <div className="space-y-2">
           {!currentAsset.approved && (
             <button
@@ -578,7 +631,7 @@ export function AssetsTab({ job }: AssetsTabProps) {
               })}
               {claims.length === 0 && (
                 <p className="text-[11px] text-amber-600 px-4 py-2 border-t border-neutral-100">
-                  Add claims in Settings for personalized assets
+                  Add Proof Library items in Settings for personalized assets
                 </p>
               )}
             </div>
@@ -634,6 +687,9 @@ export function AssetsTab({ job }: AssetsTabProps) {
                 </div>
                 <p className="text-xs text-neutral-600 line-clamp-3 leading-relaxed">
                   {asset.content.slice(0, 200)}{asset.content.length > 200 ? '...' : ''}
+                </p>
+                <p className="mt-2 text-[11px] text-neutral-500">
+                  Proof IDs: {(asset.proofIdsUsed ?? []).length > 0 ? asset.proofIdsUsed?.join(', ') : 'none'}{(asset.unresolvedProofIds ?? []).length > 0 ? ` | Unresolved excluded: ${asset.unresolvedProofIds?.join(', ')}` : ''}
                 </p>
                 <p className="text-[11px] text-neutral-400 mt-2">
                   {new Date(asset.createdAt).toLocaleDateString()}

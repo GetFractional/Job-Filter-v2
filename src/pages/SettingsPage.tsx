@@ -23,6 +23,7 @@ import {
 import { getCityTypeaheadOptions, loadRecentCities, saveRecentCity } from '../lib/cityOptions';
 import { DigitalResumeBuilder } from '../components/resume/DigitalResumeBuilder';
 import { hasUsableImportDraft } from '../lib/importDraftBuilder';
+import { buildProofPayloadFromRole } from '../lib/proofLibrary';
 import type { Claim, ImportDraftRole, ImportSession, LocationPreference, Profile } from '../types';
 
 function parseIntegerInput(value: string): number {
@@ -33,6 +34,14 @@ function parseIntegerInput(value: string): number {
 function formatIntegerInput(value: number): string {
   if (!value || Number.isNaN(value) || value <= 0) return '';
   return value.toLocaleString();
+}
+
+function buildLineLookup(lines?: { line: number; text: string }[]): Record<number, string> | undefined {
+  if (!lines || lines.length === 0) return undefined;
+  return lines.reduce<Record<number, string>>((acc, entry) => {
+    acc[Math.max(0, entry.line - 1)] = entry.text;
+    return acc;
+  }, {});
 }
 
 export function SettingsPage() {
@@ -665,38 +674,13 @@ function ProfileSection({
   );
 }
 
-function roleToEvidenceRecord(role: ImportDraftRole, companyName: string): Claim | null {
-  const acceptedHighlights = role.highlights
-    .filter((item) => item.status === 'accepted')
-    .map((item) => item.text.trim())
-    .filter(Boolean);
-  const acceptedOutcomes = role.outcomes
-    .filter((item) => item.status === 'accepted')
-    .map((item) => item.text.trim())
-    .filter(Boolean);
-  const acceptedTools = role.tools
-    .filter((item) => item.status === 'accepted')
-    .map((item) => item.text.trim())
-    .filter(Boolean);
-
-  if (acceptedHighlights.length === 0 && acceptedOutcomes.length === 0 && acceptedTools.length === 0) {
-    return null;
-  }
+function roleToEvidenceRecord(role: ImportDraftRole, companyName: string, companyId?: string): Claim | null {
+  const payload = buildProofPayloadFromRole(role, companyName, { companyId });
+  if (!payload) return null;
 
   return {
+    ...payload,
     id: generateId(),
-    company: companyName,
-    role: role.title,
-    startDate: role.startDate,
-    endDate: role.endDate,
-    responsibilities: acceptedHighlights,
-    tools: acceptedTools,
-    outcomes: acceptedOutcomes.map((description) => ({
-      description,
-      metric: undefined,
-      isNumeric: /\d/.test(description),
-      verified: false,
-    })),
     createdAt: new Date().toISOString(),
   };
 }
@@ -739,7 +723,7 @@ function DigitalResumeSection({
       const records: Claim[] = [];
       for (const company of draftToSave.companies) {
         for (const role of company.roles) {
-          const record = roleToEvidenceRecord(role, company.name);
+          const record = roleToEvidenceRecord(role, company.name, company.id);
           if (record) {
             records.push(record);
           }
@@ -761,7 +745,7 @@ function DigitalResumeSection({
           updatedAt: new Date().toISOString(),
         });
       }
-      setSaveNotice(`Saved ${records.length} evidence record${records.length === 1 ? '' : 's'}.`);
+      setSaveNotice(`Saved ${records.length} proof item${records.length === 1 ? '' : 's'} to your Proof Library.`);
     } finally {
       setSaving(false);
     }
@@ -827,6 +811,8 @@ function DigitalResumeSection({
           draft={currentDraft}
           showAllStatuses={showAllStatuses}
           onShowAllStatusesChange={setShowAllStatuses}
+          normalizedSourceLinesByIndex={buildLineLookup(importSession?.diagnostics.previewLinesWithNumbers)}
+          rawSourceLinesByIndex={buildLineLookup(importSession?.diagnostics.rawPreviewLinesWithNumbers)}
           onDraftChange={(nextDraft) => {
             setSaveNotice(null);
             if (importSession) {

@@ -17,6 +17,7 @@ import type {
 import { BENEFITS_CATALOG, legacyBenefitsToIds } from './benefitsCatalog';
 import { sanitizeHardFilters } from './profilePreferences';
 import { getFitLabel } from './scoreBands';
+import { getAutoUsableProofs } from './proofLibrary';
 
 // ============================================================
 // Scoring Weights (calibratable)
@@ -296,6 +297,7 @@ function matchesLocationPreferences(job: Partial<Job>, profile: Profile): boolea
 }
 
 export function scoreJob(job: Partial<Job>, profile: Profile, claims?: Claim[]): ScoringResult {
+  const proofClaims = getAutoUsableProofs(claims ?? []);
   const scoringInputs = normalizeScoringInputs(job.scoringInputs);
   const scoringContext = buildScoringContext(job.jobDescription || '', scoringInputs);
   const jd = scoringContext.toLowerCase();
@@ -553,7 +555,7 @@ export function scoreJob(job: Partial<Job>, profile: Profile, claims?: Claim[]):
   // Extract requirements (with claim matching)
   // ----------------------------------------------------------
 
-  const requirements = extractRequirements(scoringContext, claims);
+  const requirements = extractRequirements(scoringContext, proofClaims);
   const mustHaveSummary = buildMustHaveSummary(requirements);
   const gapSuggestions = buildGapSuggestions(requirements);
 

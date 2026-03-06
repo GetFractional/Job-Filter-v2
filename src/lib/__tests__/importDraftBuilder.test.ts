@@ -24,7 +24,7 @@ describe('importDraftBuilder', () => {
     const role = company.roles[0];
     expect(role.confidence).toBeGreaterThanOrEqual(0);
     expect(role.confidence).toBeLessThanOrEqual(1);
-    expect(['accepted', 'needs_attention', 'rejected']).toContain(role.status);
+    expect(['active', 'needs_review', 'conflict', 'rejected']).toContain(role.status);
 
     const allItems = [...role.highlights, ...role.outcomes, ...role.tools];
     expect(allItems.length).toBeGreaterThan(0);

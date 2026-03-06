@@ -12,6 +12,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
+import { getAutoUsableProofs } from '../../lib/proofLibrary';
 import type { Job, AnswerSource } from '../../types';
 
 interface QATabProps {
@@ -19,7 +20,7 @@ interface QATabProps {
 }
 
 export function QATab({ job }: QATabProps) {
-  const claims = useStore((s) => s.claims);
+  const proofLibrary = useStore((s) => s.claims);
   const profile = useStore((s) => s.profile);
   const allAnswers = useStore((s) => s.applicationAnswers);
   const addApplicationAnswer = useStore((s) => s.addApplicationAnswer);
@@ -30,6 +31,7 @@ export function QATab({ job }: QATabProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const claims = useMemo(() => getAutoUsableProofs(proofLibrary), [proofLibrary]);
 
   const jobAnswers = useMemo(
     () => allAnswers
@@ -190,7 +192,7 @@ export function QATab({ job }: QATabProps) {
       {/* Template Mode Banner */}
       <div className="template-mode-banner">
         <FileText size={14} />
-        <span>Template Mode — Answers are generated from your claims + research. No AI API used.</span>
+        <span>Template Mode — Answers are generated from your Proof Library + research. No AI API used.</span>
       </div>
 
       {/* Add Question */}
@@ -223,7 +225,7 @@ export function QATab({ job }: QATabProps) {
         <div className="flex items-start gap-2 p-3 bg-amber-50 rounded-lg border border-amber-200">
           <AlertCircle size={14} className="text-amber-600 shrink-0 mt-0.5" />
           <p className="text-xs text-amber-700">
-            No claims imported. Answers will be generic. Import your resume in Settings for grounded answers.
+            No active proof available for auto-use. Answers will be generic until your Proof Library is reviewed.
           </p>
         </div>
       )}

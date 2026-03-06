@@ -1,4 +1,5 @@
 import type { ImportDraft, ImportDraftCompany, ImportDraftItem, ImportDraftRole, ImportItemStatus, ImportItemType } from '../types';
+import { normalizeProofStatus } from './proofLibrary';
 
 export type RoleItemCollection = 'highlights' | 'outcomes' | 'tools' | 'skills';
 
@@ -49,7 +50,7 @@ export function createEmptyRole(overrides: Partial<ImportDraftRole> = {}): Impor
     startDate: overrides.startDate ?? '',
     endDate: overrides.endDate ?? '',
     confidence: overrides.confidence ?? MANUAL_CONFIDENCE,
-    status: overrides.status ?? 'accepted',
+    status: overrides.status ?? 'active',
     sourceRefs: overrides.sourceRefs ?? [],
     highlights: overrides.highlights ?? [],
     outcomes: overrides.outcomes ?? [],
@@ -63,7 +64,7 @@ export function createEmptyCompany(overrides: Partial<ImportDraftCompany> = {}):
     id: overrides.id ?? createId('company'),
     name: overrides.name ?? 'New Company',
     confidence: overrides.confidence ?? MANUAL_CONFIDENCE,
-    status: overrides.status ?? 'accepted',
+    status: overrides.status ?? 'active',
     sourceRefs: overrides.sourceRefs ?? [],
     roles: overrides.roles ?? [createEmptyRole()],
   };
@@ -75,7 +76,7 @@ export function createDraftItem(type: ImportItemType, text = ''): ImportDraftIte
     type,
     text,
     confidence: MANUAL_CONFIDENCE,
-    status: text.trim() ? 'accepted' : 'needs_attention',
+    status: text.trim() ? 'active' : 'needs_review',
     sourceRefs: [],
   };
 }
@@ -135,8 +136,8 @@ export function addCompany(draft: ImportDraft): ImportDraft {
 export function updateCompanyName(draft: ImportDraft, companyId: string, name: string): ImportDraft {
   return withCompany(draft, companyId, (company) => {
     company.name = name;
-    if (name.trim() && company.status === 'needs_attention') {
-      company.status = 'accepted';
+    if (name.trim() && normalizeProofStatus(company.status) === 'needs_review') {
+      company.status = 'active';
       company.confidence = Math.max(company.confidence, MANUAL_CONFIDENCE);
     }
   });
@@ -159,11 +160,11 @@ export function updateRole(draft: ImportDraft, ref: RoleRef, updates: RoleUpdate
     if (typeof updates.title === 'string') role.title = updates.title;
     if (typeof updates.startDate === 'string') role.startDate = updates.startDate;
     if (typeof updates.endDate === 'string') role.endDate = updates.endDate;
-    if (updates.status) role.status = updates.status;
+    if (updates.status) role.status = normalizeProofStatus(updates.status);
     if ((updates.title && updates.title.trim()) || updates.startDate || updates.endDate) {
       role.confidence = Math.max(role.confidence, MANUAL_CONFIDENCE);
-      if (role.status === 'needs_attention' && updates.title?.trim()) {
-        role.status = 'accepted';
+      if (normalizeProofStatus(role.status) === 'needs_review' && updates.title?.trim()) {
+        role.status = 'active';
       }
     }
   });
@@ -194,8 +195,8 @@ export function updateRoleItem(draft: ImportDraft, ref: ItemRef, updates: ItemUp
       item.text = updates.text;
       if (updates.text.trim()) {
         item.confidence = Math.max(item.confidence, MANUAL_CONFIDENCE);
-        if (item.status === 'needs_attention') {
-          item.status = 'accepted';
+        if (normalizeProofStatus(item.status) === 'needs_review') {
+          item.status = 'active';
         }
       }
     }
@@ -203,7 +204,7 @@ export function updateRoleItem(draft: ImportDraft, ref: ItemRef, updates: ItemUp
       item.metric = updates.metric;
     }
     if (updates.status) {
-      item.status = updates.status;
+      item.status = normalizeProofStatus(updates.status);
     }
 
     setCollection(role, ref.collection, [...collection]);
@@ -262,7 +263,7 @@ export function moveRoleItem(draft: ImportDraft, source: ItemRef, destination: R
     const moved = {
       ...movedItem!,
       confidence: Math.max(movedItem!.confidence, MANUAL_CONFIDENCE),
-      status: movedItem!.status === 'rejected' ? 'needs_attention' : movedItem!.status,
+      status: normalizeProofStatus(movedItem!.status) === 'rejected' ? 'needs_review' : normalizeProofStatus(movedItem!.status),
     };
     setCollection(role, source.collection, [moved, ...targetCollection]);
   });

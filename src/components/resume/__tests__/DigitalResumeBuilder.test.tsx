@@ -13,7 +13,7 @@ function makeDraft(): ImportDraft {
         id: 'company-acme',
         name: 'Acme Corp',
         confidence: 0.88,
-        status: 'accepted',
+        status: 'active',
         sourceRefs: [],
         roles: [
           {
@@ -22,7 +22,7 @@ function makeDraft(): ImportDraft {
             startDate: 'Jan 2022',
             endDate: 'Present',
             confidence: 0.86,
-            status: 'accepted',
+            status: 'active',
             sourceRefs: [],
             highlights: [
               {
@@ -30,7 +30,7 @@ function makeDraft(): ImportDraft {
                 type: 'highlight',
                 text: 'Built demand generation engine across paid and owned channels',
                 confidence: 0.82,
-                status: 'accepted',
+                status: 'active',
                 sourceRefs: [],
               },
             ],
@@ -41,7 +41,7 @@ function makeDraft(): ImportDraft {
                 type: 'tool',
                 text: 'HubSpot',
                 confidence: 0.9,
-                status: 'accepted',
+                status: 'active',
                 sourceRefs: [],
               },
             ],
@@ -53,7 +53,7 @@ function makeDraft(): ImportDraft {
         id: 'company-beta',
         name: 'Beta Inc',
         confidence: 0.9,
-        status: 'accepted',
+        status: 'active',
         sourceRefs: [],
         roles: [
           {
@@ -62,7 +62,7 @@ function makeDraft(): ImportDraft {
             startDate: 'Jan 2020',
             endDate: 'Dec 2021',
             confidence: 0.86,
-            status: 'accepted',
+            status: 'active',
             sourceRefs: [],
             highlights: [],
             outcomes: [],
@@ -75,7 +75,7 @@ function makeDraft(): ImportDraft {
         id: 'company-unassigned',
         name: 'Unassigned',
         confidence: 0.41,
-        status: 'needs_attention',
+        status: 'needs_review',
         sourceRefs: [],
         roles: [
           {
@@ -84,7 +84,7 @@ function makeDraft(): ImportDraft {
             startDate: '',
             endDate: '',
             confidence: 0.4,
-            status: 'needs_attention',
+            status: 'needs_review',
             sourceRefs: [],
             highlights: [
               {
@@ -92,7 +92,7 @@ function makeDraft(): ImportDraft {
                 type: 'highlight',
                 text: 'Needs assignment item',
                 confidence: 0.38,
-                status: 'needs_attention',
+                status: 'needs_review',
                 sourceRefs: [],
               },
             ],
@@ -148,7 +148,7 @@ describe('DigitalResumeBuilder', () => {
 
   it('moves a highlight between assigned roles', () => {
     const { getDraft } = renderBuilder();
-    fireEvent.click(screen.getByLabelText(/Needs attention only/i));
+    fireEvent.click(screen.getByLabelText(/Needs review\/conflict only/i));
 
     fireEvent.change(screen.getByTestId('move-select-highlight-acme-1'), {
       target: { value: 'company-beta::role-marketing' },
@@ -179,19 +179,19 @@ describe('DigitalResumeBuilder', () => {
     expect(betaHighlights.some((item) => item.text.includes('Needs assignment item'))).toBe(true);
   });
 
-  it('defaults to needs-attention items and allows showing accepted content', () => {
+  it('defaults to needs-review items and allows showing active content', () => {
     renderBuilder();
 
     expect(screen.queryByText(/Built demand generation engine across paid and owned channels/i)).toBeNull();
 
-    fireEvent.click(screen.getByLabelText(/Needs attention only/i));
+    fireEvent.click(screen.getByLabelText(/Needs review\/conflict only/i));
     expect(screen.queryByText(/Built demand generation engine across paid and owned channels/i)).not.toBeNull();
   });
 
   it('supports undo for highlight deletion', () => {
     const { getDraft } = renderBuilder();
 
-    fireEvent.click(screen.getByLabelText(/Needs attention only/i));
+    fireEvent.click(screen.getByLabelText(/Needs review\/conflict only/i));
 
     const itemEditor = screen.getByTestId('item-editor-highlight-acme-1');
     fireEvent.click(within(itemEditor).getByRole('button', { name: /Delete/i }));
@@ -199,6 +199,16 @@ describe('DigitalResumeBuilder', () => {
     expect(getDraft().companies[0].roles[0].highlights).toHaveLength(0);
     fireEvent.click(screen.getByRole('button', { name: /Undo/i }));
     expect(getDraft().companies[0].roles[0].highlights).toHaveLength(1);
+  });
+
+  it('updates proof status directly from the item editor', () => {
+    const { getDraft } = renderBuilder();
+    fireEvent.click(screen.getByLabelText(/Needs review\/conflict only/i));
+
+    const statusSelect = screen.getAllByLabelText(/Set status for highlight/i)[0];
+    fireEvent.change(statusSelect, { target: { value: 'conflict' } });
+
+    expect(getDraft().companies[0].roles[0].highlights[0].status).toBe('conflict');
   });
 
   it('searches across company and role metadata and shows result count', () => {
