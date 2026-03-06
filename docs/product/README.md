@@ -43,7 +43,7 @@ As of 2026-03-06, the repo is a local-first React/Vite PWA with these verified s
 
 Verified GitHub state after Phase 0 cleanup:
 
-- No open PRs remain
+- No open stale product PRs remain
 - Stale PR #19 was audited, replaced by clean task [868hrqhgf](https://app.clickup.com/t/868hrqhgf), and closed
 - Stale PR #27 was audited, replaced by clean task [868hrqhgu](https://app.clickup.com/t/868hrqhgu), and closed
 

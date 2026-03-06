@@ -28,7 +28,7 @@ This plan is successful when all of the following are true:
 
 ### 3.2 GitHub
 
-- Open PR count: 0
+- No open stale product PRs remain after cleanup
 - PR #19 was audited as stale and dirty against current `main`, then closed.
 - PR #27 was audited as stale and behind current `main`, then closed.
 
