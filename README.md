@@ -31,7 +31,16 @@ npm run dev
 
 ## Documentation
 
-See `/docs` for:
+Start with the canonical product package:
+
+- [Canonical Product Package](docs/product/README.md)
+- [PRD v2](docs/product/PRD_V2.md)
+- [Epic Specs v2](docs/product/EPIC_SPECS_V2.md)
+- [AI Operating Model](docs/product/AI_OPERATING_MODEL.md)
+- [Governance Alignment](docs/product/GOVERNANCE_ALIGNMENT.md)
+
+Legacy or supporting references:
+
 - [Master Plan](docs/MASTER_PLAN.md)
 - [Implementation Plan](docs/IMPLEMENTATION_PLAN.md)
 - [Decisions Log](docs/DECISIONS.md)

@@ -1,4 +1,6 @@
-# Job Filter v2 — Master Plan, PRD, and Orchestrated Expert Team (MECE, Thorough)
+# Job Filter v2 - Master Plan, PRD, and Orchestrated Expert Team (MECE, Thorough)
+
+> Legacy current-state and historical planning reference. As of 2026-03-06, start with [`docs/product/README.md`](./product/README.md) for canonical target-state product planning and anti-hallucination controls.
 
 > **Purpose:** A premium, mobile-first system that finds, qualifies, researches, and converts job opportunities into **Closed Won** offers—while continuously optimizing itself with measurable feedback loops.
 
@@ -784,4 +786,3 @@ Deliverables:
 
 - Extension
 - Bookmarklet-first
-
