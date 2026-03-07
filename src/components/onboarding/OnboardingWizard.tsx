@@ -41,6 +41,7 @@ import {
 } from '../../lib/profilePreferences';
 import { getImportSessionStorageNotice } from '../../lib/importSessionStorage';
 import { BUILD_INFO } from '../../lib/buildInfo';
+import { buildProofPayloadFromRole, type BuildProofPayloadOptions } from '../../lib/proofLibrary';
 import {
   BENEFITS_CATALOG,
   benefitIdsToLabels,
@@ -106,40 +107,20 @@ function countDraftItems(draft: ImportDraft): { companies: number; roles: number
   );
 }
 
-function toClaimPayload(role: ImportDraftRole, companyName: string): Partial<Claim> | null {
-  const acceptedHighlights = role.highlights
-    .filter((item) => item.status === 'accepted')
-    .map((item) => item.text.trim())
-    .filter(Boolean);
+function buildLineLookup(lines?: { line: number; text: string }[]): Record<number, string> {
+  if (!lines || lines.length === 0) return {};
+  return lines.reduce<Record<number, string>>((acc, entry) => {
+    acc[Math.max(0, entry.line - 1)] = entry.text;
+    return acc;
+  }, {});
+}
 
-  const acceptedOutcomes = role.outcomes
-    .filter((item) => item.status === 'accepted')
-    .map((item) => ({
-      description: item.text.trim(),
-      metric: item.metric,
-      isNumeric: item.metric ? true : /\d/.test(item.text),
-      verified: false,
-    }))
-    .filter((item) => item.description);
-
-  const acceptedTools = role.tools
-    .filter((item) => item.status === 'accepted')
-    .map((item) => item.text.trim())
-    .filter(Boolean);
-
-  if (acceptedHighlights.length === 0 && acceptedOutcomes.length === 0 && acceptedTools.length === 0) {
-    return null;
-  }
-
-  return {
-    role: role.title,
-    company: companyName,
-    startDate: role.startDate,
-    endDate: role.endDate,
-    responsibilities: acceptedHighlights,
-    tools: acceptedTools,
-    outcomes: acceptedOutcomes,
-  };
+function toClaimPayload(
+  role: ImportDraftRole,
+  companyName: string,
+  options?: BuildProofPayloadOptions,
+): Partial<Claim> | null {
+  return buildProofPayloadFromRole(role, companyName, options);
 }
 
 function createParsedSession(
@@ -631,7 +612,14 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
       let imported = 0;
       for (const company of importSession.draft.companies) {
         for (const role of company.roles) {
-          const payload = toClaimPayload(role, company.name);
+          const payload = toClaimPayload(role, company.name, {
+            companyId: company.id,
+            sourceMeta: importSession.sourceMeta,
+            importSessionId: importSession.id,
+            parseMode: importSession.selectedMode ?? importSession.mode,
+            normalizedLineLookup: buildLineLookup(importSession.diagnostics.previewLinesWithNumbers),
+            rawLineLookup: buildLineLookup(importSession.diagnostics.rawPreviewLinesWithNumbers),
+          });
           if (!payload) continue;
           await addClaim(payload);
           imported += 1;

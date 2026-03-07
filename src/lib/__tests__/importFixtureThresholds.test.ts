@@ -16,7 +16,64 @@ function summarize(result: ReturnType<typeof buildImportDraftFromText>) {
   return { companies, roles, items };
 }
 
+function summarizeTimeline(result: ReturnType<typeof buildImportDraftFromText>) {
+  return result.draft.companies.map((company) => ({
+    company: company.name,
+    status: company.status,
+    roles: company.roles.map((role) => ({
+      title: role.title,
+      startDate: role.startDate,
+      endDate: role.endDate ?? '',
+      currentRole: Boolean(role.currentRole),
+    })),
+  }));
+}
+
 describe('import fixture thresholds', () => {
+  it('keeps exact marketing fixture timeline structure stable', () => {
+    const result = buildImportDraftFromText(marketingFixture, { mode: 'default' });
+
+    expect(summarizeTimeline(result)).toEqual([
+      {
+        company: 'Acme Growth Labs',
+        status: 'active',
+        roles: [
+          {
+            title: 'Marketing Director',
+            startDate: 'Sep 2023',
+            endDate: 'Nov 2025',
+            currentRole: false,
+          },
+        ],
+      },
+      {
+        company: 'Northwind Software',
+        status: 'active',
+        roles: [
+          {
+            title: 'Senior Demand Generation Manager',
+            startDate: 'Jan 2021',
+            endDate: 'Aug 2023',
+            currentRole: false,
+          },
+        ],
+      },
+      {
+        company: 'Summit Commerce',
+        status: 'active',
+        roles: [
+          {
+            title: 'Growth Marketing Manager',
+            startDate: 'Mar 2018',
+            endDate: 'Dec 2020',
+            currentRole: false,
+          },
+        ],
+      },
+    ]);
+    expect(result.diagnostics.reasonCodes).toEqual([]);
+  });
+
   it('keeps marketing director resume fixture above minimum structure thresholds', () => {
     const result = buildImportDraftFromText(marketingFixture, { mode: 'default' });
     const summary = summarize(result);

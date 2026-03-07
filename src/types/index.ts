@@ -82,6 +82,7 @@ export type AssetType =
   | 'Application Answer';
 
 export type ModelTier = 'tier-0-free' | 'tier-1-low' | 'tier-2-premium';
+export type ProofStatus = 'active' | 'needs_review' | 'conflict' | 'rejected';
 
 // ============================================================
 // Core Entities
@@ -213,6 +214,8 @@ export interface Asset {
   modelTier?: ModelTier;
   approved: boolean;
   notes?: string;
+  proofIdsUsed?: string[];
+  unresolvedProofIds?: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -320,7 +323,7 @@ export interface Profile {
 }
 
 export type ImportItemType = 'highlight' | 'outcome' | 'tool' | 'skill';
-export type ImportItemStatus = 'accepted' | 'needs_attention' | 'rejected';
+export type ImportItemStatus = ProofStatus | 'accepted' | 'needs_attention';
 export type ParseReasonCode =
   | 'TEXT_EMPTY'
   | 'BULLET_DETECT_FAIL'
@@ -350,6 +353,7 @@ export interface ImportDraftRole {
   title: string;
   startDate: string;
   endDate?: string;
+  currentRole?: boolean;
   confidence: number;
   status: ImportItemStatus;
   sourceRefs: SourceRef[];
@@ -391,6 +395,7 @@ export interface ParseDiagnostics {
   reasonCodes: ParseReasonCode[];
   previewLines: string[];
   previewLinesWithNumbers?: { line: number; text: string }[];
+  rawPreviewLinesWithNumbers?: { line: number; text: string }[];
   candidateModes?: Array<{
     mode: SegmentationMode;
     score: number;
@@ -458,6 +463,24 @@ export interface ImportSourceMeta {
   mimeType?: string;
 }
 
+export interface ProofSourceMeta {
+  inputKind: ImportSourceMeta['inputKind'] | 'manual';
+  fileName?: string;
+  fileSizeBytes?: number;
+  mimeType?: string;
+  importSessionId?: string;
+  parseMode?: SegmentationMode;
+  sourceLineIndexes?: number[];
+  sourceSnippets?: string[];
+}
+
+export interface ProofLineage {
+  companyId?: string;
+  roleId?: string;
+  itemIds: string[];
+  sourceLineIndexes: number[];
+}
+
 export interface ImportSession {
   id: string;
   mode: SegmentationMode;
@@ -482,6 +505,11 @@ export interface Claim {
   responsibilities: string[];
   tools: string[];
   outcomes: ClaimOutcome[];
+  status?: ProofStatus;
+  autoUse?: boolean;
+  sourceMeta?: ProofSourceMeta;
+  lineage?: ProofLineage;
+  assetRefs?: string[];
   createdAt: string;
 }
 

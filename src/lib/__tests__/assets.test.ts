@@ -2,6 +2,7 @@
 // Key focus: no placeholder leakage, correct context binding
 import { describe, it, expect } from 'vitest';
 import {
+  buildAssetProofReferences,
   validateContext,
   generateOutreachEmail,
   generateLinkedInConnect,
@@ -42,6 +43,9 @@ const testClaims: Claim[] = [
     outcomes: [
       { description: 'Grew revenue 150% YoY', metric: '150%', isNumeric: true, verified: false },
     ],
+    status: 'active',
+    autoUse: true,
+    assetRefs: [],
     createdAt: new Date().toISOString(),
   },
 ];
@@ -66,6 +70,7 @@ describe('validateContext', () => {
     });
     expect(result.valid).toBe(true);
     expect(result.missing).toHaveLength(0);
+    expect(result.blockedProofIds).toHaveLength(0);
   });
 
   it('fails when job title is missing', () => {
@@ -96,6 +101,37 @@ describe('validateContext', () => {
     });
     expect(result.valid).toBe(true);
     expect(result.warnings.length).toBeGreaterThan(0);
+    expect(result.autoUsableProofIds).toHaveLength(0);
+  });
+
+  it('blocks generation when unresolved proof is auto-enabled', () => {
+    const result = validateContext({
+      job: testJob,
+      userName: 'Matt',
+      claims: [
+        ...testClaims,
+        {
+          id: 'c2',
+          company: 'ConflictCo',
+          role: 'VP Growth',
+          startDate: '2021',
+          responsibilities: ['Conflicting metric'],
+          tools: [],
+          outcomes: [],
+          status: 'conflict',
+          autoUse: true,
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    });
+    expect(result.valid).toBe(false);
+    expect(result.blockedProofIds).toContain('c2');
+  });
+
+  it('returns proof references for generated assets', () => {
+    const refs = buildAssetProofReferences('Cover Letter', testClaims);
+    expect(refs.proofIdsUsed).toEqual(['c1']);
+    expect(refs.unresolvedProofIds).toHaveLength(0);
   });
 });
 

@@ -8,6 +8,7 @@ import { scoreJob } from '../lib/scoring';
 import { parseCompFromText } from '../lib/scoring';
 import { isClosedWonDemotionBlocked } from '../lib/stageTransitions';
 import { clearImportSession, loadImportSession, saveImportSession } from '../lib/importSessionStorage';
+import { defaultAutoUseForStatus, getAutoUsableProofs, normalizeProofStatus } from '../lib/proofLibrary';
 import type {
   Job,
   Company,
@@ -58,6 +59,7 @@ interface AppState {
   addActivity: (activity: Partial<Activity>) => Promise<Activity>;
   addAsset: (asset: Partial<Asset>) => Promise<Asset>;
   updateAsset: (id: string, updates: Partial<Asset>) => Promise<void>;
+  linkAssetToProofs: (assetId: string, proofIds: string[], previousProofIds?: string[]) => Promise<void>;
   addClaim: (claim: Partial<Claim>) => Promise<Claim>;
   updateProfile: (updates: Partial<Profile>) => Promise<void>;
   addGenerationLog: (log: Partial<GenerationLog>) => Promise<void>;
@@ -263,7 +265,7 @@ export const useStore = create<AppState>((set, get) => ({
     const profile = get().profile;
     if (!job || !profile) return;
 
-    const claims = get().claims;
+    const claims = getAutoUsableProofs(get().claims);
     const result = scoreJob(job, profile, claims);
     const now = new Date().toISOString();
 
@@ -426,6 +428,8 @@ export const useStore = create<AppState>((set, get) => ({
       modelTier: assetData.modelTier,
       approved: false,
       notes: assetData.notes,
+      proofIdsUsed: assetData.proofIdsUsed || [],
+      unresolvedProofIds: assetData.unresolvedProofIds || [],
       createdAt: now,
       updatedAt: now,
     };
@@ -439,12 +443,39 @@ export const useStore = create<AppState>((set, get) => ({
     await get().refreshData();
   },
 
+  linkAssetToProofs: async (assetId, proofIds, previousProofIds) => {
+    const nextProofIds = [...new Set(proofIds.filter(Boolean))];
+    const previousIdsFromAsset = previousProofIds ?? (await db.assets.get(assetId))?.proofIdsUsed ?? [];
+    const previousIds = [...new Set(previousIdsFromAsset.filter(Boolean))];
+
+    const idsToRemove = previousIds.filter((proofId) => !nextProofIds.includes(proofId));
+    const idsToAdd = nextProofIds.filter((proofId) => !previousIds.includes(proofId));
+
+    for (const proofId of idsToRemove) {
+      const existing = await db.claims.get(proofId);
+      if (!existing) continue;
+      const refs = (existing.assetRefs ?? []).filter((ref) => ref !== assetId);
+      await db.claims.update(proofId, { assetRefs: refs });
+    }
+
+    for (const proofId of idsToAdd) {
+      const existing = await db.claims.get(proofId);
+      if (!existing) continue;
+      const refs = existing.assetRefs ?? [];
+      if (refs.includes(assetId)) continue;
+      await db.claims.update(proofId, { assetRefs: [...refs, assetId] });
+    }
+
+    await get().refreshData();
+  },
+
   // --------------------------------------------------------
   // Claims / Profile
   // --------------------------------------------------------
 
   addClaim: async (claimData) => {
     const now = new Date().toISOString();
+    const normalizedStatus = normalizeProofStatus(claimData.status);
     const claim: Claim = {
       id: generateId(),
       company: claimData.company || '',
@@ -454,6 +485,11 @@ export const useStore = create<AppState>((set, get) => ({
       responsibilities: claimData.responsibilities || [],
       tools: claimData.tools || [],
       outcomes: claimData.outcomes || [],
+      status: normalizedStatus,
+      autoUse: typeof claimData.autoUse === 'boolean' ? claimData.autoUse : defaultAutoUseForStatus(normalizedStatus),
+      sourceMeta: claimData.sourceMeta,
+      lineage: claimData.lineage,
+      assetRefs: claimData.assetRefs || [],
       createdAt: now,
     };
     await db.claims.add(claim);

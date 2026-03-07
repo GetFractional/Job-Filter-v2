@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { AlertTriangle, ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
 import type { ImportDraft, ImportDraftItem, ImportDraftRole, ImportItemStatus } from '../../types';
+import { normalizeProofStatus } from '../../lib/proofLibrary';
 import {
   addCompany,
   addRole,
@@ -23,6 +24,8 @@ interface DigitalResumeBuilderProps {
   showAllStatuses: boolean;
   onShowAllStatusesChange: (value: boolean) => void;
   onDraftChange: (next: ImportDraft) => void;
+  normalizedSourceLinesByIndex?: Record<number, string>;
+  rawSourceLinesByIndex?: Record<number, string>;
 }
 
 interface ItemLocation {
@@ -63,24 +66,31 @@ function canUseLocalStorage(): boolean {
 }
 
 function statusBadgeClass(status: ImportItemStatus): string {
-  if (status === 'needs_attention') {
+  const normalized = normalizeProofStatus(status);
+  if (normalized === 'needs_review') {
     return 'border-[var(--status-warn-border)] bg-[var(--status-warn-bg)] text-[var(--status-warn-text)]';
   }
-  if (status === 'accepted') {
+  if (normalized === 'active') {
     return 'border-[var(--status-success-border)] bg-[var(--status-success-bg)] text-[var(--status-success-text)]';
+  }
+  if (normalized === 'conflict') {
+    return 'border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] text-[var(--status-danger-text)]';
   }
   return 'border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] text-[var(--status-danger-text)]';
 }
 
 function statusLabel(status: ImportItemStatus): string {
-  if (status === 'needs_attention') return 'Needs attention';
-  if (status === 'accepted') return 'Accepted';
-  return 'Excluded';
+  const normalized = normalizeProofStatus(status);
+  if (normalized === 'needs_review') return 'Needs review';
+  if (normalized === 'active') return 'Active';
+  if (normalized === 'conflict') return 'Conflict';
+  return 'Rejected';
 }
 
 function shouldShowBadge(status: ImportItemStatus, showAllStatuses: boolean): boolean {
   if (showAllStatuses) return true;
-  return status === 'needs_attention';
+  const normalized = normalizeProofStatus(status);
+  return normalized === 'needs_review' || normalized === 'conflict';
 }
 
 function formatRoleWindow(role: ImportDraftRole): string {
@@ -103,7 +113,8 @@ function countRoleItems(role: ImportDraftRole): number {
 }
 
 function matchesItemFilters(item: ImportDraftItem, filters: ItemFilterState): boolean {
-  if (!filters.showAccepted && item.status !== 'needs_attention') {
+  const normalized = normalizeProofStatus(item.status);
+  if (!filters.showAccepted && normalized !== 'needs_review' && normalized !== 'conflict') {
     return false;
   }
 
@@ -236,7 +247,10 @@ function ItemEditor({
   selected,
   onSelectedChange,
   focusTarget,
+  normalizedSourceLinesByIndex,
+  rawSourceLinesByIndex,
   onTextChange,
+  onStatusChange,
   onMetricChange,
   onMove,
   onDelete,
@@ -251,11 +265,22 @@ function ItemEditor({
   selected: boolean;
   onSelectedChange: (checked: boolean) => void;
   focusTarget?: 'item' | null;
+  normalizedSourceLinesByIndex?: Record<number, string>;
+  rawSourceLinesByIndex?: Record<number, string>;
   onTextChange: (value: string) => void;
+  onStatusChange: (status: ImportItemStatus) => void;
   onMetricChange?: (value: string) => void;
   onMove: () => void;
   onDelete: () => void;
 }) {
+  const normalizedStatus = normalizeProofStatus(item.status);
+  const normalizedSnippets = item.sourceRefs
+    .map((ref) => ({ line: ref.lineIndex + 1, text: normalizedSourceLinesByIndex?.[ref.lineIndex] }))
+    .filter((entry): entry is { line: number; text: string } => Boolean(entry.text));
+  const rawSnippets = item.sourceRefs
+    .map((ref) => ({ line: ref.lineIndex + 1, text: rawSourceLinesByIndex?.[ref.lineIndex] }))
+    .filter((entry): entry is { line: number; text: string } => Boolean(entry.text));
+
   return (
     <div className="space-y-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-bg)] p-3" data-testid={`item-editor-${item.id}`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -267,6 +292,17 @@ function ItemEditor({
           <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">{collection === 'highlights' ? 'Highlight' : 'Outcome'}</p>
         </div>
         <div className="flex items-center gap-2">
+          <select
+            value={normalizedStatus}
+            onChange={(event) => onStatusChange(event.target.value as ImportItemStatus)}
+            className="rounded-md border border-[var(--border-subtle)] bg-white px-2 py-1 text-[11px] text-[var(--text-secondary)]"
+            aria-label={`Set status for ${collection === 'highlights' ? 'highlight' : 'outcome'}`}
+          >
+            <option value="active">Active</option>
+            <option value="needs_review">Needs review</option>
+            <option value="conflict">Conflict</option>
+            <option value="rejected">Rejected</option>
+          </select>
           {shouldShowBadge(item.status, showAccepted) && (
             <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${statusBadgeClass(item.status)}`}>
               {statusLabel(item.status)}
@@ -290,6 +326,23 @@ function ItemEditor({
         className={`w-full rounded-lg border border-[var(--border-subtle)] bg-white px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-soft)] ${focusTarget === 'item' ? 'ring-2 ring-[var(--accent-soft)]' : ''}`}
         placeholder={collection === 'highlights' ? 'Describe the work delivered' : 'Describe measurable impact'}
       />
+
+      {(normalizedSnippets.length > 0 || rawSnippets.length > 0) && (
+        <div className="space-y-1 rounded-lg border border-[var(--border-subtle)] bg-white px-2.5 py-2 text-[11px] text-[var(--text-secondary)]">
+          {rawSnippets.length > 0 && (
+            <p>
+              <span className="font-medium text-[var(--text-primary)]">Raw source:</span>{' '}
+              {rawSnippets.map((snippet) => `${snippet.line}: ${snippet.text}`).join(' | ')}
+            </p>
+          )}
+          {normalizedSnippets.length > 0 && (
+            <p>
+              <span className="font-medium text-[var(--text-primary)]">Normalized source:</span>{' '}
+              {normalizedSnippets.map((snippet) => `${snippet.line}: ${snippet.text}`).join(' | ')}
+            </p>
+          )}
+        </div>
+      )}
 
       {collection === 'outcomes' && (
         <input
@@ -327,7 +380,14 @@ function ItemEditor({
   );
 }
 
-export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatusesChange, onDraftChange }: DigitalResumeBuilderProps) {
+export function DigitalResumeBuilder({
+  draft,
+  showAllStatuses,
+  onShowAllStatusesChange,
+  onDraftChange,
+  normalizedSourceLinesByIndex,
+  rawSourceLinesByIndex,
+}: DigitalResumeBuilderProps) {
   const [unassignedOpen, setUnassignedOpen] = useState(false);
   const [moveDestinations, setMoveDestinations] = useState<Record<string, string>>({});
   const [selectedItemIds, setSelectedItemIds] = useState<Record<string, boolean>>({});
@@ -673,6 +733,8 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
                 selected={Boolean(selectedItemIds[key])}
                 onSelectedChange={(checked) => setSelectedItemIds((current) => ({ ...current, [key]: checked }))}
                 focusTarget={focusTarget?.type === 'item' && focusTarget.id === item.id ? 'item' : null}
+                normalizedSourceLinesByIndex={normalizedSourceLinesByIndex}
+                rawSourceLinesByIndex={rawSourceLinesByIndex}
                 moveDestination={resolveMoveValue(key, fallbackMoveValue)}
                 onMoveDestinationChange={(value) => setMoveDestinations((current) => ({ ...current, [key]: value }))}
                 onTextChange={(value) => {
@@ -682,6 +744,14 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
                     collection: 'highlights',
                     itemId: item.id,
                   }, { text: value }));
+                }}
+                onStatusChange={(status) => {
+                  applyMutation((current) => updateRoleItem(current, {
+                    companyId,
+                    roleId: role.id,
+                    collection: 'highlights',
+                    itemId: item.id,
+                  }, { status }));
                 }}
                 onMove={() => {
                   const targetValue = resolveMoveValue(key, fallbackMoveValue);
@@ -724,6 +794,8 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
                 selected={Boolean(selectedItemIds[key])}
                 onSelectedChange={(checked) => setSelectedItemIds((current) => ({ ...current, [key]: checked }))}
                 focusTarget={focusTarget?.type === 'item' && focusTarget.id === item.id ? 'item' : null}
+                normalizedSourceLinesByIndex={normalizedSourceLinesByIndex}
+                rawSourceLinesByIndex={rawSourceLinesByIndex}
                 moveDestination={resolveMoveValue(key, fallbackMoveValue)}
                 onMoveDestinationChange={(value) => setMoveDestinations((current) => ({ ...current, [key]: value }))}
                 onTextChange={(value) => {
@@ -733,6 +805,14 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
                     collection: 'outcomes',
                     itemId: item.id,
                   }, { text: value }));
+                }}
+                onStatusChange={(status) => {
+                  applyMutation((current) => updateRoleItem(current, {
+                    companyId,
+                    roleId: role.id,
+                    collection: 'outcomes',
+                    itemId: item.id,
+                  }, { status }));
                 }}
                 onMetricChange={(value) => {
                   applyMutation((current) => updateRoleItem(current, {
@@ -772,7 +852,7 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
             <p className="rounded-lg border border-dashed border-[var(--border-subtle)] bg-white px-3 py-2 text-xs text-[var(--text-muted)]">
               {showAllStatuses
                 ? 'No highlights or outcomes match this filter.'
-                : 'No needs-attention highlights or outcomes in this role. Uncheck “Needs attention only” to review everything.'}
+                : 'No needs-review or conflict highlights/outcomes in this role. Uncheck “Needs review/conflict only” to review everything.'}
             </p>
           )}
         </div>
@@ -817,8 +897,8 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
     <div className="space-y-4" data-testid="digital-resume-builder">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h4 className="text-sm font-semibold text-[var(--text-primary)]">Resume Review</h4>
-          <p className="text-xs text-[var(--text-secondary)]">Edit companies, roles, highlights, outcomes, tools, and skills before saving.</p>
+          <h4 className="text-sm font-semibold text-[var(--text-primary)]">Proof Library Review</h4>
+          <p className="text-xs text-[var(--text-secondary)]">Review source snippets, normalize proof items, and set status before saving.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button
@@ -849,7 +929,7 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
               checked={!showAllStatuses}
               onChange={(event) => onShowAllStatusesChange(!event.target.checked)}
             />
-            Needs attention only
+            Needs review/conflict only
           </label>
           <input
             type="search"
@@ -891,16 +971,16 @@ export function DigitalResumeBuilder({ draft, showAllStatuses, onShowAllStatuses
                     roleId: selected.roleId,
                     collection: selected.collection,
                     itemId: selected.item.id,
-                  }, { status: 'accepted' });
+                  }, { status: 'active' });
                 }
                 return next;
               });
               setSelectedItemIds({});
-              showToast({ message: 'Selected items marked accepted' });
+              showToast({ message: 'Selected items marked active' });
             }}
             className="rounded-lg border border-[var(--border-subtle)] px-2.5 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] disabled:opacity-50"
           >
-            Mark selected accepted ({selectedItemCount})
+            Mark selected active ({selectedItemCount})
           </button>
           <button
             type="button"
