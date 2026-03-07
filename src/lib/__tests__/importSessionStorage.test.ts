@@ -83,7 +83,7 @@ function makeSession(text = 'Built lifecycle engine'): ImportSession {
           id: 'company-1',
           name: 'Acme Corp',
           confidence: 0.9,
-          status: 'active',
+          status: 'accepted',
           sourceRefs: [{ lineIndex: 0 }],
           roles: [
             {
@@ -92,7 +92,7 @@ function makeSession(text = 'Built lifecycle engine'): ImportSession {
               startDate: 'Jan 2021',
               endDate: 'Present',
               confidence: 0.88,
-              status: 'active',
+              status: 'accepted',
               sourceRefs: [{ lineIndex: 1 }],
               highlights: [
                 {
@@ -100,7 +100,7 @@ function makeSession(text = 'Built lifecycle engine'): ImportSession {
                   type: 'highlight',
                   text,
                   confidence: 0.82,
-                  status: 'active',
+                  status: 'accepted',
                   sourceRefs: [{ lineIndex: 2 }],
                 },
               ],

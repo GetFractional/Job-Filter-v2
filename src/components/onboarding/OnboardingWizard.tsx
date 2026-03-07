@@ -256,7 +256,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
   const [resumeText, setResumeText] = useState('');
   const [extractionDiagnostics, setExtractionDiagnostics] = useState<ClaimsImportExtractionDiagnostics | null>(null);
-  const [importedProofCount, setImportedProofCount] = useState(0);
+  const [importedClaimsCount, setImportedClaimsCount] = useState(0);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [selectedFileMeta, setSelectedFileMeta] = useState<{ name: string; size: number; type: string } | null>(null);
   const [readingFile, setReadingFile] = useState(false);
@@ -293,16 +293,6 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const parseLooksLowQuality = importSession
     ? (importSession.diagnostics.mappingStage?.finalItemsCount ?? fullDraftCounts.highlights + fullDraftCounts.outcomes) < 20 || hasCollapseCode
     : false;
-  const normalizedSourceLineLookup = useMemo(
-    () => buildLineLookup(importSession?.diagnostics.previewLinesWithNumbers),
-    [importSession?.diagnostics.previewLinesWithNumbers],
-  );
-  const rawSourceLineLookup = useMemo(
-    () => buildLineLookup(importSession?.diagnostics.rawPreviewLinesWithNumbers),
-    [importSession?.diagnostics.rawPreviewLinesWithNumbers],
-  );
-  const rawPreviewLines = importSession?.diagnostics.rawPreviewLinesWithNumbers?.slice(0, 8) ?? [];
-  const normalizedPreviewLines = importSession?.diagnostics.previewLinesWithNumbers?.slice(0, 8) ?? [];
   const bulletDotCount = importSession
     ? (importSession.diagnostics.topBulletGlyphs ?? []).find((entry) => entry.glyph === '•')?.count ?? 0
     : 0;
@@ -497,7 +487,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     setStorageNotice(persisted ? getImportSessionStorageNotice(persisted.storage) : null);
 
     setShowAllStatuses(false);
-    setImportedProofCount(0);
+    setImportedClaimsCount(0);
     setDebugReportNotice(null);
     setFileImportError(null);
     setTroubleshootOpen(false);
@@ -592,7 +582,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     setFileImportError(null);
     setSelectedFileName(file.name);
     setSelectedFileMeta({ name: file.name, size: file.size, type: file.type });
-    setImportedProofCount(0);
+    setImportedClaimsCount(0);
     setTroubleshootOpen(false);
     setShowAllStatuses(false);
     setShowAdvancedPreferences(false);
@@ -627,8 +617,8 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
             sourceMeta: importSession.sourceMeta,
             importSessionId: importSession.id,
             parseMode: importSession.selectedMode ?? importSession.mode,
-            normalizedLineLookup: normalizedSourceLineLookup,
-            rawLineLookup: rawSourceLineLookup,
+            normalizedLineLookup: buildLineLookup(importSession.diagnostics.previewLinesWithNumbers),
+            rawLineLookup: buildLineLookup(importSession.diagnostics.rawPreviewLinesWithNumbers),
           });
           if (!payload) continue;
           await addClaim(payload);
@@ -645,16 +635,16 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
       await updateProfile({
         digitalResume: importSession.draft,
       });
-      setImportedProofCount(imported);
+      setImportedClaimsCount(imported);
     } finally {
       setSaving(false);
     }
-  }, [addClaim, importSession, normalizedSourceLineLookup, rawSourceLineLookup, setImportSession, updateProfile]);
+  }, [addClaim, importSession, setImportSession, updateProfile]);
 
   const handleDiscardDraft = useCallback(() => {
     setImportSession(null);
     setResumeText('');
-    setImportedProofCount(0);
+    setImportedClaimsCount(0);
     setSelectedFileName(null);
     setSelectedFileMeta(null);
     setFileImportError(null);
@@ -669,7 +659,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const handleResetImport = useCallback(() => {
     setImportSession(null);
     setResumeText('');
-    setImportedProofCount(0);
+    setImportedClaimsCount(0);
     setSelectedFileName(null);
     setSelectedFileMeta(null);
     setReadingFile(false);
@@ -904,7 +894,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     setSelectedFileName(null);
                     setSelectedFileMeta(null);
                     setExtractionDiagnostics(null);
-                    setImportedProofCount(0);
+                    setImportedClaimsCount(0);
                     setTroubleshootOpen(false);
                     setShowAllStatuses(false);
                     setDebugReportNotice(null);
@@ -939,7 +929,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                         onClick={handleDiscardDraft}
                         className="px-3 py-1.5 text-xs border border-neutral-200 rounded-lg text-neutral-600 hover:bg-neutral-50"
                       >
-                        Discard
+                        Discard Draft
                       </button>
                       <button
                         type="button"
@@ -951,44 +941,13 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     </div>
                   </div>
 
-                  {(rawPreviewLines.length > 0 || normalizedPreviewLines.length > 0) && (
-                    <div className="grid gap-3 rounded-lg border border-neutral-200 bg-neutral-50 p-3 md:grid-cols-2">
-                      <div className="space-y-1.5">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-600">Raw Source Snippets</p>
-                        <div className="rounded border border-neutral-200 bg-white p-2 font-mono text-[11px] text-neutral-700 max-h-36 overflow-y-auto">
-                          {rawPreviewLines.length === 0 ? (
-                            <p className="text-neutral-500">No raw snippets available.</p>
-                          ) : (
-                            rawPreviewLines.map((line) => (
-                              <div key={`raw-${line.line}`}>{line.line}. {line.text}</div>
-                            ))
-                          )}
-                        </div>
-                      </div>
-                      <div className="space-y-1.5">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-600">Normalized Proof Preview</p>
-                        <div className="rounded border border-neutral-200 bg-white p-2 font-mono text-[11px] text-neutral-700 max-h-36 overflow-y-auto">
-                          {normalizedPreviewLines.length === 0 ? (
-                            <p className="text-neutral-500">No normalized snippets available.</p>
-                          ) : (
-                            normalizedPreviewLines.map((line) => (
-                              <div key={`normalized-${line.line}`}>{line.line}. {line.text}</div>
-                            ))
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
                   {hasVisibleDraft ? (
                     <DigitalResumeBuilder
                       draft={importSession.draft}
                       showAllStatuses={showAllStatuses}
                       onShowAllStatusesChange={setShowAllStatuses}
-                      normalizedSourceLinesByIndex={normalizedSourceLineLookup}
-                      rawSourceLinesByIndex={rawSourceLineLookup}
                       onDraftChange={(nextDraft) => {
-                        setImportedProofCount(0);
+                        setImportedClaimsCount(0);
                         setImportSession({
                           ...importSession,
                           draft: nextDraft,
@@ -1079,31 +1038,20 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                           </button>
                           {debugReportNotice && <span className="text-[11px] text-neutral-500">{debugReportNotice}</span>}
                         </div>
-                        <div className="grid gap-2 sm:grid-cols-2">
-                          <div className="rounded border border-neutral-200 bg-white p-2 font-mono text-[11px] text-neutral-700 max-h-56 overflow-y-auto">
-                            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-500">Raw</p>
-                            {(importSession.diagnostics.rawPreviewLinesWithNumbers ?? []).map((line) => (
-                              <div key={`raw-debug-${line.line}`}>
-                                {line.line}. {line.text}
-                              </div>
-                            ))}
-                          </div>
-                          <div className="rounded border border-neutral-200 bg-white p-2 font-mono text-[11px] text-neutral-700 max-h-56 overflow-y-auto">
-                            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-500">Normalized</p>
-                            {(importSession.diagnostics.previewLinesWithNumbers ?? []).map((line) => (
-                              <div key={`normalized-debug-${line.line}`}>
-                                {line.line}. {line.text}
-                              </div>
-                            ))}
-                          </div>
+                        <div className="rounded border border-neutral-200 bg-white p-2 font-mono text-[11px] text-neutral-700 max-h-56 overflow-y-auto">
+                          {(importSession.diagnostics.previewLinesWithNumbers ?? []).map((line) => (
+                            <div key={line.line}>
+                              {line.line}. {line.text}
+                            </div>
+                          ))}
                         </div>
                       </div>
                     )}
                   </div>
 
-                  {importedProofCount > 0 && (
+                  {importedClaimsCount > 0 && (
                     <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">
-                      Saved {importedProofCount} proof item{importedProofCount !== 1 ? 's' : ''} to your Proof Library.
+                      Saved {importedClaimsCount} role record{importedClaimsCount !== 1 ? 's' : ''} to your evidence ledger.
                     </div>
                   )}
                 </div>
