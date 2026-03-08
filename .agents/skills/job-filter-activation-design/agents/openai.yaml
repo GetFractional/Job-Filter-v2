@@ -1,0 +1,7 @@
+interface:
+  display_name: "Job Filter Activation Design"
+  short_description: "Decision-ready UI and activation design guidance"
+  default_prompt: "Use $job-filter-activation-design to turn Job Filter product direction into a decision-complete UX and copy packet."
+
+policy:
+  allow_implicit_invocation: false
