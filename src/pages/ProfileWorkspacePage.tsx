@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ProfileWorkspaceShell } from '../components/profile/ProfileWorkspaceShell';
 import type { ProfileIdentityDraft } from '../components/profile/steps/ProfileDetailsStep';
+import { DEFAULT_PHONE_COUNTRY_CODE } from '../components/profile/steps/profilePhone';
 import { useStore } from '../store/useStore';
 import type { ProfileWorkspaceMode } from '../types';
 
@@ -14,12 +15,41 @@ function parseMode(rawMode: string | null): ProfileWorkspaceMode {
   return 'setup';
 }
 
-function buildInitialIdentity(name: string | undefined): ProfileIdentityDraft {
+function splitNameParts(
+  firstName: string | undefined,
+  lastName: string | undefined,
+  fallbackName: string | undefined,
+): { firstName: string; lastName: string } {
+  const providedFirst = (firstName ?? '').trim();
+  const providedLast = (lastName ?? '').trim();
+  if (providedFirst || providedLast) {
+    return { firstName: providedFirst, lastName: providedLast };
+  }
+
+  const trimmed = (fallbackName ?? '').trim();
+  if (!trimmed) {
+    return { firstName: '', lastName: '' };
+  }
+  const parts = trimmed.split(/\s+/);
   return {
-    fullName: name ?? '',
+    firstName: parts[0] ?? '',
+    lastName: parts.slice(1).join(' '),
+  };
+}
+
+function buildInitialIdentity(
+  name: string | undefined,
+  firstName: string | undefined,
+  lastName: string | undefined,
+): ProfileIdentityDraft {
+  const resolvedName = splitNameParts(firstName, lastName, name);
+  return {
+    firstName: resolvedName.firstName,
+    lastName: resolvedName.lastName,
     headline: '',
     email: '',
-    phone: '',
+    phoneCountryCode: DEFAULT_PHONE_COUNTRY_CODE,
+    phoneNational: '',
     location: '',
     linkedIn: '',
     website: '',
@@ -32,7 +62,12 @@ export function ProfileWorkspacePage() {
   const profile = useStore((state) => state.profile);
 
   const mode = parseMode(searchParams.get('mode'));
-  const initialIdentity = useMemo(() => buildInitialIdentity(profile?.name), [profile?.name]);
+  const initialIdentity = useMemo(
+    () => (mode === 'setup'
+      ? buildInitialIdentity(undefined, undefined, undefined)
+      : buildInitialIdentity(profile?.name, profile?.firstName, profile?.lastName)),
+    [mode, profile?.firstName, profile?.lastName, profile?.name],
+  );
 
   return <ProfileWorkspaceShell mode={mode} initialIdentity={initialIdentity} />;
 }

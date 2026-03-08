@@ -16,6 +16,8 @@ if (typeof window !== 'undefined' && !IS_JSDOM) {
 const MAX_IMPORT_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 const DOCX_MIME =
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+const PDF_LOAD_TIMEOUT_MS = 15_000;
+const PDF_PAGE_TIMEOUT_MS = 12_000;
 
 type ClaimsImportFileKind = 'pdf' | 'docx' | 'txt';
 
@@ -47,6 +49,27 @@ interface ZipEntry {
   compressionMethod: number;
   compressedSize: number;
   localHeaderOffset: number;
+}
+
+async function withOperationTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  timeoutMessage: string,
+  onTimeout?: () => void | Promise<void>,
+): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      void onTimeout?.();
+      reject(new Error(timeoutMessage));
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    if (timeoutId !== null) clearTimeout(timeoutId);
+  }
 }
 
 function readUint16(bytes: Uint8Array, offset: number): number {
@@ -216,40 +239,72 @@ async function extractDocxText(file: File): Promise<ClaimsImportExtractionResult
 
 async function extractPdfText(file: File): Promise<ClaimsImportExtractionResult> {
   const bytes = new Uint8Array(await file.arrayBuffer());
-  let pdf;
+  let pdf: {
+    numPages: number;
+    getPage: (pageNumber: number) => Promise<{
+      getTextContent: () => Promise<{ items: Array<Record<string, unknown>> }>;
+      cleanup: () => void;
+    }>;
+    destroy: () => Promise<void>;
+  };
+  const loadWithOptions = async (disableWorker: boolean) => {
+    const loadingTask = disableWorker
+      ? getDocument({ data: bytes, disableWorker: true } as { data: Uint8Array; disableWorker: true })
+      : getDocument({ data: bytes });
+    const loaded = await withOperationTimeout(
+      loadingTask.promise,
+      PDF_LOAD_TIMEOUT_MS,
+      'PDF import timed out while loading this file.',
+      () => loadingTask.destroy(),
+    );
+    return loaded;
+  };
   if (IS_JSDOM) {
-    pdf = await getDocument({ data: bytes, disableWorker: true } as { data: Uint8Array; disableWorker: true }).promise;
+    pdf = await loadWithOptions(true);
   } else {
     try {
-      pdf = await getDocument({ data: bytes }).promise;
+      pdf = await loadWithOptions(false);
     } catch {
-      pdf = await getDocument({ data: bytes, disableWorker: true } as { data: Uint8Array; disableWorker: true }).promise;
+      pdf = await loadWithOptions(true);
     }
   }
   const pages: string[] = [];
 
-  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
-    const page = await pdf.getPage(pageNumber);
-    const text = await page.getTextContent();
-    const tokens: PositionedTextToken[] = text.items
-      .map((item) => {
-        if (!('str' in item)) return null;
-        const raw = item.str?.toString() ?? '';
-        if (!raw.trim()) return null;
-        const transform = Array.isArray(item.transform) ? item.transform : [0, 0, 0, 0, 0, 0];
-        return {
-          text: raw,
-          x: Number(transform[4] ?? 0),
-          y: Number(transform[5] ?? 0),
-          width: Number(item.width ?? raw.length * 5),
-          height: Math.abs(Number(item.height ?? transform[3] ?? 10)),
-          page: pageNumber,
-        } as PositionedTextToken;
-      })
-      .filter((item): item is PositionedTextToken => item !== null);
+  try {
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+      const page = await withOperationTimeout(
+        pdf.getPage(pageNumber),
+        PDF_PAGE_TIMEOUT_MS,
+        `PDF import timed out while loading page ${pageNumber}.`,
+      );
+      const text = await withOperationTimeout(
+        page.getTextContent(),
+        PDF_PAGE_TIMEOUT_MS,
+        `PDF import timed out while extracting page ${pageNumber}.`,
+      );
+      const tokens: PositionedTextToken[] = text.items
+        .map((item) => {
+          if (!('str' in item)) return null;
+          const raw = item.str?.toString() ?? '';
+          if (!raw.trim()) return null;
+          const transform = Array.isArray(item.transform) ? item.transform : [0, 0, 0, 0, 0, 0];
+          return {
+            text: raw,
+            x: Number(transform[4] ?? 0),
+            y: Number(transform[5] ?? 0),
+            width: Number(item.width ?? raw.length * 5),
+            height: Math.abs(Number(item.height ?? transform[3] ?? 10)),
+            page: pageNumber,
+          } as PositionedTextToken;
+        })
+        .filter((item): item is PositionedTextToken => item !== null);
 
-    const pageLines = reconstructPageLines(tokens);
-    if (pageLines.length > 0) pages.push(...pageLines);
+      const pageLines = reconstructPageLines(tokens);
+      if (pageLines.length > 0) pages.push(...pageLines);
+      page.cleanup();
+    }
+  } finally {
+    await pdf.destroy();
   }
 
   const text = normalizeClaimsImportText(pages.join('\n'));

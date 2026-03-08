@@ -301,7 +301,7 @@ export interface MustHaveSummary {
 export type ProfileWorkspaceMode = 'setup' | 'edit' | 'complete';
 
 export type ProfileWorkspaceSectionId =
-  | 'intro'
+  | 'start_here'
   | 'details'
   | 'experience'
   | 'skills'
