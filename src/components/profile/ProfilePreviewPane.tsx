@@ -159,9 +159,9 @@ export function ProfilePreviewPane({
   revealedGroupCount,
 }: ProfilePreviewPaneProps) {
   return (
-    <section className="workspace-glass min-w-0 w-full p-4 lg:sticky lg:top-4 2xl:p-5">
+    <section className="workspace-glass min-w-0 w-full p-4 lg:sticky lg:top-6 2xl:p-5">
       <p className="mb-2 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Live preview</p>
-      <div className="min-w-0 w-full max-w-full min-h-[72vh] max-h-[calc(100vh-9rem)] overflow-y-auto overflow-x-hidden rounded-[16px] border border-[var(--border-subtle)] bg-white p-5 shadow-[0_18px_36px_rgba(7,16,13,0.12)] sm:p-6 2xl:p-7">
+      <div className="min-w-0 w-full max-w-full min-h-[74vh] max-h-[calc(100vh-6.75rem)] overflow-y-auto overflow-x-hidden rounded-[16px] border border-[var(--border-subtle)] bg-white p-5 shadow-[0_18px_36px_rgba(7,16,13,0.12)] sm:p-6 2xl:p-7">
         <div className="border-b border-[var(--border-subtle)] pb-3">
           <h2 style={{ fontFamily: 'var(--font-display)' }} className="break-words text-[1.55rem] leading-7 text-[var(--text-primary)]">
             {fullName(identity) || 'Your Name'}

@@ -170,6 +170,44 @@ function ExpandButton({
   );
 }
 
+function AutoGrowTextarea({
+  value,
+  placeholder,
+  ariaLabel,
+  onChange,
+}: {
+  value: string;
+  placeholder: string;
+  ariaLabel: string;
+  onChange: (value: string) => void;
+}) {
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const resize = () => {
+    const node = textareaRef.current;
+    if (!node) return;
+    node.style.height = '0px';
+    node.style.height = `${Math.max(node.scrollHeight, 74)}px`;
+  };
+
+  useEffect(() => {
+    resize();
+  }, [value]);
+
+  return (
+    <textarea
+      ref={textareaRef}
+      value={value}
+      rows={2}
+      onChange={(event) => onChange(event.target.value)}
+      onInput={resize}
+      placeholder={placeholder}
+      aria-label={ariaLabel}
+      className="workspace-input min-h-[74px] resize-none leading-5"
+    />
+  );
+}
+
 export function ProfileExperienceImportStep({
   selectedPath,
   selectedFileName,
@@ -757,30 +795,34 @@ export function ProfileExperienceImportStep({
                                   <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Responsibilities</p>
                                   <div className="mt-2 space-y-2">
                                     {role.responsibilities.map((line, lineIndex) => (
-                                      <div key={`${role.id}-resp-${lineIndex}`} className="flex items-start gap-2">
-                                        <input
-                                          type="text"
+                                      <div
+                                        key={`${role.id}-resp-${lineIndex}`}
+                                        className="rounded-[10px] border border-[var(--border-subtle)] bg-white p-2.5"
+                                      >
+                                        <AutoGrowTextarea
                                           value={line}
-                                          onChange={(event) => updateRoleLine(company.id, role.id, 'responsibilities', lineIndex, event.target.value)}
-                                          className="workspace-input"
+                                          onChange={(nextValue) => updateRoleLine(company.id, role.id, 'responsibilities', lineIndex, nextValue)}
                                           placeholder="Led weekly growth planning with sales and CS"
+                                          ariaLabel={`Responsibility ${lineIndex + 1}`}
                                         />
-                                        <IconMoveButtons
-                                          onMoveUp={() => moveRoleLine(company.id, role.id, 'responsibilities', lineIndex, 'up')}
-                                          onMoveDown={() => moveRoleLine(company.id, role.id, 'responsibilities', lineIndex, 'down')}
-                                          disableUp={lineIndex === 0}
-                                          disableDown={lineIndex === role.responsibilities.length - 1}
-                                          upLabel="Move responsibility up"
-                                          downLabel="Move responsibility down"
-                                        />
-                                        <button
-                                          type="button"
-                                          onClick={() => removeRoleLine(company.id, role.id, 'responsibilities', lineIndex)}
-                                          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[var(--border-subtle)] bg-white text-[var(--text-secondary)] hover:border-[var(--status-danger-border)] hover:text-[var(--status-danger-text)]"
-                                          aria-label="Remove responsibility"
-                                        >
-                                          <Trash2 size={14} aria-hidden />
-                                        </button>
+                                        <div className="mt-2 flex flex-wrap items-center justify-end gap-1.5">
+                                          <IconMoveButtons
+                                            onMoveUp={() => moveRoleLine(company.id, role.id, 'responsibilities', lineIndex, 'up')}
+                                            onMoveDown={() => moveRoleLine(company.id, role.id, 'responsibilities', lineIndex, 'down')}
+                                            disableUp={lineIndex === 0}
+                                            disableDown={lineIndex === role.responsibilities.length - 1}
+                                            upLabel="Move responsibility up"
+                                            downLabel="Move responsibility down"
+                                          />
+                                          <button
+                                            type="button"
+                                            onClick={() => removeRoleLine(company.id, role.id, 'responsibilities', lineIndex)}
+                                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-[var(--border-subtle)] bg-white text-[var(--text-secondary)] hover:border-[var(--status-danger-border)] hover:text-[var(--status-danger-text)]"
+                                            aria-label="Remove responsibility"
+                                          >
+                                            <Trash2 size={14} aria-hidden />
+                                          </button>
+                                        </div>
                                       </div>
                                     ))}
                                   </div>
@@ -798,30 +840,34 @@ export function ProfileExperienceImportStep({
                                   <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Results</p>
                                   <div className="mt-2 space-y-2">
                                     {role.results.map((line, lineIndex) => (
-                                      <div key={`${role.id}-result-${lineIndex}`} className="flex items-start gap-2">
-                                        <input
-                                          type="text"
+                                      <div
+                                        key={`${role.id}-result-${lineIndex}`}
+                                        className="rounded-[10px] border border-[var(--border-subtle)] bg-white p-2.5"
+                                      >
+                                        <AutoGrowTextarea
                                           value={line}
-                                          onChange={(event) => updateRoleLine(company.id, role.id, 'results', lineIndex, event.target.value)}
-                                          className="workspace-input"
+                                          onChange={(nextValue) => updateRoleLine(company.id, role.id, 'results', lineIndex, nextValue)}
                                           placeholder="Increased qualified pipeline by 48%"
+                                          ariaLabel={`Result ${lineIndex + 1}`}
                                         />
-                                        <IconMoveButtons
-                                          onMoveUp={() => moveRoleLine(company.id, role.id, 'results', lineIndex, 'up')}
-                                          onMoveDown={() => moveRoleLine(company.id, role.id, 'results', lineIndex, 'down')}
-                                          disableUp={lineIndex === 0}
-                                          disableDown={lineIndex === role.results.length - 1}
-                                          upLabel="Move result up"
-                                          downLabel="Move result down"
-                                        />
-                                        <button
-                                          type="button"
-                                          onClick={() => removeRoleLine(company.id, role.id, 'results', lineIndex)}
-                                          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[var(--border-subtle)] bg-white text-[var(--text-secondary)] hover:border-[var(--status-danger-border)] hover:text-[var(--status-danger-text)]"
-                                          aria-label="Remove result"
-                                        >
-                                          <Trash2 size={14} aria-hidden />
-                                        </button>
+                                        <div className="mt-2 flex flex-wrap items-center justify-end gap-1.5">
+                                          <IconMoveButtons
+                                            onMoveUp={() => moveRoleLine(company.id, role.id, 'results', lineIndex, 'up')}
+                                            onMoveDown={() => moveRoleLine(company.id, role.id, 'results', lineIndex, 'down')}
+                                            disableUp={lineIndex === 0}
+                                            disableDown={lineIndex === role.results.length - 1}
+                                            upLabel="Move result up"
+                                            downLabel="Move result down"
+                                          />
+                                          <button
+                                            type="button"
+                                            onClick={() => removeRoleLine(company.id, role.id, 'results', lineIndex)}
+                                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-[var(--border-subtle)] bg-white text-[var(--text-secondary)] hover:border-[var(--status-danger-border)] hover:text-[var(--status-danger-text)]"
+                                            aria-label="Remove result"
+                                          >
+                                            <Trash2 size={14} aria-hidden />
+                                          </button>
+                                        </div>
                                       </div>
                                     ))}
                                   </div>

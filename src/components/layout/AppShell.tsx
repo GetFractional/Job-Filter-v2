@@ -31,6 +31,7 @@ export function AppShell({ children }: AppShellProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const jobs = useStore((s) => s.jobs);
+  const isProfileWorkspaceRoute = location.pathname.startsWith('/profile');
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
     return window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === 'true';
@@ -210,7 +211,7 @@ export function AppShell({ children }: AppShellProps) {
 
       {/* ── Main Content ── */}
       <main className={`min-h-screen transition-all ${sidebarCollapsed ? 'md:pl-16' : 'md:pl-60'}`}>
-        <div className="max-w-[1200px] mx-auto p-4 lg:p-6">
+        <div className={isProfileWorkspaceRoute ? 'w-full px-3 py-3 sm:px-4 lg:px-6' : 'max-w-[1200px] mx-auto p-4 lg:p-6'}>
           {children}
         </div>
       </main>

@@ -87,4 +87,47 @@ describe('profileInference', () => {
     expect(suggestion.targetRoles).toContain('Senior Growth Marketing Manager');
     expect(suggestion.targetRoles).not.toContain('Unassigned');
   });
+
+  it('prefers a featured top-of-resume title over latest company role defaults', () => {
+    const diagnostics = buildDiagnostics([
+      'MATT DIMOCK',
+      'MARKETING DIRECTOR',
+      'matt@example.com',
+      'EXPERIENCE',
+      'Prosper Wireless',
+      'Director of Growth & Retention',
+    ]);
+
+    const draft: ImportDraft = {
+      companies: [
+        {
+          id: 'company-1',
+          name: 'Prosper Wireless',
+          confidence: 0.9,
+          status: 'active',
+          sourceRefs: [],
+          roles: [
+            {
+              id: 'role-1',
+              title: 'Director of Growth & Retention',
+              startDate: '2023',
+              endDate: '',
+              currentRole: true,
+              confidence: 0.9,
+              status: 'active',
+              sourceRefs: [],
+              highlights: [],
+              outcomes: [],
+              tools: [],
+              skills: [],
+            },
+          ],
+        },
+      ],
+    };
+
+    const suggestion = inferProfilePrefillSuggestion(diagnostics, draft);
+    expect(suggestion.targetRoles[0]).toBe('Marketing Director');
+    expect(suggestion.targetRoles).toContain('Director of Growth & Retention');
+  });
 });

@@ -9,6 +9,7 @@ const CONTACT_RE = /(@|https?:\/\/|www\.|linkedin\.com|github\.com)/i;
 const DATE_LINE_RE = /^(?:\d{4}|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\s+\d{4})(?:\s*[-–—]\s*(?:\d{4}|present|current|now|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\s+\d{4}))?$/i;
 const DISALLOWED_ROLE_RE = /^(unassigned|unspecified role|role title needs review|n\/a|na)$/i;
 const PREVIEW_LINE_PREFIX_RE = /^\s*\d+\s*[:.)-]\s*/;
+const EXPERIENCE_SECTION_RE = /^(experience|work experience|professional experience|work history|employment|employment history)$/i;
 
 function normalizePreviewLine(value: string): string {
   return value.replace(PREVIEW_LINE_PREFIX_RE, '').trim();
@@ -84,8 +85,31 @@ function inferRoleFromPreviewLines(previewLines: string[]): string | null {
   return null;
 }
 
+function inferFeaturedRoleFromPreviewLines(previewLines: string[]): string | null {
+  const scanLimit = Math.min(previewLines.length, 24);
+  for (let index = 0; index < scanLimit; index += 1) {
+    const trimmed = normalizePreviewLine(previewLines[index]);
+    if (!trimmed) continue;
+    if (EXPERIENCE_SECTION_RE.test(trimmed)) break;
+    if (DATE_LINE_RE.test(trimmed)) break;
+    if (CONTACT_RE.test(trimmed)) continue;
+    const looksLikeName = (NAME_LINE_TITLE_CASE_RE.test(trimmed) || NAME_LINE_ALL_CAPS_RE.test(trimmed))
+      && !ROLE_KEYWORD_RE.test(trimmed);
+    if (looksLikeName) continue;
+    if (!isUsableRole(trimmed)) continue;
+    if (trimmed.length > 72) continue;
+    return toTargetRoleCase(trimmed);
+  }
+
+  return null;
+}
+
 function inferTargetRoles(draft: ImportDraft, previewLines: string[]): string[] {
   const roles = new Set<string>();
+  const featuredRole = inferFeaturedRoleFromPreviewLines(previewLines);
+  if (featuredRole) {
+    roles.add(featuredRole);
+  }
 
   for (const company of draft.companies) {
     for (const role of company.roles) {

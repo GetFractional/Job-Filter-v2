@@ -177,6 +177,21 @@ Jan 2021 - Present
     expect(lines.some((line) => line.includes('from 42% to 58%'))).toBe(true);
   });
 
+  it('merges wrapped bullet tails when prior line ends with conjunction/comma', () => {
+    const text = `
+Prosper Wireless
+Director of Growth & Retention
+Sep 2023 - Nov 2025
+- Owned full-funnel growth strategy across paid, lifecycle, and
+partnerships
+    `;
+
+    const claims = parseResumeStructured(text);
+    expect(claims.length).toBe(1);
+    const lines = [...claims[0].responsibilities, ...claims[0].outcomes.map((o) => o.description)];
+    expect(lines.some((line) => /paid, lifecycle, and partnerships/i.test(line))).toBe(true);
+  });
+
   it('keeps summary-only older-role boundary bullets separate from the prior employer block', () => {
     const text = `
 Bob's Watches
@@ -215,6 +230,31 @@ Increased quote conversion rate by 41% in two quarters.
     expect(claims[0].company).toBe('AffordableInsuranceQuotes');
     expect(claims[0].responsibilities.some((line) => /paid search and SEO workflows/i.test(line))).toBe(true);
     expect(claims[0].outcomes.some((line) => /41%/i.test(line.description))).toBe(true);
+  });
+
+  it('preserves top-of-resume featured achievements as separate review evidence', () => {
+    const text = `
+MATT DIMOCK
+Selected Achievements
+30K+ leads
+55% conversion; negotiated a $5M LOI to purchase the company.
+
+Prosper Wireless
+Director of Growth & Retention
+Sep 2023 - Nov 2025
+- Increased qualified pipeline by 48% year over year
+    `;
+
+    const claims = parseResumeStructured(text);
+    const featuredClaim = claims.find((claim) =>
+      !claim.company
+      && !claim.role
+      && [...claim.responsibilities, ...claim.outcomes.map((outcome) => outcome.description)]
+        .some((line) => /30K\+ leads|55% conversion/i.test(line)),
+    );
+
+    expect(featuredClaim).toBeDefined();
+    expect(claims.some((claim) => /Prosper Wireless/i.test(claim.company))).toBe(true);
   });
 });
 

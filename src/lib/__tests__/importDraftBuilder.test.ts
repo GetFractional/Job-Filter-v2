@@ -206,4 +206,46 @@ describe('importDraftBuilder', () => {
     expect(unresolvedCount).toBeLessThan(companyNames.length);
     expect(result.diagnostics.selectedMode).not.toBe('bullets');
   });
+
+  it('preserves wrapped Prosper Wireless responsibilities as a single line', () => {
+    const input = [
+      'Prosper Wireless',
+      'Director of Growth & Retention',
+      'Sep 2023 - Nov 2025',
+      '- Owned full-funnel growth strategy across paid, lifecycle, and',
+      'partnerships',
+    ].join('\n');
+
+    const result = buildImportDraftFromText(input, { mode: 'default' });
+    const prosperRole = result.draft.companies.find((company) => /prosper wireless/i.test(company.name))?.roles[0];
+    const highlightsText = (prosperRole?.highlights ?? []).map((item) => item.text).join(' ');
+
+    expect(highlightsText).toMatch(/paid, lifecycle, and partnerships/i);
+  });
+
+  it('keeps top featured achievements in review state instead of dropping them', () => {
+    const input = [
+      'MATT DIMOCK',
+      'Selected Achievements',
+      '30K+ leads',
+      '55% conversion; negotiated a $5M LOI to purchase the company.',
+      '',
+      'Prosper Wireless',
+      'Director of Growth & Retention',
+      'Sep 2023 - Nov 2025',
+      '- Increased qualified pipeline by 48% year over year',
+    ].join('\n');
+
+    const result = buildImportDraftFromText(input, { mode: 'default' });
+    const unresolvedRoles = result.draft.companies
+      .filter((company) => company.name === 'Unassigned')
+      .flatMap((company) => company.roles);
+    const unresolvedText = unresolvedRoles
+      .flatMap((role) => [...role.highlights, ...role.outcomes])
+      .map((item) => item.text)
+      .join(' ');
+
+    expect(unresolvedText).toMatch(/30K\+ leads|55% conversion/i);
+    expect(result.draft.companies.some((company) => /prosper wireless/i.test(company.name))).toBe(true);
+  });
 });

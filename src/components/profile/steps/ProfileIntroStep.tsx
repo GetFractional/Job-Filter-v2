@@ -53,7 +53,7 @@ export function ProfileIntroStep({
       </div>
       <h1
         id="profile-start-here-heading"
-        className="mt-3 text-[clamp(1.85rem,2.7vw,2.55rem)] leading-[1.08] font-[600] text-[var(--text-primary)]"
+        className="mt-3 text-[clamp(1.58rem,2.05vw,2.12rem)] leading-[1.12] font-[600] text-[var(--text-primary)]"
         style={{ fontFamily: 'var(--font-display)' }}
       >
         Turn your work history into assets that can open the right doors

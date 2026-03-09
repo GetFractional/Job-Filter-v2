@@ -29,7 +29,6 @@ const SECTION_HEADER_RE = /^(experience|work experience|work history|professiona
 const DATE_RANGE_RE = /(\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\w*\s+\d{4}\b|\b\d{4}\b)\s*[-–—]\s*(\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\w*\s+\d{4}\b|\b\d{4}\b|present|current|now)/i;
 const BULLET_ONLY_RE = /^[\s]*[•●◦▪▫‣⁃\-–—*✅✔➤➔]+[\s]*$/u;
 const BULLET_LINE_RE = /^[\s]*[•●◦▪▫‣⁃\-–—*✅✔➤➔][\s\t]+/u;
-const CONTINUATION_PREFIX_RE = /^[\s]*([+%(|[a-z])/;
 const MONTH_YEAR_RE = /\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\s+\d{4}\b/i;
 const DATE_ONLY_RE = /^(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\s+\d{4}|\d{4})(?:\s*[-–—]\s*(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\s+\d{4}|\d{4}|present|current|now))?$/i;
 const DATE_LOCATION_COMPOSITE_RE = /^[A-Z]{2}\s*[|/,]\s*(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\s+\d{4}$/i;
@@ -40,6 +39,13 @@ const METRIC_FRAGMENT_RE = /(?:[$€£]\s?\d|\b\d+(?:[.,]\d+)?%|\b\d+[kKmMbB]\b)
 const NARRATIVE_VERB_RE = /\b(led|built|launched|improved|increased|reduced|managed|scaled|drove|created|implemented|delivered|grew|generated|owned|optimized|negotiated|partnered)\b/i;
 const COMPANY_ENTITY_RE = /\b(inc|corp|llc|ltd|group|company|co\.|media|software|labs|systems|agency|partners)\b/i;
 const SUMMARY_BOUNDARY_LINE_RE = /^[A-Z][A-Za-z0-9&.'’/()\- ]{1,90}\s*(?:\||at|@|[-–—]|→|->)\s*[A-Z][A-Za-z0-9&.'’/()\- ]{1,90}/i;
+const EXPERIENCE_SECTION_RE = /^(experience|work experience|work history|professional experience|employment|employment history)$/i;
+const FEATURED_ACHIEVEMENTS_SECTION_RE = /^(featured|selected)\s+(achievements|highlights|results)$/i;
+const SKILLS_SECTION_RE = /^(skills|skills & tools|tools|technical skills|core skills|competencies|core competencies)$/i;
+const EDUCATION_SECTION_RE = /^(education|certifications|licenses|references|awards|publications|volunteer|volunteer experience)$/i;
+const COMPANY_WEB_BRAND_RE = /\b[a-z0-9][a-z0-9.'’&-]*\.(?:com|io|ai|co|net|org)\b/i;
+const CONTINUATION_TRAILING_RE = /([,(/:+-]|\b(and|or|to|for|with|across|including|through|via|while|plus))$/i;
+const CONTINUATION_LEADING_RE = /^([+%(]|and\b|or\b|to\b|for\b|with\b|via\b|while\b|including\b|across\b|resulting\b)/i;
 const LOCAL_MAX_PREVIEW_LINES = 40;
 const AUTO_SEGMENTATION_MODES: SegmentationMode[] = ['default', 'newlines', 'bullets', 'headings'];
 const QUALITY_PENALTY_CODES = new Set<ParseReasonCode>([
@@ -57,6 +63,14 @@ const STATE_OR_PROVINCE_CODES = new Set([
   'DC', 'BC', 'AB', 'MB', 'NB', 'NL', 'NS', 'NT', 'NU', 'ON',
   'PE', 'QC', 'SK', 'YT',
 ]);
+
+type ResumeZone =
+  | 'identity_contact'
+  | 'featured_title'
+  | 'featured_achievements'
+  | 'experience_timeline'
+  | 'skills_tools'
+  | 'education_references';
 
 function normalizeIdentityToken(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
@@ -135,6 +149,156 @@ export function isLikelySuspiciousCompanyName(value: string): boolean {
   if (!COMPANY_ENTITY_RE.test(normalized) && NARRATIVE_VERB_RE.test(normalized)) return true;
   if (normalized.split(/\s+/).length > 9) return true;
   return false;
+}
+
+function looksLikeFeaturedAchievementLine(value: string): boolean {
+  const normalized = normalizeIdentityToken(value);
+  if (!normalized) return false;
+  if (FEATURED_ACHIEVEMENTS_SECTION_RE.test(normalized)) return true;
+  if (METRIC_FRAGMENT_RE.test(normalized)) return true;
+  if (NARRATIVE_VERB_RE.test(normalized) && normalized.split(/\s+/).length <= 20) return true;
+  return false;
+}
+
+function looksLikeFeaturedTitleLine(value: string): boolean {
+  const normalized = normalizeIdentityToken(value);
+  if (!normalized) return false;
+  if (isSuspiciousIdentity(normalized)) return false;
+  if (DATE_RANGE_RE.test(normalized)) return false;
+  if (METRIC_FRAGMENT_RE.test(normalized)) return false;
+  if (!ROLE_KEYWORD_RE.test(normalized)) return false;
+  if (normalized.split(/\s+/).length > 8) return false;
+  return true;
+}
+
+function classifyLineZones(lines: string[]): ResumeZone[] {
+  let zone: ResumeZone = 'identity_contact';
+  let foundExperience = false;
+
+  return lines.map((line) => {
+    const trimmed = line.trim();
+    if (!trimmed) return zone;
+
+    if (EXPERIENCE_SECTION_RE.test(trimmed)) {
+      zone = 'experience_timeline';
+      foundExperience = true;
+      return zone;
+    }
+    if (FEATURED_ACHIEVEMENTS_SECTION_RE.test(trimmed) && !foundExperience) {
+      zone = 'featured_achievements';
+      return zone;
+    }
+    if (SKILLS_SECTION_RE.test(trimmed)) {
+      zone = 'skills_tools';
+      return zone;
+    }
+    if (EDUCATION_SECTION_RE.test(trimmed)) {
+      zone = 'education_references';
+      return zone;
+    }
+
+    if (!foundExperience && DATE_RANGE_RE.test(trimmed)) {
+      zone = 'experience_timeline';
+      foundExperience = true;
+      return zone;
+    }
+
+    if (!foundExperience && zone !== 'featured_achievements' && looksLikeFeaturedTitleLine(trimmed)) {
+      zone = 'featured_title';
+      return zone;
+    }
+
+    if (!foundExperience && looksLikeFeaturedAchievementLine(trimmed)) {
+      zone = 'featured_achievements';
+      return zone;
+    }
+
+    if (!foundExperience && zone !== 'featured_title' && zone !== 'featured_achievements') {
+      zone = 'identity_contact';
+    }
+
+    return zone;
+  });
+}
+
+function inferClaimZone(claim: ParsedClaim, lines: string[], lineZones: ResumeZone[]): ResumeZone {
+  const snippets = [
+    claim.role,
+    claim.company,
+    claim.startDate,
+    claim.endDate,
+    ...claim.responsibilities,
+    ...claim.outcomes.map((outcome) => outcome.description),
+  ].filter(Boolean);
+
+  const refs = findSourceRefs(lines, snippets);
+  if (refs.length > 0) {
+    const counts = new Map<ResumeZone, number>();
+    for (const ref of refs) {
+      const zone = lineZones[ref.lineIndex] ?? 'experience_timeline';
+      counts.set(zone, (counts.get(zone) ?? 0) + 1);
+    }
+    let winner: ResumeZone = 'experience_timeline';
+    let winnerCount = -1;
+    for (const [zone, count] of counts.entries()) {
+      if (count > winnerCount) {
+        winner = zone;
+        winnerCount = count;
+      }
+    }
+    return winner;
+  }
+
+  if (claim.startDate || claim.endDate || claim.company || claim.role) {
+    return 'experience_timeline';
+  }
+  if (
+    claim.responsibilities.some((line) => looksLikeFeaturedAchievementLine(line))
+    || claim.outcomes.some((outcome) => looksLikeFeaturedAchievementLine(outcome.description))
+  ) {
+    return 'featured_achievements';
+  }
+  return 'experience_timeline';
+}
+
+function hasHighConfidenceCompanyAnchor(
+  claim: ParsedClaim,
+  roleValue: string,
+  companyValue: string,
+  zone: ResumeZone,
+): boolean {
+  const normalizedCompany = normalizeIdentityToken(companyValue);
+  if (!normalizedCompany) return false;
+  if (isDateLikeIdentity(normalizedCompany) || isLocationLikeIdentity(normalizedCompany)) return false;
+  if (isLikelyMetricNarrative(normalizedCompany)) return false;
+
+  const hasRoleSignal = roleValue.length > 0 && !isLikelyNoisyRoleIdentity(roleValue);
+  const hasDateSignal = Boolean(claim.startDate || claim.endDate);
+  const hasEvidenceSignal = claim.responsibilities.length + claim.outcomes.length > 0;
+  const looksLikeCompany = COMPANY_ENTITY_RE.test(normalizedCompany)
+    || COMPANY_WEB_BRAND_RE.test(normalizedCompany)
+    || (normalizedCompany.split(/\s+/).length <= 6 && normalizedCompany.length <= 70);
+
+  if (zone !== 'experience_timeline' && !hasDateSignal) return false;
+  if (!looksLikeCompany) return false;
+  return hasDateSignal || (hasRoleSignal && hasEvidenceSignal);
+}
+
+function shouldMergeContinuationSegment(previousLine: string, candidate: string, nextLine: string): boolean {
+  const trimmedCandidate = candidate.trim();
+  if (!trimmedCandidate) return false;
+  if (looksLikeBoundary(trimmedCandidate)) return false;
+  if (BULLET_LINE_RE.test(trimmedCandidate)) return false;
+
+  const startsLikeContinuation = CONTINUATION_LEADING_RE.test(trimmedCandidate) || /^[a-z]/.test(trimmedCandidate);
+  const previousSignalsContinuation = CONTINUATION_TRAILING_RE.test(previousLine.trim());
+  const shortTail = trimmedCandidate.split(/\s+/).length <= 5 && !/[.!?]$/.test(trimmedCandidate);
+  if (!(startsLikeContinuation || previousSignalsContinuation || shortTail)) return false;
+
+  if (nextLine && looksLikeBoundary(nextLine) && !startsLikeContinuation && !previousSignalsContinuation) {
+    return false;
+  }
+  return true;
 }
 
 export function normalizeImportText(text: string): string {
@@ -291,14 +455,10 @@ function mergeBulletContinuation(lines: string[]): string[] {
     if (
       merged.length > 0 &&
       BULLET_LINE_RE.test(merged[merged.length - 1]) &&
-      CONTINUATION_PREFIX_RE.test(trimmed) &&
-      !looksLikeBoundary(trimmed)
+      shouldMergeContinuationSegment(merged[merged.length - 1], trimmed, lines[i + 1]?.trim() || '')
     ) {
-      const nextLine = lines[i + 1]?.trim() || '';
-      if (!looksLikeBoundary(nextLine) || nextLine === '') {
-        merged[merged.length - 1] = `${merged[merged.length - 1]} ${trimmed}`.replace(/\s+/g, ' ').trim();
-        continue;
-      }
+      merged[merged.length - 1] = `${merged[merged.length - 1]} ${trimmed}`.replace(/\s+/g, ' ').trim();
+      continue;
     }
 
     merged.push(current);
@@ -319,10 +479,30 @@ function buildRole(
   roleIndex: number,
   forceNeedsAttention = false,
 ): ImportDraftRole {
+  const normalizedResponsibilities = [...claim.responsibilities];
+  const normalizedOutcomes = claim.outcomes.map((outcome) => ({ ...outcome }));
+  const trailingResponsibility = normalizedResponsibilities[normalizedResponsibilities.length - 1]?.trim();
+  const leadingOutcome = normalizedOutcomes[0]?.description.trim();
+  if (
+    trailingResponsibility
+    && leadingOutcome
+    && CONTINUATION_TRAILING_RE.test(trailingResponsibility)
+    && /^[$€£]?\d/.test(leadingOutcome)
+  ) {
+    const mergedDescription = `${trailingResponsibility} ${leadingOutcome}`.replace(/\s+/g, ' ').trim();
+    normalizedResponsibilities.pop();
+    normalizedOutcomes[0] = {
+      ...normalizedOutcomes[0],
+      description: mergedDescription,
+      metric: toOutcomeMetric(mergedDescription),
+      isNumeric: /\d/.test(mergedDescription),
+    };
+  }
+
   const confidence = scoreRoleConfidence(claim);
   const roleSourceSnippets = [claim.role, claim.company, claim.startDate, claim.endDate].filter(Boolean);
 
-  const highlights: ImportDraftItem[] = claim.responsibilities.map((text, index) => {
+  const highlights: ImportDraftItem[] = normalizedResponsibilities.map((text, index) => {
     const itemScore = itemConfidence(confidence, text);
     return {
       id: `highlight-${roleIndex}-${index}`,
@@ -334,7 +514,7 @@ function buildRole(
     };
   });
 
-  const outcomes: ImportDraftItem[] = claim.outcomes.map((outcome, index) => {
+  const outcomes: ImportDraftItem[] = normalizedOutcomes.map((outcome, index) => {
     const itemScore = itemConfidence(confidence + 0.05, outcome.description);
     return {
       id: `outcome-${roleIndex}-${index}`,
@@ -347,7 +527,7 @@ function buildRole(
     };
   });
 
-  const toolsFromText = detectTools(`${claim.responsibilities.join(' ')} ${claim.outcomes.map((o) => o.description).join(' ')}`);
+  const toolsFromText = detectTools(`${normalizedResponsibilities.join(' ')} ${normalizedOutcomes.map((o) => o.description).join(' ')}`);
   const mergedTools = [...new Set([...claim.tools, ...toolsFromText])];
 
   const tools: ImportDraftItem[] = mergedTools.map((tool, index) => {
@@ -571,6 +751,7 @@ function buildImportDraftForMode(
   }
 
   const lines = normalizedText.split('\n').map((line) => line.trim()).filter(Boolean);
+  const lineZones = classifyLineZones(lines);
   let claims = parseResumeStructured(normalizedText);
   if (claims.length === 0) {
     claims = buildFallbackClaimsFromLines(lines);
@@ -578,8 +759,20 @@ function buildImportDraftForMode(
 
   const grouped = new Map<string, ImportDraftCompany>();
   let roleCounter = 0;
+  const hasStructuredExperienceClaims = claims.some((candidate) =>
+    hasHighConfidenceCompanyAnchor(
+      candidate,
+      candidate.role.trim(),
+      candidate.company.trim(),
+      inferClaimZone(candidate, lines, lineZones),
+    ));
 
   for (const claim of claims) {
+    const claimZone = inferClaimZone(claim, lines, lineZones);
+    if (claimZone === 'identity_contact' || claimZone === 'skills_tools' || claimZone === 'education_references') {
+      continue;
+    }
+
     const hasItems = claim.responsibilities.length + claim.outcomes.length + claim.tools.length > 0;
     if (!hasItems && !claim.role.trim() && !claim.company.trim()) {
       continue;
@@ -587,25 +780,43 @@ function buildImportDraftForMode(
 
     const roleValue = claim.role.trim();
     const companyValue = claim.company.trim();
+    if (claimZone === 'featured_title' && !companyValue && !claim.startDate && !claim.endDate) {
+      continue;
+    }
+    if (claimZone === 'featured_achievements' && !hasStructuredExperienceClaims && !companyValue) {
+      continue;
+    }
     const suspiciousRole = isLikelyNoisyRoleIdentity(roleValue);
     const suspiciousCompany = isLikelySuspiciousCompanyName(companyValue);
-    const unresolvedIdentity = !roleValue || !companyValue || suspiciousRole || suspiciousCompany;
-    const unresolvedBucket = !companyValue || suspiciousCompany;
+    const anchoredCompany = hasHighConfidenceCompanyAnchor(claim, roleValue, companyValue, claimZone);
+    const featuredEvidenceBucket = claimZone === 'featured_achievements' && !anchoredCompany;
+    const unresolvedBucket = featuredEvidenceBucket || !anchoredCompany;
+    const unresolvedIdentity = unresolvedBucket || !roleValue || suspiciousRole || claimZone === 'featured_achievements';
     const companyName = unresolvedBucket ? 'Unassigned' : companyValue;
-    const groupKey = unresolvedBucket ? `unassigned-${roleCounter}` : companyName.toLowerCase();
+    const groupKey = unresolvedBucket
+      ? (featuredEvidenceBucket ? 'featured-achievements' : `unassigned-${roleCounter}`)
+      : companyName.toLowerCase();
 
-    if (suspiciousRole && suspiciousCompany && !hasAmbiguousOlderRoleBoundary(claim)) {
+    if (
+      suspiciousRole
+      && suspiciousCompany
+      && !hasAmbiguousOlderRoleBoundary(claim)
+      && claimZone !== 'featured_achievements'
+    ) {
       continue;
     }
 
     if (!grouped.has(groupKey)) {
       const companyConfidence = unresolvedIdentity ? 0.45 : 0.85;
+      const companySourceSnippets = unresolvedBucket
+        ? [...claim.responsibilities, ...claim.outcomes.map((outcome) => outcome.description)]
+        : [companyName];
       grouped.set(groupKey, {
         id: `company-${grouped.size}`,
         name: companyName,
         confidence: companyConfidence,
         status: unresolvedIdentity ? 'needs_review' : toStatus(companyConfidence),
-        sourceRefs: findSourceRefs(lines, [companyName]),
+        sourceRefs: findSourceRefs(lines, companySourceSnippets),
         roles: [],
       });
     }
@@ -613,7 +824,9 @@ function buildImportDraftForMode(
     const role = buildRole(
       {
         ...claim,
-        role: suspiciousRole ? '' : roleValue,
+        role: claimZone === 'featured_achievements' && !roleValue
+          ? 'Featured achievements'
+          : (suspiciousRole ? '' : roleValue),
         company: companyValue,
       },
       lines,

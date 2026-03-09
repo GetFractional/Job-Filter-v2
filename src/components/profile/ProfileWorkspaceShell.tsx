@@ -149,6 +149,9 @@ const ROLE_KEYWORD_RE = /\b(director|manager|lead|head|vp|vice president|preside
 const DATE_LOCATION_COMPANY_FRAGMENT_RE = /^[A-Z]{2}\s*[|/,]\s*(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\s+\d{4}$/i;
 const URL_OR_CONTACT_RE = /(@|https?:\/\/|www\.)/i;
 const COMPANY_ENTITY_HINT_RE = /\b(inc|corp|llc|ltd|group|company|co\.|media|software|labs|systems|agency|partners)\b/i;
+const COMPANY_WEB_BRAND_RE = /\b[a-z0-9][a-z0-9.'’&-]*\.(?:com|io|ai|co|net|org)\b/i;
+const COMPANY_NAME_SHAPE_RE = /^[A-Z][A-Za-z0-9&.'’-]*(?:\s+[A-Z][A-Za-z0-9&.'’-]*){0,5}$/;
+const CONTINUATION_TRAILING_RE = /([,(/:+-]|\b(and|or|to|for|with|across|including|through|via|from|plus))$/i;
 
 function canUseLocalStorage(): boolean {
   return typeof window !== 'undefined'
@@ -342,14 +345,17 @@ function isLikelyNoiseCompanyName(value: string): boolean {
     return true;
   }
   if (trimmed.includes(';')) return true;
+  const looksLikeNamedCompany = COMPANY_ENTITY_HINT_RE.test(trimmed)
+    || COMPANY_WEB_BRAND_RE.test(trimmed)
+    || COMPANY_NAME_SHAPE_RE.test(trimmed);
   if (isLikelySuspiciousCompanyName(trimmed)) {
     const words = trimmed.split(/\s+/).filter(Boolean);
-    const looksLikeNamedCompany = words.length > 0
+    const canStillBeNamedCompany = words.length > 0
       && words.length <= 6
       && trimmed.length <= 64
       && !/\b(?:19|20)\d{2}\b/.test(trimmed)
       && !VERB_OR_SENTENCE_RE.test(trimmed);
-    if (!looksLikeNamedCompany) return true;
+    if (!looksLikeNamedCompany && !canStillBeNamedCompany) return true;
   }
   return false;
 }
@@ -369,12 +375,11 @@ function buildTimelineReviewFlag(company: ExperienceTimelineCompanyDraft): boole
     || company.roles.some((role) => !role.title.trim() || !role.startDate.trim() || (!role.currentRole && !role.endDate.trim()));
 }
 
-function toTimelineCompanies(draft: ImportDraft): ExperienceTimelineCompanyDraft[] {
-  return draft.companies
+// eslint-disable-next-line react-refresh/only-export-components
+export function toTimelineCompanies(draft: ImportDraft): ExperienceTimelineCompanyDraft[] {
+  const mappedCompanies = draft.companies
     .filter((company) => company.roles.length > 0)
     .map((company) => {
-      const suspiciousCompanyName = isLikelyNoiseCompanyName(company.name);
-      const unresolvedPlacement = suspiciousCompanyName || !company.name.trim();
       const roles = company.roles
         .map((role) => {
           const title = role.title?.trim() || '';
@@ -383,6 +388,17 @@ function toTimelineCompanies(draft: ImportDraft): ExperienceTimelineCompanyDraft
           const normalizedEnd = role.currentRole ? '' : toMonthInputValue(role.endDate);
           const responsibilities = toEvidenceLines(role.highlights.map((item) => item.text));
           const results = toEvidenceLines(role.outcomes.map((item) => item.text));
+          const trailingResponsibility = responsibilities[responsibilities.length - 1]?.trim();
+          const leadingResult = results[0]?.trim();
+          if (
+            trailingResponsibility
+            && leadingResult
+            && CONTINUATION_TRAILING_RE.test(trailingResponsibility)
+            && /^[$€£]?\d/.test(leadingResult)
+          ) {
+            results[0] = `${trailingResponsibility} ${leadingResult}`.replace(/\s+/g, ' ').trim();
+            responsibilities.pop();
+          }
           const hasStructuredDate = Boolean(normalizedStart || normalizedEnd || role.currentRole);
           const hasEvidence = responsibilities.length > 0 || results.length > 0;
 
@@ -401,6 +417,18 @@ function toTimelineCompanies(draft: ImportDraft): ExperienceTimelineCompanyDraft
           };
         })
         .filter((role): role is NonNullable<typeof role> => Boolean(role));
+
+      const hasStrongRoleAnchor = roles.some((role) => {
+        const hasTitle = role.title.trim().length > 0;
+        const hasDate = role.startDate.trim().length > 0 || role.endDate.trim().length > 0 || role.currentRole;
+        return hasTitle && hasDate;
+      });
+      const hasEvidenceLines = roles.some((role) =>
+        role.responsibilities.some((line) => line.trim().length > 0)
+        || role.results.some((line) => line.trim().length > 0));
+      const suspiciousCompanyName = isLikelyNoiseCompanyName(company.name);
+      const unresolvedPlacement = !company.name.trim()
+        || (suspiciousCompanyName && !(hasStrongRoleAnchor && hasEvidenceLines));
 
       const nextCompany: ExperienceTimelineCompanyDraft = {
         id: company.id || createTimelineId('company'),
@@ -423,6 +451,18 @@ function toTimelineCompanies(draft: ImportDraft): ExperienceTimelineCompanyDraft
         needsReview: buildTimelineReviewFlag(nextCompany),
       };
     });
+
+  return mappedCompanies
+    .map((company, index) => ({
+      company,
+      index,
+      hasCurrentRole: company.roles.some((role) => role.currentRole),
+    }))
+    .sort((a, b) => {
+      if (a.hasCurrentRole === b.hasCurrentRole) return a.index - b.index;
+      return a.hasCurrentRole ? -1 : 1;
+    })
+    .map((entry) => entry.company);
 }
 
 function toExperiencePreviewGroups(companies: ExperienceTimelineCompanyDraft[]): ExperienceTimelineCompanyPreview[] {
@@ -984,7 +1024,7 @@ export function ProfileWorkspaceShell({ mode, initialIdentity, forceFreshSetup =
     <div
       ref={workspaceRootRef}
       data-profile-mode={mode}
-      className="relative w-full overflow-x-clip px-3 pb-8 pt-3 sm:px-4 lg:px-6"
+      className="relative w-full pb-8 pt-1 sm:pt-2"
     >
       <div
         aria-hidden
@@ -1016,7 +1056,7 @@ export function ProfileWorkspaceShell({ mode, initialIdentity, forceFreshSetup =
             </button>
           </div>
         </div>
-        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/65">
+        <div className="mt-2 h-1.5 overflow-hidden rounded-full border border-[rgba(62,75,69,0.16)] bg-white/65">
           <div
             className="h-full rounded-full bg-[linear-gradient(180deg,#2F6D5C_0%,#235246_100%)]"
             style={{ width: `${completionPercent}%` }}
@@ -1034,9 +1074,9 @@ export function ProfileWorkspaceShell({ mode, initialIdentity, forceFreshSetup =
         )}
       </header>
 
-      <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-start">
-        <div className="min-w-0 flex-1 lg:basis-0">{renderActiveStep()}</div>
-        <div className="min-w-0 flex-1 lg:basis-0">
+      <div className="flex min-w-0 flex-col gap-4 lg:flex-row">
+        <div className="min-w-0 lg:basis-[58%] lg:flex-[1_1_58%]">{renderActiveStep()}</div>
+        <div className="min-w-0 lg:basis-[42%] lg:flex-[1_1_42%]">
           <ProfilePreviewPane
             activeStep={activeStep}
             identity={identity}

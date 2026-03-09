@@ -2,7 +2,7 @@
 
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
-import { ProfileWorkspaceShell } from '../ProfileWorkspaceShell';
+import { ProfileWorkspaceShell, toTimelineCompanies } from '../ProfileWorkspaceShell';
 import * as claimsImportPipeline from '../../../lib/claimsImportPipeline';
 import * as importDraftBuilder from '../../../lib/importDraftBuilder';
 
@@ -111,6 +111,7 @@ vi.mock('../../../lib/importDraftBuilder', () => ({
     } as never,
     normalizedText: 'Acme Corp',
   })),
+  isLikelySuspiciousCompanyName: vi.fn(() => false),
 }));
 
 const mockExtractClaimsImportTextWithMetrics = claimsImportPipeline.extractClaimsImportTextWithMetrics as unknown as Mock;
@@ -350,6 +351,61 @@ describe('ProfileWorkspaceShell', () => {
     expect((screen.getAllByLabelText('Company name') as HTMLInputElement[]).map((input) => input.value)).toEqual(['Beta Co Updated', 'Alpha Co']);
   });
 
+  it('floats current-role companies to the top during initial timeline conversion', () => {
+    const timeline = toTimelineCompanies({
+      companies: [
+        {
+          id: 'company-past',
+          name: 'Past Company LLC',
+          confidence: 0.9,
+          status: 'active',
+          sourceRefs: [],
+          roles: [
+            {
+              id: 'role-past',
+              title: 'Marketing Manager',
+              startDate: 'Jan 2020',
+              endDate: 'Jan 2022',
+              currentRole: false,
+              confidence: 0.8,
+              status: 'active',
+              sourceRefs: [],
+              highlights: [{ id: 'h-past', type: 'highlight', text: 'Built reporting systems', confidence: 0.7, status: 'active', sourceRefs: [] }],
+              outcomes: [],
+              tools: [],
+              skills: [],
+            },
+          ],
+        },
+        {
+          id: 'company-current',
+          name: 'Current Company LLC',
+          confidence: 0.9,
+          status: 'active',
+          sourceRefs: [],
+          roles: [
+            {
+              id: 'role-current',
+              title: 'Director of Growth',
+              startDate: 'Jan 2023',
+              endDate: '',
+              currentRole: true,
+              confidence: 0.9,
+              status: 'active',
+              sourceRefs: [],
+              highlights: [{ id: 'h-current', type: 'highlight', text: 'Owned growth strategy', confidence: 0.8, status: 'active', sourceRefs: [] }],
+              outcomes: [],
+              tools: [],
+              skills: [],
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(timeline.map((company) => company.company)).toEqual(['Current Company LLC', 'Past Company LLC']);
+  });
+
   it('requires delete confirmation, supports undo, and can persist do-not-ask-again', () => {
     render(<ProfileWorkspaceShell mode="setup" initialIdentity={initialIdentity} />);
 
@@ -494,8 +550,9 @@ describe('ProfileWorkspaceShell', () => {
     await waitFor(() => {
       expect(screen.getAllByText('AffordableInsuranceQuotes').length).toBeGreaterThanOrEqual(2);
     });
-    expect(screen.getByText(/Built paid search and SEO workflows/i)).toBeTruthy();
-    expect(screen.getByText(/Increased quote conversion rate by 41%/i)).toBeTruthy();
+    const preview = screen.getByTestId('preview-build-animation');
+    expect(within(preview).getByText(/Built paid search and SEO workflows/i)).toBeTruthy();
+    expect(within(preview).getByText(/Increased quote conversion rate by 41%/i)).toBeTruthy();
   });
 
   it('restores in-progress workspace state after refresh', async () => {
