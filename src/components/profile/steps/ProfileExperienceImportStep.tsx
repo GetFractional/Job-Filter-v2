@@ -65,7 +65,7 @@ const UTILITY_BADGE_CLASS = 'inline-flex h-8 items-center rounded-[10px] border 
 const UNRESOLVED_NOTE_CLASS = 'mt-2 rounded-[10px] border px-3 py-2.5 text-xs';
 const PROOF_SECTION_WRAPPER_CLASS = 'rounded-[14px] border border-[var(--border-subtle)]/65 bg-[color-mix(in_srgb,var(--surface-muted)_76%,white_24%)] p-3';
 const PROOF_LINE_CARD_CLASS = 'rounded-[12px] bg-white p-2.5 shadow-[inset_0_0_0_1px_rgba(206,216,211,0.6),0_7px_12px_rgba(14,24,20,0.05)]';
-const PROOF_CONTROL_STRIP_CLASS = 'mt-2 flex flex-wrap items-center justify-end gap-1.5 rounded-[10px] border border-[var(--border-subtle)]/55 bg-[color-mix(in_srgb,var(--surface-muted)_72%,white_28%)] px-2 py-1.5';
+const PROOF_CONTROL_STRIP_CLASS = 'mt-2 flex flex-wrap items-center justify-end gap-1.5';
 
 function createDraftId(prefix: 'company' | 'role' | 'line'): string {
   return `${prefix}-manual-${Math.random().toString(36).slice(2, 10)}`;
@@ -227,6 +227,7 @@ function AutoGrowTextarea({
   const resize = () => {
     const node = textareaRef.current;
     if (!node) return;
+    node.style.overflowY = 'hidden';
     node.style.height = '0px';
     node.style.height = `${Math.max(node.scrollHeight, 74)}px`;
   };
@@ -244,7 +245,7 @@ function AutoGrowTextarea({
       onInput={resize}
       placeholder={placeholder}
       aria-label={ariaLabel}
-      className="workspace-input min-h-[74px] resize-none leading-5"
+      className="workspace-input min-h-[74px] resize-none overflow-hidden leading-5"
     />
   );
 }
@@ -678,7 +679,7 @@ export function ProfileExperienceImportStep({
         </p>
       )}
 
-      <div className="mt-5 max-h-[62vh] space-y-3 overflow-y-auto overflow-x-visible px-1 pb-4 pr-3">
+      <div className="mt-5 max-h-[62vh] space-y-3 overflow-y-auto overflow-x-visible overscroll-contain px-1 pb-4 pr-3 [scrollbar-gutter:stable]">
         {timelineCompanies.map((company, companyIndex) => {
           const expandedCompany = isCompanyExpanded(company.id);
           const unresolvedPlacement = Boolean(company.unresolvedPlacement) || !company.company.trim();
@@ -770,7 +771,12 @@ export function ProfileExperienceImportStep({
                       return (
                         <div key={role.id} className="rounded-[14px] border border-[var(--border-subtle)] bg-[var(--surface-bg)] p-3">
                           <div className="flex flex-wrap items-center justify-between gap-2">
-                            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Role {roleIndex + 1}</p>
+                            <div className="min-w-0">
+                              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Role {roleIndex + 1}</p>
+                              {!expandedRole && role.title.trim() && (
+                                <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{role.title}</p>
+                              )}
+                            </div>
                             <div className="flex flex-wrap items-center justify-end gap-1.5">
                               <IconMoveButtons
                                 onMoveUp={() => moveRole(company.id, roleIndex, 'up')}

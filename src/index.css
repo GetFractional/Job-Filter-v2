@@ -66,7 +66,7 @@ html {
 }
 
 :root {
-  --app-bg: #E9F0ED;
+  --app-bg: #348f6814;
   --surface-bg: #FCFFFE;
   --surface-muted: #F2F6F4;
   --surface-strong: #E4ECE8;
@@ -86,8 +86,8 @@ html {
   --status-danger-border: #fca5a5;
   --status-danger-text: #991b1b;
   --workspace-glass-bg: rgba(255, 255, 255, 0.78);
-  --workspace-glass-border: rgba(255, 255, 255, 0.56);
-  --workspace-glass-shadow: 0 22px 42px rgba(8, 20, 16, 0.14), 0 5px 14px rgba(8, 20, 16, 0.08);
+  --workspace-glass-border: rgba(255, 255, 255, 0.46);
+  --workspace-glass-shadow: 0 16px 32px rgba(9, 24, 19, 0.11), 0 4px 11px rgba(9, 24, 19, 0.06);
   --workspace-glass-radius: 16px;
   --radius-card: 18px;
   --radius-panel: 16px;
@@ -114,8 +114,8 @@ body {
    ============================================================ */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--color-neutral-300); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--color-neutral-400); }
+::-webkit-scrollbar-thumb { background: #7f9f94; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #5f8274; }
 
 /* ============================================================
    PWA Safe Areas
