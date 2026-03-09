@@ -6,6 +6,8 @@ export interface ExperienceTimelineRolePreview {
   id: string;
   title: string;
   dateRange: string;
+  responsibilities: string[];
+  results: string[];
 }
 
 export interface ExperienceTimelineCompanyPreview {
@@ -67,7 +69,7 @@ function ExperiencePreviewContent({
   extractionGroups: ExperienceTimelineCompanyPreview[];
   revealedGroupCount: number;
 }) {
-  if (extractionStage === 'idle') {
+  if (extractionStage === 'idle' && extractionGroups.length === 0) {
     return (
       <p className="text-sm text-[var(--text-secondary)]">
         Confirm your details, upload your resume, and this preview will populate with your company, role, and date timeline.
@@ -83,7 +85,10 @@ function ExperiencePreviewContent({
     );
   }
 
-  const visibleGroups = extractionGroups.slice(0, Math.max(0, revealedGroupCount));
+  const visibleCount = extractionStage === 'idle'
+    ? extractionGroups.length
+    : Math.max(0, revealedGroupCount);
+  const visibleGroups = extractionGroups.slice(0, visibleCount);
   const hiddenCount = Math.max(0, extractionGroups.length - visibleGroups.length);
 
   return (
@@ -98,6 +103,24 @@ function ExperiencePreviewContent({
                   <div key={role.id} className="min-w-0 rounded-[10px] bg-[var(--surface-muted)] px-2.5 py-1.5">
                     <p className="break-words text-xs font-medium text-[var(--text-primary)]">{role.title}</p>
                     <p className="break-words text-[11px] text-[var(--text-secondary)]">{role.dateRange}</p>
+                    {role.responsibilities.length > 0 && (
+                      <div className="mt-1.5 space-y-1">
+                        {role.responsibilities.map((line, index) => (
+                          <p key={`${role.id}-resp-${index}`} className="break-words text-[11px] text-[var(--text-secondary)]">
+                            • {line}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                    {role.results.length > 0 && (
+                      <div className="mt-1.5 space-y-1">
+                        {role.results.map((line, index) => (
+                          <p key={`${role.id}-result-${index}`} className="break-words text-[11px] font-medium text-[var(--text-primary)]">
+                            ↳ {line}
+                          </p>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -136,9 +159,9 @@ export function ProfilePreviewPane({
   revealedGroupCount,
 }: ProfilePreviewPaneProps) {
   return (
-    <section className="workspace-glass min-w-0 w-full overflow-hidden rounded-[24px] p-4">
+    <section className="workspace-glass min-w-0 w-full p-4 lg:sticky lg:top-4 2xl:p-5">
       <p className="mb-2 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Live preview</p>
-      <div className="min-w-0 w-full max-w-full overflow-x-hidden rounded-[18px] border border-[var(--border-subtle)] bg-white p-5 sm:p-6 shadow-[0_18px_36px_rgba(7,16,13,0.12)]">
+      <div className="min-w-0 w-full max-w-full min-h-[72vh] max-h-[calc(100vh-9rem)] overflow-y-auto overflow-x-hidden rounded-[16px] border border-[var(--border-subtle)] bg-white p-5 shadow-[0_18px_36px_rgba(7,16,13,0.12)] sm:p-6 2xl:p-7">
         <div className="border-b border-[var(--border-subtle)] pb-3">
           <h2 style={{ fontFamily: 'var(--font-display)' }} className="break-words text-[1.55rem] leading-7 text-[var(--text-primary)]">
             {fullName(identity) || 'Your Name'}
@@ -146,7 +169,7 @@ export function ProfilePreviewPane({
           <p className="mt-1 break-words text-sm text-[var(--text-secondary)]">{identity.headline || 'Target title'}</p>
           <div className="mt-2 space-y-0.5">
             <FieldLine label="Email" value={identity.email} />
-            <FieldLine label="Phone" value={phoneValue(identity)} />
+            <FieldLine label="Mobile phone" value={phoneValue(identity)} />
             <FieldLine label="Location" value={identity.location} />
             <FieldLine label="LinkedIn" value={identity.linkedIn} />
             <FieldLine label="Website" value={identity.website || identity.portfolio} />

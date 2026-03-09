@@ -15,6 +15,13 @@ function parseMode(rawMode: string | null): ProfileWorkspaceMode {
   return 'setup';
 }
 
+function parseFreshSetupFlag(searchParams: URLSearchParams): boolean {
+  const raw = searchParams.get('fresh') ?? searchParams.get('reset');
+  if (!raw) return false;
+  const normalized = raw.trim().toLowerCase();
+  return normalized === '1' || normalized === 'true' || normalized === 'yes';
+}
+
 function splitNameParts(
   firstName: string | undefined,
   lastName: string | undefined,
@@ -62,6 +69,7 @@ export function ProfileWorkspacePage() {
   const profile = useStore((state) => state.profile);
 
   const mode = parseMode(searchParams.get('mode'));
+  const forceFreshSetup = mode === 'setup' && parseFreshSetupFlag(searchParams);
   const initialIdentity = useMemo(
     () => (mode === 'setup'
       ? buildInitialIdentity(undefined, undefined, undefined)
@@ -69,5 +77,5 @@ export function ProfileWorkspacePage() {
     [mode, profile?.firstName, profile?.lastName, profile?.name],
   );
 
-  return <ProfileWorkspaceShell mode={mode} initialIdentity={initialIdentity} />;
+  return <ProfileWorkspaceShell mode={mode} initialIdentity={initialIdentity} forceFreshSetup={forceFreshSetup} />;
 }

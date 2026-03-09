@@ -5,6 +5,12 @@ import type { ParsedClaim } from './claimParser';
 import { summarizeTextStage, toNumberedPreview, type TextStageMetrics } from './importDiagnostics';
 import { reconstructPageLines, type PositionedTextToken } from './pdfTextLayout';
 
+const MAX_IMPORT_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+const DOCX_MIME =
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+const PDF_LOAD_TIMEOUT_MS = 15_000;
+const PDF_PAGE_TIMEOUT_MS = 12_000;
+
 const IS_JSDOM =
   typeof navigator !== 'undefined' &&
   /jsdom/i.test(navigator.userAgent || '');
@@ -12,12 +18,6 @@ const IS_JSDOM =
 if (typeof window !== 'undefined' && !IS_JSDOM) {
   GlobalWorkerOptions.workerSrc = pdfWorker;
 }
-
-const MAX_IMPORT_FILE_SIZE_BYTES = 5 * 1024 * 1024;
-const DOCX_MIME =
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-const PDF_LOAD_TIMEOUT_MS = 15_000;
-const PDF_PAGE_TIMEOUT_MS = 12_000;
 
 type ClaimsImportFileKind = 'pdf' | 'docx' | 'txt';
 

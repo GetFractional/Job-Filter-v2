@@ -12,6 +12,30 @@ vi.mock('../../store/useStore', () => ({
 
 const mockUseStore = useStore as unknown as Mock;
 
+function createMemoryStorage(): Storage {
+  const values = new Map<string, string>();
+  return {
+    get length() {
+      return values.size;
+    },
+    clear() {
+      values.clear();
+    },
+    getItem(key: string) {
+      return values.get(key) ?? null;
+    },
+    key(index: number) {
+      return [...values.keys()][index] ?? null;
+    },
+    removeItem(key: string) {
+      values.delete(key);
+    },
+    setItem(key: string, value: string) {
+      values.set(key, value);
+    },
+  };
+}
+
 const baseState = {
   profile: {
     name: 'Alex Morgan',
@@ -31,6 +55,11 @@ function renderProfileRoute(path: string) {
 describe('ProfileWorkspacePage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    Object.defineProperty(globalThis, 'localStorage', {
+      value: createMemoryStorage(),
+      configurable: true,
+    });
+    window.localStorage.clear();
     mockUseStore.mockImplementation((selector: (state: typeof baseState) => unknown) => selector(baseState));
   });
 
@@ -38,7 +67,7 @@ describe('ProfileWorkspacePage', () => {
     renderProfileRoute('/profile?mode=unknown');
 
     expect(screen.getAllByText('Start Here').length).toBeGreaterThan(0);
-    expect(screen.getByText('Build the profile behind every strong application')).toBeTruthy();
+    expect(screen.getByText('Turn your work history into assets that can open the right doors')).toBeTruthy();
   });
 
   it('honors valid mode query values', () => {
@@ -61,5 +90,43 @@ describe('ProfileWorkspacePage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'No resume? Start manually' }));
     expect((screen.getByLabelText(/First name/i) as HTMLInputElement).value).toBe('Alex');
     expect((screen.getByLabelText(/Last name/i) as HTMLInputElement).value).toBe('Morgan');
+  });
+
+  it('supports fresh setup query flag to bypass stale local draft state', () => {
+    window.localStorage.setItem('jf2-profile-workspace-draft:setup', JSON.stringify({
+      version: 5,
+      activeStep: 'details',
+      selectedPath: 'manual',
+      resumeUploadInitiated: false,
+      detailsSaved: false,
+      experienceConfirmed: false,
+      identity: {
+        firstName: 'Jordan',
+        lastName: 'Lee',
+        headline: '',
+        email: '',
+        phoneCountryCode: '+1',
+        phoneNational: '',
+        location: '',
+        linkedIn: '',
+        website: '',
+        portfolio: '',
+      },
+      selectedFileName: null,
+      selectedFileMeta: null,
+      extractionStage: 'idle',
+      extractionStarted: false,
+      importError: null,
+      timelineCompanies: [],
+      revealedGroupCount: 0,
+      prefillState: 'idle',
+      prefillMessage: null,
+    }));
+
+    renderProfileRoute('/profile?mode=setup&fresh=1');
+
+    fireEvent.click(screen.getByRole('button', { name: 'No resume? Start manually' }));
+    expect((screen.getByLabelText(/First name/i) as HTMLInputElement).value).toBe('');
+    expect((screen.getByLabelText(/Last name/i) as HTMLInputElement).value).toBe('');
   });
 });

@@ -76,15 +76,19 @@ html {
   --text-muted: #6A766F;
   --accent: var(--color-brand-600);
   --accent-soft: rgba(46, 102, 88, 0.18);
-  --status-success-bg: #EAF4F1;
-  --status-success-border: #9DCBBB;
-  --status-success-text: #1D433A;
+  --status-success-bg: #DCEBE5;
+  --status-success-border: #6DA792;
+  --status-success-text: #123B31;
   --status-warn-bg: #FDF2E7;
   --status-warn-border: #EBC0A2;
   --status-warn-text: #7D441F;
   --status-danger-bg: #fef2f2;
   --status-danger-border: #fca5a5;
   --status-danger-text: #991b1b;
+  --workspace-glass-bg: rgba(255, 255, 255, 0.7);
+  --workspace-glass-border: rgba(255, 255, 255, 0.3);
+  --workspace-glass-shadow: 0 16px 34px rgba(12, 24, 19, 0.1);
+  --workspace-glass-radius: 16px;
   --radius-card: 18px;
   --radius-panel: 16px;
   --radius-control: 12px;
@@ -148,18 +152,15 @@ body {
   box-shadow: var(--shadow-soft);
 }
 
-.workspace-glass {
-  border: 1px solid rgba(255, 255, 255, 0.62);
-  background: rgba(248, 253, 251, 0.68);
-  backdrop-filter: blur(14px) saturate(140%);
-  box-shadow: 0 22px 48px rgba(13, 24, 20, 0.1);
-}
-
-.workspace-panel {
-  border: 1px solid rgba(255, 255, 255, 0.64);
-  background: rgba(249, 254, 252, 0.75);
-  backdrop-filter: blur(12px) saturate(120%);
-  box-shadow: 0 24px 46px rgba(12, 22, 19, 0.11);
+.workspace-glass,
+.workspace-panel,
+.profile-workspace-glass {
+  border: 1px solid var(--workspace-glass-border);
+  background: var(--workspace-glass-bg);
+  backdrop-filter: blur(12px);
+  border-radius: var(--workspace-glass-radius);
+  box-shadow: var(--workspace-glass-shadow);
+  background-clip: padding-box;
 }
 
 .workspace-input {

@@ -16,9 +16,10 @@ interface ProfileIntroStepProps {
 }
 
 const VALUE_POINTS = [
-  'See your timeline clearly before each application.',
-  'Create role-specific assets much faster.',
-  'Keep every claim grounded in approved experience.',
+  'Target multiple roles without starting from scratch',
+  'Create and test tailored applications faster',
+  'Keep every asset grounded in facts you approve',
+  'Go from opportunity to application in minutes, not hours',
 ];
 
 function prefillStateLabel(state: StartHerePrefillState): string {
@@ -43,35 +44,46 @@ export function ProfileIntroStep({
   const stateLabel = prefillMessage ?? prefillStateLabel(prefillState);
 
   return (
-    <section className="workspace-panel rounded-[26px] p-7" aria-labelledby="profile-start-here-heading">
-      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Start Here</p>
+    <section className="workspace-panel p-6 sm:p-7" aria-labelledby="profile-start-here-heading">
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Start Here</p>
+        <span className="rounded-full border border-[var(--border-subtle)] bg-white/82 px-2.5 py-0.5 text-[11px] font-semibold text-[var(--text-secondary)]">
+          Takes About 6 Minutes
+        </span>
+      </div>
       <h1
         id="profile-start-here-heading"
-        className="mt-3 text-[clamp(2.05rem,3.2vw,3rem)] leading-[1.05] font-[600] text-[var(--text-primary)]"
+        className="mt-3 text-[clamp(1.85rem,2.7vw,2.55rem)] leading-[1.08] font-[600] text-[var(--text-primary)]"
         style={{ fontFamily: 'var(--font-display)' }}
       >
-        Build the profile behind every strong application
+        Turn your work history into assets that can open the right doors
       </h1>
       <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--text-secondary)]">
-        The more clearly Job Filter understands your work history, the faster it can create role-specific resumes,
-        cover letters, outreach, and future assets you can trust.
+        Upload your resume or build from scratch. Job Filter organizes your experience into tailored resumes, cover letters, and outreach you can create faster, with details you can trust.
       </p>
 
       <div className="mt-6">
         <p className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-white/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.07em] text-[var(--text-secondary)]">
           <Sparkles size={12} aria-hidden />
-          What you unlock
+          What this unlocks
         </p>
-        <div className="grid gap-3 sm:grid-cols-3">
-          {VALUE_POINTS.map((point) => (
-            <div key={point} className="rounded-[16px] border border-white/65 bg-white/76 px-3.5 py-3 shadow-[0_12px_26px_rgba(10,26,20,0.05)]">
+        <div className="space-y-2.5">
+          {VALUE_POINTS.map((point, index) => (
+            <div
+              key={point}
+              className="flex items-center gap-3 rounded-[14px] border border-white/70 bg-white/78 px-4 py-3 shadow-[0_10px_20px_rgba(10,26,20,0.05)]"
+            >
+              <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-bg)] text-xs font-semibold text-[var(--text-primary)]">
+                {index + 1}
+              </span>
               <p className="text-sm font-medium text-[var(--text-primary)]">{point}</p>
             </div>
           ))}
         </div>
       </div>
 
-      <div className="mt-7 space-y-3">
+      <div className="mt-7 space-y-3 rounded-[20px] border border-white/70 bg-white/72 p-4 shadow-[0_18px_30px_rgba(14,23,20,0.08)]">
+        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Choose your setup path</p>
         <input
           ref={fileInputRef}
           type="file"

@@ -35,6 +35,11 @@ const DATE_ONLY_RE = /^(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|de
 const DATE_LOCATION_COMPOSITE_RE = /^[A-Z]{2}\s*[|/,]\s*(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\s+\d{4}$/i;
 const LOCATION_STYLE_RE = /^[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3},\s*[A-Z]{2}$/;
 const LOCATION_STATUS_RE = /^(remote|hybrid|onsite|on-site|in office)$/i;
+const ROLE_KEYWORD_RE = /\b(director|manager|lead|head|vp|vice president|president|engineer|analyst|specialist|coordinator|officer|chief|consultant|marketing|growth|sales|operations|product)\b/i;
+const METRIC_FRAGMENT_RE = /(?:[$€£]\s?\d|\b\d+(?:[.,]\d+)?%|\b\d+[kKmMbB]\b)/;
+const NARRATIVE_VERB_RE = /\b(led|built|launched|improved|increased|reduced|managed|scaled|drove|created|implemented|delivered|grew|generated|owned|optimized|negotiated|partnered)\b/i;
+const COMPANY_ENTITY_RE = /\b(inc|corp|llc|ltd|group|company|co\.|media|software|labs|systems|agency|partners)\b/i;
+const SUMMARY_BOUNDARY_LINE_RE = /^[A-Z][A-Za-z0-9&.'’/()\- ]{1,90}\s*(?:\||at|@|[-–—]|→|->)\s*[A-Z][A-Za-z0-9&.'’/()\- ]{1,90}/i;
 const LOCAL_MAX_PREVIEW_LINES = 40;
 const AUTO_SEGMENTATION_MODES: SegmentationMode[] = ['default', 'newlines', 'bullets', 'headings'];
 const QUALITY_PENALTY_CODES = new Set<ParseReasonCode>([
@@ -88,8 +93,48 @@ function isSuspiciousIdentity(value: string): boolean {
   return isDateLikeIdentity(value) || isLocationLikeIdentity(value);
 }
 
+function isLikelyMetricNarrative(value: string): boolean {
+  const normalized = normalizeIdentityToken(value);
+  if (!normalized) return false;
+  if (!METRIC_FRAGMENT_RE.test(normalized)) return false;
+  if (COMPANY_ENTITY_RE.test(normalized)) return false;
+  if (normalized.includes(';')) return true;
+  if (NARRATIVE_VERB_RE.test(normalized)) return true;
+  return normalized.split(/\s+/).length >= 6;
+}
+
+function isLikelyNoisyRoleIdentity(value: string): boolean {
+  const normalized = normalizeIdentityToken(value);
+  if (!normalized) return true;
+  if (isSuspiciousIdentity(normalized)) return true;
+  if (/^(unassigned|unspecified role|n\/a|na)$/i.test(normalized)) return true;
+  if (!ROLE_KEYWORD_RE.test(normalized) && LOCATION_STYLE_RE.test(normalized)) return true;
+  if (!ROLE_KEYWORD_RE.test(normalized) && METRIC_FRAGMENT_RE.test(normalized)) return true;
+  if (!ROLE_KEYWORD_RE.test(normalized) && NARRATIVE_VERB_RE.test(normalized)) return true;
+  return false;
+}
+
+function hasAmbiguousOlderRoleBoundary(claim: ParsedClaim): boolean {
+  if (claim.startDate || claim.endDate) return true;
+
+  const evidenceLines = [...claim.responsibilities, ...claim.outcomes.map((outcome) => outcome.description)];
+  return evidenceLines.some((line) => {
+    const normalized = normalizeIdentityToken(line);
+    if (!normalized) return false;
+    if (DATE_RANGE_RE.test(normalized) && SUMMARY_BOUNDARY_LINE_RE.test(normalized)) return true;
+    if (/\b(?:19|20)\d{2}\b/.test(normalized) && /\|/.test(normalized)) return true;
+    return false;
+  });
+}
+
 export function isLikelySuspiciousCompanyName(value: string): boolean {
-  return isSuspiciousIdentity(value);
+  const normalized = normalizeIdentityToken(value);
+  if (!normalized) return true;
+  if (isSuspiciousIdentity(normalized)) return true;
+  if (isLikelyMetricNarrative(normalized)) return true;
+  if (!COMPANY_ENTITY_RE.test(normalized) && NARRATIVE_VERB_RE.test(normalized)) return true;
+  if (normalized.split(/\s+/).length > 9) return true;
+  return false;
 }
 
 export function normalizeImportText(text: string): string {
@@ -542,11 +587,16 @@ function buildImportDraftForMode(
 
     const roleValue = claim.role.trim();
     const companyValue = claim.company.trim();
-    const suspiciousRole = isSuspiciousIdentity(roleValue);
+    const suspiciousRole = isLikelyNoisyRoleIdentity(roleValue);
     const suspiciousCompany = isLikelySuspiciousCompanyName(companyValue);
     const unresolvedIdentity = !roleValue || !companyValue || suspiciousRole || suspiciousCompany;
-    const companyName = companyValue || 'Unassigned';
-    const groupKey = companyName.toLowerCase();
+    const unresolvedBucket = !companyValue || suspiciousCompany;
+    const companyName = unresolvedBucket ? 'Unassigned' : companyValue;
+    const groupKey = unresolvedBucket ? `unassigned-${roleCounter}` : companyName.toLowerCase();
+
+    if (suspiciousRole && suspiciousCompany && !hasAmbiguousOlderRoleBoundary(claim)) {
+      continue;
+    }
 
     if (!grouped.has(groupKey)) {
       const companyConfidence = unresolvedIdentity ? 0.45 : 0.85;
@@ -600,11 +650,20 @@ function scoreCandidate(result: ImportDraftParseResult): number {
   const bulletCandidates = result.diagnostics.bulletCandidatesCount;
   const hasUsableDraft = hasUsableImportDraft(result.draft);
   const unresolvedCompanyCount = result.draft.companies.filter((company) => company.name === 'Unassigned').length;
+  const namedCompanyCount = Math.max(0, companies - unresolvedCompanyCount);
+  const unresolvedCompanyRatio = companies > 0 ? unresolvedCompanyCount / companies : 1;
+  const noisyRoleCount = result.draft.companies
+    .flatMap((company) => company.roles)
+    .filter((role) => isLikelyNoisyRoleIdentity(role.title))
+    .length;
 
   let score = items * 1 + roles * 4 + companies * 3 + bulletCandidates * 0.2;
   if (!hasUsableDraft) score -= 6;
   score -= result.diagnostics.reasonCodes.filter((code) => QUALITY_PENALTY_CODES.has(code)).length * 2;
-  score -= Math.max(0, unresolvedCompanyCount - 1);
+  score += namedCompanyCount * 2;
+  score -= unresolvedCompanyCount * 6;
+  score -= unresolvedCompanyRatio * 12;
+  score -= noisyRoleCount * 2;
 
   return score;
 }

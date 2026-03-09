@@ -240,6 +240,12 @@ const LOCATION_LINE_RE =
   /\b(remote|hybrid|onsite|on-site|in office)\b|^[A-Z][a-zA-Z\s]+,\s*[A-Z]{2}(?:\s+\d{5})?$/i;
 const METRIC_LINE_RE =
   /^[$€£]?\d[\d,]*(?:\.\d+)?\s*(?:%|x|k|m|b)?(?:\s*[-–—]\s*[$€£]?\d[\d,]*(?:\.\d+)?\s*(?:%|x|k|m|b)?)?$/i;
+const PIPE_HEADER_WITH_DATE_RE =
+  /^[A-Z][A-Za-z0-9&.'’/()\- ]{1,90}\s*\|\s*[A-Z][A-Za-z0-9&.'’/()\- ]{1,90}\s*\|\s*(?:.+)$/;
+const AT_HEADER_WITH_DATE_RE =
+  /^[A-Z][A-Za-z0-9&.'’/()\- ]{1,90}\s+(?:at|@)\s+[A-Z][A-Za-z0-9&.'’/()\- ]{1,90}\s*[|–—-]\s*(?:.+)$/i;
+const ARROW_HEADER_WITH_DATE_RE =
+  /^[A-Z][A-Za-z0-9&.'’/()\- ]{1,90}\s*(?:→|->)\s*[A-Z][A-Za-z0-9&.'’/()\- ]{1,90}\s*\|\s*(?:.+)$/;
 
 function looksLikeRoleTitle(text: string): boolean {
   return ROLE_KEYWORDS_RE.test(text);
@@ -252,6 +258,20 @@ function isHeaderNoise(text: string): boolean {
   if (METRIC_LINE_RE.test(trimmed)) return true;
   if (LOCATION_LINE_RE.test(trimmed)) return true;
   if (/^[A-Z]{2,}\s+\d{5}(?:-\d{4})?$/.test(trimmed)) return true;
+  return false;
+}
+
+function looksLikeSummaryBoundaryLine(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+  const hasDate = Boolean(extractDateRange(trimmed)) || /\b(?:19|20)\d{2}\b/.test(trimmed);
+  if (!hasDate) return false;
+  if (PIPE_HEADER_WITH_DATE_RE.test(trimmed)) return true;
+  if (AT_HEADER_WITH_DATE_RE.test(trimmed)) return true;
+  if (ARROW_HEADER_WITH_DATE_RE.test(trimmed)) return true;
+  if (/^[A-Z]{2}\s*[|/,]\s*(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\s+\d{4}$/i.test(trimmed)) {
+    return true;
+  }
   return false;
 }
 
@@ -575,6 +595,22 @@ function buildRawBlocks(classified: ClassifiedLine[]): RawClaimBlock[] {
       }
       const bulletText = cl.trimmed.replace(BULLET_RE, '').trim();
       if (bulletText) {
+        // Resume summaries often include old jobs as bullet headers.
+        // Keep those as independent review boundaries instead of silently
+        // attaching them to the previous role.
+        if (current && (current.role || current.company) && looksLikeSummaryBoundaryLine(bulletText)) {
+          pushCurrent();
+          current = {
+            role: '',
+            company: '',
+            startDate: '',
+            endDate: '',
+            bullets: [bulletText],
+            textLines: [],
+          };
+          i++;
+          continue;
+        }
         current.bullets.push(bulletText);
         i++;
         continue;
@@ -664,6 +700,24 @@ function makeClaim(): ParsedClaim {
   };
 }
 
+function shouldTreatTextLineAsEvidence(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed) return false;
+  if (isSectionHeader(trimmed)) return false;
+  if (extractDateRange(trimmed)) return false;
+  if (looksLikeSummaryBoundaryLine(trimmed)) return true;
+  if (trimmed.length < 12) return false;
+  if (
+    looksLikeRoleTitle(trimmed)
+    && !METRIC_RE.test(trimmed)
+    && !/[.!?]/.test(trimmed)
+    && trimmed.split(/\s+/).length <= 8
+  ) {
+    return false;
+  }
+  return /[a-z]/.test(trimmed) || /\d/.test(trimmed);
+}
+
 function blockToClaim(block: RawClaimBlock): ParsedClaim {
   const claim = makeClaim();
   claim.role = block.role;
@@ -693,11 +747,28 @@ function blockToClaim(block: RawClaimBlock): ParsedClaim {
     }
   }
 
-  // Also scan non-bullet text lines for tools
+  // Also scan non-bullet text lines for tools and evidence that extraction
+  // may not have marked with bullet glyphs.
   for (const line of block.textLines) {
+    const normalized = line.trim();
+    if (!normalized) continue;
+
     for (const t of detectTools(line)) {
       allToolsSet.add(t);
     }
+
+    if (!shouldTreatTextLineAsEvidence(normalized)) continue;
+    if (METRIC_RE.test(normalized)) {
+      const metricMatch = normalized.match(METRIC_VALUE_RE);
+      claim.outcomes.push({
+        description: normalized,
+        metric: metricMatch?.[1],
+        isNumeric: !!metricMatch,
+      });
+      continue;
+    }
+
+    claim.responsibilities.push(normalized);
   }
 
   claim.tools = [...allToolsSet];
@@ -717,8 +788,16 @@ function mergeAdjacentRolelessClaims(claims: ParsedClaim[]): ParsedClaim[] {
     const prev = merged[merged.length - 1];
     const curr = claims[i];
 
+    const evidenceLines = [
+      ...curr.responsibilities,
+      ...curr.outcomes.map((outcome) => outcome.description),
+    ];
+    const isBoundarySignal = Boolean(curr.startDate || curr.endDate)
+      || evidenceLines.some((line) => looksLikeSummaryBoundaryLine(line));
+
     // If current has neither role nor company, merge into previous
-    if (!curr.role && !curr.company) {
+    // only when it is clearly a fragment, not an unresolved older-job boundary.
+    if (!curr.role && !curr.company && !isBoundarySignal) {
       prev.responsibilities.push(...curr.responsibilities);
       prev.outcomes.push(...curr.outcomes);
       // Merge tools (dedup handled later)
