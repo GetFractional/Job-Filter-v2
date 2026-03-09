@@ -130,4 +130,18 @@ describe('profileInference', () => {
     expect(suggestion.targetRoles[0]).toBe('Marketing Director');
     expect(suggestion.targetRoles).toContain('Director of Growth & Retention');
   });
+
+  it('does not infer role-like city fragments as location hints', () => {
+    const diagnostics = buildDiagnostics([
+      'Director, Customer Marketing',
+      'Mt. Juliet, TN',
+      'Remote',
+    ]);
+
+    const draft: ImportDraft = { companies: [] };
+    const suggestion = inferProfilePrefillSuggestion(diagnostics, draft);
+
+    expect(suggestion.locationHints).toContain('Mt. Juliet, TN');
+    expect(suggestion.locationHints).not.toContain('Director, Customer');
+  });
 });

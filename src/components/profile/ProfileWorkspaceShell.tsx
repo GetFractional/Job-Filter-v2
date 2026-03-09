@@ -142,6 +142,7 @@ const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'S
 const MONTH_BY_LABEL = new Map(MONTH_LABELS.map((label, index) => [label.toLowerCase(), String(index + 1).padStart(2, '0')]));
 const ROLE_NOISE_RE = /^(remote|hybrid|onsite|on-site|in office|n\/a|na|unassigned|unspecified role)$/i;
 const LOCATION_FRAGMENT_RE = /^[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3}(?:,\s*[A-Z]{2})?$/;
+const LOCATION_CITY_STATE_RE = /^[A-Z][A-Za-z.'-]*(?:\s+[A-Z][A-Za-z.'-]*){0,3},\s*[A-Z]{2}$/;
 const METRIC_LINE_RE = /(?:[$€£]\s?\d|\b\d+(?:[.,]\d+)?%|\b\d+[kKmMbB]\b)/;
 const VERB_OR_SENTENCE_RE = /\b(led|built|launched|improved|increased|reduced|managed|scaled|drove|created|implemented|delivered|grew|generated|owned|optimized|negotiated)\b/i;
 const PRESENT_RE = /^(present|current|now)$/i;
@@ -298,6 +299,13 @@ function toMonthInputValue(rawValue?: string): string {
   return `${monthYearMatch[2]}-${monthNumber}`;
 }
 
+function toMonthSortValue(rawValue?: string): number {
+  if (!rawValue) return -1;
+  const match = rawValue.trim().match(/^(\d{4})-(0[1-9]|1[0-2])$/);
+  if (!match) return -1;
+  return Number(match[1]) * 12 + Number(match[2]);
+}
+
 function formatMonthYearForPreview(value: string): string {
   const match = value.trim().match(/^(\d{4})-(0[1-9]|1[0-2])$/);
   if (!match) return value.trim();
@@ -377,6 +385,14 @@ function buildTimelineReviewFlag(company: ExperienceTimelineCompanyDraft): boole
     || !company.company.trim()
     || company.roles.length === 0
     || company.roles.some((role) => !role.title.trim() || !role.startDate.trim() || (!role.currentRole && !role.endDate.trim()));
+}
+
+function isLikelyLocationHint(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  if (!LOCATION_CITY_STATE_RE.test(trimmed)) return false;
+  if (ROLE_KEYWORD_RE.test(trimmed)) return false;
+  return true;
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -468,10 +484,24 @@ export function toTimelineCompanies(draft: ImportDraft): ExperienceTimelineCompa
       company,
       index,
       hasCurrentRole: company.roles.some((role) => role.currentRole),
+      latestEndSortValue: company.roles.reduce(
+        (maximum, role) => Math.max(maximum, toMonthSortValue(role.endDate)),
+        -1,
+      ),
+      latestStartSortValue: company.roles.reduce(
+        (maximum, role) => Math.max(maximum, toMonthSortValue(role.startDate)),
+        -1,
+      ),
     }))
     .sort((a, b) => {
-      if (a.hasCurrentRole === b.hasCurrentRole) return a.index - b.index;
-      return a.hasCurrentRole ? -1 : 1;
+      if (a.hasCurrentRole !== b.hasCurrentRole) return a.hasCurrentRole ? -1 : 1;
+      if (a.latestEndSortValue !== b.latestEndSortValue) {
+        return b.latestEndSortValue - a.latestEndSortValue;
+      }
+      if (a.latestStartSortValue !== b.latestStartSortValue) {
+        return b.latestStartSortValue - a.latestStartSortValue;
+      }
+      return a.index - b.index;
     })
     .map((entry) => entry.company);
 }
@@ -536,7 +566,7 @@ function extractContactPrefill(text: string, locationHints: string[]): ResumeCon
   const linkedInMatch = text.match(LINKEDIN_RE)?.[0];
   const urls = Array.from(text.matchAll(URL_RE), (match) => match[0]);
   const website = urls.find((candidate) => !/linkedin\.com/i.test(candidate));
-  const locationHint = locationHints.find((hint) => !/^(remote|hybrid|onsite)$/i.test(hint));
+  const locationHint = locationHints.find((hint) => isLikelyLocationHint(hint));
   const phone = extractPhonePrefillFromText(text);
 
   return {

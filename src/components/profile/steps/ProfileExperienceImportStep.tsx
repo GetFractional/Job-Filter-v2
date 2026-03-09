@@ -694,7 +694,7 @@ export function ProfileExperienceImportStep({
 
           return (
             <div key={company.id} className="mr-0.5 rounded-[18px] border border-[var(--border-subtle)] bg-white/90 p-3 shadow-[0_14px_28px_rgba(15,25,20,0.08)]">
-              <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
                 <div className="min-w-0">
                   <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
                     {unresolvedPlacement
@@ -707,18 +707,22 @@ export function ProfileExperienceImportStep({
                   {unresolvedPlacement && (
                     <p className="truncate text-sm font-semibold text-[var(--status-warn-text)]">{unresolvedHeading}</p>
                   )}
+                  {(unresolvedPlacement || company.needsReview) && (
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                      {unresolvedPlacement && (
+                        <span className={`${UTILITY_BADGE_CLASS} border-[var(--status-warn-border)] bg-[var(--status-warn-bg)] text-[var(--status-warn-text)]`}>
+                          {unresolvedChip}
+                        </span>
+                      )}
+                      {company.needsReview && (
+                        <span className={`${UTILITY_BADGE_CLASS} border-[var(--status-warn-border)] bg-[var(--status-warn-bg)] text-[var(--status-warn-text)]`}>
+                          Needs review
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
-                <div className="flex flex-wrap items-center justify-end gap-1.5">
-                  {unresolvedPlacement && (
-                    <span className={`${UTILITY_BADGE_CLASS} border-[var(--status-warn-border)] bg-[var(--status-warn-bg)] text-[var(--status-warn-text)]`}>
-                      {unresolvedChip}
-                    </span>
-                  )}
-                  {company.needsReview && (
-                    <span className={`${UTILITY_BADGE_CLASS} border-[var(--status-warn-border)] bg-[var(--status-warn-bg)] text-[var(--status-warn-text)]`}>
-                      Needs review
-                    </span>
-                  )}
+                <div className="flex shrink-0 items-center gap-1.5 self-start">
                   <IconMoveButtons
                     onMoveUp={() => moveCompany(companyIndex, 'up')}
                     onMoveDown={() => moveCompany(companyIndex, 'down')}
@@ -770,14 +774,14 @@ export function ProfileExperienceImportStep({
                       const expandedRole = isRoleExpanded(role.id);
                       return (
                         <div key={role.id} className="rounded-[14px] border border-[var(--border-subtle)] bg-[var(--surface-bg)] p-3">
-                          <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
                             <div className="min-w-0">
                               <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Role {roleIndex + 1}</p>
                               {!expandedRole && role.title.trim() && (
                                 <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{role.title}</p>
                               )}
                             </div>
-                            <div className="flex flex-wrap items-center justify-end gap-1.5">
+                            <div className="flex shrink-0 items-center gap-1.5 self-start">
                               <IconMoveButtons
                                 onMoveUp={() => moveRole(company.id, roleIndex, 'up')}
                                 onMoveDown={() => moveRole(company.id, roleIndex, 'down')}
@@ -849,17 +853,19 @@ export function ProfileExperienceImportStep({
                                 <p data-validation-error="true" className="mt-1 text-xs text-[var(--status-danger-text)]">End month is required unless current role is checked.</p>
                               )}
 
-                              <label className="mt-2 inline-flex items-center gap-2 text-xs font-medium text-[var(--text-secondary)]">
-                                <input
-                                  type="checkbox"
-                                  checked={role.currentRole}
-                                  onChange={(event) => updateRole(company.id, role.id, {
-                                    currentRole: event.target.checked,
-                                  })}
-                                  className="h-4 w-4 rounded border-[var(--border-subtle)]"
-                                />
-                                Current role
-                              </label>
+                              <div className="mt-3 rounded-[10px] border border-[var(--border-subtle)]/70 bg-[var(--surface-muted)]/55 px-3 py-2">
+                                <label className="inline-flex items-center gap-2 text-xs font-medium text-[var(--text-secondary)]">
+                                  <input
+                                    type="checkbox"
+                                    checked={role.currentRole}
+                                    onChange={(event) => updateRole(company.id, role.id, {
+                                      currentRole: event.target.checked,
+                                    })}
+                                    className="h-4 w-4 rounded border-[var(--border-subtle)]"
+                                  />
+                                  Current role
+                                </label>
+                              </div>
 
                               <div className="mt-3 space-y-3">
                                 <div className={PROOF_SECTION_WRAPPER_CLASS}>

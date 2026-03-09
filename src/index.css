@@ -86,8 +86,8 @@ html {
   --status-danger-border: #fca5a5;
   --status-danger-text: #991b1b;
   --workspace-glass-bg: rgba(255, 255, 255, 0.78);
-  --workspace-glass-border: rgba(255, 255, 255, 0.46);
-  --workspace-glass-shadow: 0 16px 32px rgba(9, 24, 19, 0.11), 0 4px 11px rgba(9, 24, 19, 0.06);
+  --workspace-glass-border: rgba(255, 255, 255, 0.34);
+  --workspace-glass-shadow: 0 14px 30px rgba(9, 24, 19, 0.1), 0 4px 12px rgba(9, 24, 19, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.38);
   --workspace-glass-radius: 16px;
   --radius-card: 18px;
   --radius-panel: 16px;
@@ -171,6 +171,7 @@ body {
   background: white;
   padding: 10px 12px;
   font-size: 14px;
+  font-weight: 400;
   color: var(--text-primary);
   transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
 }

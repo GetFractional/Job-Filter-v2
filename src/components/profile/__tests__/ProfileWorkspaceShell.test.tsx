@@ -432,6 +432,84 @@ describe('ProfileWorkspaceShell', () => {
     expect(timeline.map((company) => company.company)).toEqual(['Current Company LLC', 'Past Company LLC']);
   });
 
+  it('orders imported companies by current role, then end date, then start date', () => {
+    const timeline = toTimelineCompanies({
+      companies: [
+        {
+          id: 'company-older',
+          name: 'Older Co',
+          confidence: 0.9,
+          status: 'active',
+          sourceRefs: [],
+          roles: [
+            {
+              id: 'role-older',
+              title: 'Marketing Manager',
+              startDate: 'Jan 2018',
+              endDate: 'Jan 2020',
+              currentRole: false,
+              confidence: 0.8,
+              status: 'active',
+              sourceRefs: [],
+              highlights: [{ id: 'h-older', type: 'highlight', text: 'Built reporting', confidence: 0.7, status: 'active', sourceRefs: [] }],
+              outcomes: [],
+              tools: [],
+              skills: [],
+            },
+          ],
+        },
+        {
+          id: 'company-newer',
+          name: 'Newer Co',
+          confidence: 0.9,
+          status: 'active',
+          sourceRefs: [],
+          roles: [
+            {
+              id: 'role-newer',
+              title: 'Senior Manager',
+              startDate: 'Jan 2020',
+              endDate: 'Jan 2023',
+              currentRole: false,
+              confidence: 0.85,
+              status: 'active',
+              sourceRefs: [],
+              highlights: [{ id: 'h-newer', type: 'highlight', text: 'Scaled growth', confidence: 0.7, status: 'active', sourceRefs: [] }],
+              outcomes: [],
+              tools: [],
+              skills: [],
+            },
+          ],
+        },
+        {
+          id: 'company-current',
+          name: 'Current Co',
+          confidence: 0.9,
+          status: 'active',
+          sourceRefs: [],
+          roles: [
+            {
+              id: 'role-current',
+              title: 'Director',
+              startDate: 'Jan 2024',
+              endDate: '',
+              currentRole: true,
+              confidence: 0.9,
+              status: 'active',
+              sourceRefs: [],
+              highlights: [{ id: 'h-current', type: 'highlight', text: 'Own GTM', confidence: 0.8, status: 'active', sourceRefs: [] }],
+              outcomes: [],
+              tools: [],
+              skills: [],
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(timeline.map((company) => company.company)).toEqual(['Current Co', 'Newer Co', 'Older Co']);
+  });
+
   it('marks unresolved featured-achievement buckets as featured proof', () => {
     const timeline = toTimelineCompanies({
       companies: [

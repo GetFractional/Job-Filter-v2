@@ -2,7 +2,7 @@ import type { ImportDraft, ParseDiagnostics, ProfilePrefillSuggestion } from '..
 
 const NAME_LINE_TITLE_CASE_RE = /^[A-Z][A-Za-z.'-]+(?:\s+[A-Z][A-Za-z.'-]+){1,3}$/;
 const NAME_LINE_ALL_CAPS_RE = /^[A-Z][A-Z.'-]+(?:\s+[A-Z][A-Z.'-]+){1,3}$/;
-const CITY_STATE_RE = /\b([A-Z][A-Za-z.]+(?:\s+[A-Z][A-Za-z.]+){0,3}),\s*([A-Z]{2}|[A-Z][a-zA-Z]+)\b/;
+const CITY_STATE_RE = /\b([A-Z][A-Za-z.'-]+(?:\s+[A-Z][A-Za-z.'-]+){0,3}),\s*([A-Z]{2})\b/;
 const SALARY_RE = /\$\s?(\d[\d,]{4,})/g;
 const ROLE_KEYWORD_RE = /\b(director|manager|lead|head|vp|vice president|engineer|analyst|specialist|coordinator|officer|chief|consultant)\b/i;
 const CONTACT_RE = /(@|https?:\/\/|www\.|linkedin\.com|github\.com)/i;
@@ -164,7 +164,10 @@ function inferLocationHints(previewLines: string[]): string[] {
 
     const cityMatch = normalized.match(CITY_STATE_RE);
     if (cityMatch) {
-      hints.add(`${cityMatch[1].trim()}, ${cityMatch[2].trim()}`);
+      const city = cityMatch[1].trim();
+      if (!ROLE_KEYWORD_RE.test(city)) {
+        hints.add(`${city}, ${cityMatch[2].trim()}`);
+      }
     }
 
     if (hints.size >= 4) break;
