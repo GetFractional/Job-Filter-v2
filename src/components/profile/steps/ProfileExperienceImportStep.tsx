@@ -9,6 +9,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
+import { normalizeSentenceCaseLineStart } from './profileLineNormalization';
 
 export type ExtractionBuildStage =
   | 'idle'
@@ -62,6 +63,9 @@ const UTILITY_ICON_BUTTON_CLASS = 'inline-flex h-8 w-8 items-center justify-cent
 const UTILITY_DELETE_BUTTON_CLASS = 'inline-flex h-8 w-8 items-center justify-center rounded-[10px] border border-[var(--border-subtle)] bg-white/92 text-[var(--text-secondary)] shadow-[0_8px_14px_rgba(11,24,19,0.08)] hover:border-[var(--status-danger-border)] hover:text-[var(--status-danger-text)]';
 const UTILITY_BADGE_CLASS = 'inline-flex h-8 items-center rounded-[10px] border px-2.5 text-[11px] font-medium';
 const UNRESOLVED_NOTE_CLASS = 'mt-2 rounded-[10px] border px-3 py-2.5 text-xs';
+const PROOF_SECTION_WRAPPER_CLASS = 'rounded-[14px] border border-[var(--border-subtle)]/65 bg-[color-mix(in_srgb,var(--surface-muted)_76%,white_24%)] p-3';
+const PROOF_LINE_CARD_CLASS = 'rounded-[12px] bg-white p-2.5 shadow-[inset_0_0_0_1px_rgba(206,216,211,0.6),0_7px_12px_rgba(14,24,20,0.05)]';
+const PROOF_CONTROL_STRIP_CLASS = 'mt-2 flex flex-wrap items-center justify-end gap-1.5 rounded-[10px] border border-[var(--border-subtle)]/55 bg-[color-mix(in_srgb,var(--surface-muted)_72%,white_28%)] px-2 py-1.5';
 
 function createDraftId(prefix: 'company' | 'role' | 'line'): string {
   return `${prefix}-manual-${Math.random().toString(36).slice(2, 10)}`;
@@ -89,7 +93,39 @@ function hasCompanyValidationError(company: ExperienceTimelineCompanyDraft): boo
 
 function normalizeEditableLines(lines: string[]): string[] {
   if (lines.length === 0) return [''];
-  return lines;
+  return lines.map((line) => normalizeSentenceCaseLineStart(line));
+}
+
+function areLineArraysEqual(left: string[], right: string[]): boolean {
+  if (left.length !== right.length) return false;
+  return left.every((value, index) => value === right[index]);
+}
+
+function normalizeTimelineLineStarts(
+  companies: ExperienceTimelineCompanyDraft[],
+): ExperienceTimelineCompanyDraft[] | null {
+  let changed = false;
+
+  const normalized = companies.map((company) => ({
+    ...company,
+    roles: company.roles.map((role) => {
+      const nextResponsibilities = normalizeEditableLines(role.responsibilities);
+      const nextResults = normalizeEditableLines(role.results);
+      if (
+        !areLineArraysEqual(nextResponsibilities, role.responsibilities)
+        || !areLineArraysEqual(nextResults, role.results)
+      ) {
+        changed = true;
+      }
+      return {
+        ...role,
+        responsibilities: nextResponsibilities,
+        results: nextResults,
+      };
+    }),
+  }));
+
+  return changed ? normalized : null;
 }
 
 function cloneTimelineCompanies(companies: ExperienceTimelineCompanyDraft[]): ExperienceTimelineCompanyDraft[] {
@@ -272,6 +308,12 @@ export function ProfileExperienceImportStep({
     }, TOAST_AUTO_DISMISS_MS);
     return () => window.clearTimeout(timerId);
   }, [undoDelete]);
+
+  useEffect(() => {
+    const normalized = normalizeTimelineLineStarts(timelineCompanies);
+    if (!normalized) return;
+    onTimelineChange(normalized);
+  }, [onTimelineChange, timelineCompanies]);
 
   const persistDeletePreference = (skip: boolean) => {
     if (!deletePreferenceStorageKey || !canUseLocalStorage()) return;
@@ -487,7 +529,9 @@ export function ProfileExperienceImportStep({
           ...company,
           roles: company.roles.map((role) => {
             if (role.id !== roleId) return role;
-            const nextLines = role[collection].map((line, index) => (index === lineIndex ? lineValue : line));
+            const nextLines = role[collection].map((line, index) => (
+              index === lineIndex ? normalizeSentenceCaseLineStart(lineValue) : line
+            ));
             return {
               ...role,
               [collection]: nextLines,
@@ -812,13 +856,13 @@ export function ProfileExperienceImportStep({
                               </label>
 
                               <div className="mt-3 space-y-3">
-                                <div className="rounded-[12px] border border-[var(--border-subtle)] bg-white/85 p-2.5">
+                                <div className={PROOF_SECTION_WRAPPER_CLASS}>
                                   <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Responsibilities</p>
                                   <div className="mt-2 space-y-2">
                                     {role.responsibilities.map((line, lineIndex) => (
                                       <div
                                         key={`${role.id}-resp-${lineIndex}`}
-                                        className="rounded-[10px] border border-[var(--border-subtle)] bg-white p-2.5"
+                                        className={PROOF_LINE_CARD_CLASS}
                                       >
                                         <AutoGrowTextarea
                                           value={line}
@@ -826,7 +870,7 @@ export function ProfileExperienceImportStep({
                                           placeholder="Led weekly growth planning with sales and CS"
                                           ariaLabel={`Responsibility ${lineIndex + 1}`}
                                         />
-                                        <div className="mt-2 flex flex-wrap items-center justify-end gap-1.5">
+                                        <div className={PROOF_CONTROL_STRIP_CLASS}>
                                           <IconMoveButtons
                                             onMoveUp={() => moveRoleLine(company.id, role.id, 'responsibilities', lineIndex, 'up')}
                                             onMoveDown={() => moveRoleLine(company.id, role.id, 'responsibilities', lineIndex, 'down')}
@@ -857,13 +901,13 @@ export function ProfileExperienceImportStep({
                                   </button>
                                 </div>
 
-                                <div className="rounded-[12px] border border-[var(--border-subtle)] bg-white/85 p-2.5">
+                                <div className={PROOF_SECTION_WRAPPER_CLASS}>
                                   <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Results</p>
                                   <div className="mt-2 space-y-2">
                                     {role.results.map((line, lineIndex) => (
                                       <div
                                         key={`${role.id}-result-${lineIndex}`}
-                                        className="rounded-[10px] border border-[var(--border-subtle)] bg-white p-2.5"
+                                        className={PROOF_LINE_CARD_CLASS}
                                       >
                                         <AutoGrowTextarea
                                           value={line}
@@ -871,7 +915,7 @@ export function ProfileExperienceImportStep({
                                           placeholder="Increased qualified pipeline by 48%"
                                           ariaLabel={`Result ${lineIndex + 1}`}
                                         />
-                                        <div className="mt-2 flex flex-wrap items-center justify-end gap-1.5">
+                                        <div className={PROOF_CONTROL_STRIP_CLASS}>
                                           <IconMoveButtons
                                             onMoveUp={() => moveRoleLine(company.id, role.id, 'results', lineIndex, 'up')}
                                             onMoveDown={() => moveRoleLine(company.id, role.id, 'results', lineIndex, 'down')}
