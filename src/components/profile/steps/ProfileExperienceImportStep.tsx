@@ -966,7 +966,7 @@ export function ProfileExperienceImportStep({
                     })}
                   </div>
 
-                  <div className="mt-3 flex justify-end">
+                  <div className="mt-3 flex justify-end pr-6">
                     <button type="button" onClick={() => addRole(company.id)} className="workspace-btn-secondary">
                       <Plus size={14} aria-hidden />
                       Add role
@@ -985,7 +985,7 @@ export function ProfileExperienceImportStep({
         </p>
       )}
 
-      <div className="mt-3 flex justify-end">
+      <div className="mt-3 flex justify-end pr-14">
         <button type="button" onClick={addCompany} className="workspace-btn-secondary">
           <Plus size={14} aria-hidden />
           Add company
@@ -998,7 +998,7 @@ export function ProfileExperienceImportStep({
         </p>
       )}
 
-      <div className="mt-7 flex flex-wrap gap-3">
+      <div className="mt-7 flex flex-wrap justify-end gap-3 pr-14">
         <button type="button" onClick={onBack} className="workspace-btn-secondary">
           Back
         </button>
