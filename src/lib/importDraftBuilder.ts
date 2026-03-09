@@ -27,8 +27,8 @@ export interface ImportDraftParseResult {
 
 const SECTION_HEADER_RE = /^(experience|work experience|work history|professional experience|employment|skills|education|summary|profile|projects|certifications|about|contact)$/i;
 const DATE_RANGE_RE = /(\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\w*\s+\d{4}\b|\b\d{4}\b)\s*[-–—]\s*(\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\w*\s+\d{4}\b|\b\d{4}\b|present|current|now)/i;
-const BULLET_ONLY_RE = /^[\s]*[•●◦▪▫‣⁃\-–—*✅✔➤➔]+[\s]*$/u;
-const BULLET_LINE_RE = /^[\s]*[•●◦▪▫‣⁃\-–—*✅✔➤➔][\s\t]+/u;
+const BULLET_ONLY_RE = /^[\s]*[•●◦▪▫‣⁃\-–—*\uF0B7\uF0A7\uF0FC✅✔➤➔]+[\s]*$/u;
+const BULLET_LINE_RE = /^[\s]*[•●◦▪▫‣⁃\-–—*\uF0B7\uF0A7\uF0FC✅✔➤➔][\s\t]+/u;
 const MONTH_YEAR_RE = /\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\s+\d{4}\b/i;
 const DATE_ONLY_RE = /^(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\s+\d{4}|\d{4})(?:\s*[-–—]\s*(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\s+\d{4}|\d{4}|present|current|now))?$/i;
 const DATE_LOCATION_COMPOSITE_RE = /^[A-Z]{2}\s*[|/,]\s*(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\s+\d{4}$/i;
@@ -44,8 +44,14 @@ const FEATURED_ACHIEVEMENTS_SECTION_RE = /^(featured|selected)\s+(achievements|h
 const SKILLS_SECTION_RE = /^(skills|skills & tools|tools|technical skills|core skills|competencies|core competencies)$/i;
 const EDUCATION_SECTION_RE = /^(education|certifications|licenses|references|awards|publications|volunteer|volunteer experience)$/i;
 const COMPANY_WEB_BRAND_RE = /\b[a-z0-9][a-z0-9.'’&-]*\.(?:com|io|ai|co|net|org)\b/i;
-const CONTINUATION_TRAILING_RE = /([,(/:+-]|\b(and|or|to|for|with|across|including|through|via|while|plus))$/i;
-const CONTINUATION_LEADING_RE = /^([+%(]|and\b|or\b|to\b|for\b|with\b|via\b|while\b|including\b|across\b|resulting\b)/i;
+const FEATURED_COMPANY_ANCHOR_RE = /^([A-Z][A-Za-z0-9&.'’-]*(?:\s+[A-Z][A-Za-z0-9&.'’-]*){0,5})(?:\s*\([^)]{2,30}\))?\s*[:|]/;
+const CONTINUATION_TRAILING_RE = /([,(/:+&-]|\b(and|or|to|for|with|across|including|through|via|while|plus|of|in|on|by|into|over|under|between|generated|resulting))$/i;
+const CONTINUATION_LEADING_RE = /^([+%(]|[$€£]?\d|and\b|or\b|to\b|for\b|with\b|via\b|while\b|including\b|across\b|resulting\b)/i;
+const INCOMPLETE_VERB_TRAILING_RE = /\b(generated|resulting|including|supporting|driving|building|leading|managing|delivering|improving)$/i;
+const FRAGMENT_VERB_LEADING_RE = /^(retained|supported|supporting)\b/i;
+const OUTCOME_CHANGE_VERB_RE = /\b(increased|reduced|improved|grew|generated|delivered|launched|achieved|saved|boosted|scaled|drove|lifted|cut)\b/i;
+const OUTCOME_IMPACT_TERM_RE = /\b(revenue|pipeline|conversion|margin|retention|cost|roi|arr|mrr|orders|aov|sessions|leads|activations|customers|cycle time|time-to-fill)\b/i;
+const OUTCOME_SCALE_TERM_RE = /\b(\d+(?:[.,]\d+)?%|\d+[kKmMbB]\+?|[$€£]\s?\d)\b/;
 const LOCAL_MAX_PREVIEW_LINES = 40;
 const AUTO_SEGMENTATION_MODES: SegmentationMode[] = ['default', 'newlines', 'bullets', 'headings'];
 const QUALITY_PENALTY_CODES = new Set<ParseReasonCode>([
@@ -275,13 +281,40 @@ function hasHighConfidenceCompanyAnchor(
   const hasRoleSignal = roleValue.length > 0 && !isLikelyNoisyRoleIdentity(roleValue);
   const hasDateSignal = Boolean(claim.startDate || claim.endDate);
   const hasEvidenceSignal = claim.responsibilities.length + claim.outcomes.length > 0;
+  const evidenceLines = [...claim.responsibilities, ...claim.outcomes.map((outcome) => outcome.description)];
   const looksLikeCompany = COMPANY_ENTITY_RE.test(normalizedCompany)
     || COMPANY_WEB_BRAND_RE.test(normalizedCompany)
     || (normalizedCompany.split(/\s+/).length <= 6 && normalizedCompany.length <= 70);
 
+  if (zone === 'featured_achievements' && looksLikeCompany && hasEvidenceSignal) {
+    const normalizedEvidence = evidenceLines.map((line) => normalizeIdentityToken(line).toLowerCase()).join(' ');
+    const companyTokens = normalizedCompany.toLowerCase().split(/[^a-z0-9]+/).filter((token) => token.length > 2);
+    const mentionsCompany = companyTokens.some((token) => normalizedEvidence.includes(token));
+    const hasOutcomeSignal = evidenceLines.some((line) =>
+      METRIC_FRAGMENT_RE.test(line) || OUTCOME_CHANGE_VERB_RE.test(line) || OUTCOME_IMPACT_TERM_RE.test(line));
+    if (mentionsCompany && hasOutcomeSignal) {
+      return true;
+    }
+  }
+
   if (zone !== 'experience_timeline' && !hasDateSignal) return false;
   if (!looksLikeCompany) return false;
   return hasDateSignal || (hasRoleSignal && hasEvidenceSignal);
+}
+
+function extractCompanyAnchorFromEvidence(claim: ParsedClaim): string {
+  const evidenceLines = [...claim.responsibilities, ...claim.outcomes.map((outcome) => outcome.description)];
+  for (const line of evidenceLines) {
+    const normalized = normalizeIdentityToken(line);
+    if (!normalized) continue;
+    const match = normalized.match(FEATURED_COMPANY_ANCHOR_RE);
+    if (!match) continue;
+    const candidate = normalizeIdentityToken(match[1]);
+    if (!candidate) continue;
+    if (isLikelySuspiciousCompanyName(candidate)) continue;
+    return candidate;
+  }
+  return '';
 }
 
 function shouldMergeContinuationSegment(previousLine: string, candidate: string, nextLine: string): boolean {
@@ -292,13 +325,29 @@ function shouldMergeContinuationSegment(previousLine: string, candidate: string,
 
   const startsLikeContinuation = CONTINUATION_LEADING_RE.test(trimmedCandidate) || /^[a-z]/.test(trimmedCandidate);
   const previousSignalsContinuation = CONTINUATION_TRAILING_RE.test(previousLine.trim());
+  const previousIncompleteVerb = INCOMPLETE_VERB_TRAILING_RE.test(previousLine.trim());
   const shortTail = trimmedCandidate.split(/\s+/).length <= 5 && !/[.!?]$/.test(trimmedCandidate);
-  if (!(startsLikeContinuation || previousSignalsContinuation || shortTail)) return false;
+  if (!(startsLikeContinuation || previousSignalsContinuation || previousIncompleteVerb || shortTail)) return false;
 
-  if (nextLine && looksLikeBoundary(nextLine) && !startsLikeContinuation && !previousSignalsContinuation) {
+  if (nextLine && looksLikeBoundary(nextLine) && !startsLikeContinuation && !previousSignalsContinuation && !previousIncompleteVerb) {
     return false;
   }
   return true;
+}
+
+function shouldMergeBulletLineContinuation(previousLine: string, candidate: string): boolean {
+  const trimmedCandidate = candidate.trim();
+  if (!trimmedCandidate) return false;
+
+  const startsLikeContinuation = CONTINUATION_LEADING_RE.test(trimmedCandidate) || /^[a-z]/.test(trimmedCandidate) || /^[$€£]?\d/.test(trimmedCandidate);
+  const previousSignalsContinuation = CONTINUATION_TRAILING_RE.test(previousLine.trim()) || INCOMPLETE_VERB_TRAILING_RE.test(previousLine.trim());
+  if (startsLikeContinuation || previousSignalsContinuation) {
+    return true;
+  }
+
+  const candidateWords = trimmedCandidate.split(/\s+/).length;
+  const looksLikeVerbFragment = FRAGMENT_VERB_LEADING_RE.test(trimmedCandidate);
+  return looksLikeVerbFragment && candidateWords <= 10;
 }
 
 export function normalizeImportText(text: string): string {
@@ -455,9 +504,21 @@ function mergeBulletContinuation(lines: string[]): string[] {
     if (
       merged.length > 0 &&
       BULLET_LINE_RE.test(merged[merged.length - 1]) &&
-      shouldMergeContinuationSegment(merged[merged.length - 1], trimmed, lines[i + 1]?.trim() || '')
+      shouldMergeContinuationSegment(
+        merged[merged.length - 1],
+        BULLET_LINE_RE.test(trimmed) ? trimmed.replace(BULLET_LINE_RE, '').trim() : trimmed,
+        lines[i + 1]?.trim() || '',
+      )
     ) {
-      merged[merged.length - 1] = `${merged[merged.length - 1]} ${trimmed}`.replace(/\s+/g, ' ').trim();
+      const candidateText = BULLET_LINE_RE.test(trimmed) ? trimmed.replace(BULLET_LINE_RE, '').trim() : trimmed;
+      if (!candidateText) {
+        continue;
+      }
+      if (BULLET_LINE_RE.test(trimmed) && !shouldMergeBulletLineContinuation(merged[merged.length - 1], candidateText)) {
+        merged.push(current);
+        continue;
+      }
+      merged[merged.length - 1] = `${merged[merged.length - 1]} ${candidateText}`.replace(/\s+/g, ' ').trim();
       continue;
     }
 
@@ -473,14 +534,124 @@ function normalizeForParser(text: string, mode: SegmentationMode): string {
   return mergeBulletContinuation(mergeColonContinuation(lines)).join('\n');
 }
 
+function splitEvidenceClauses(value: string): string[] {
+  const trimmed = normalizeIdentityToken(value);
+  if (!trimmed) return [];
+  if (!trimmed.includes(';')) return [trimmed];
+  return trimmed
+    .split(/\s*;\s+/)
+    .map((clause) => normalizeIdentityToken(clause))
+    .filter(Boolean);
+}
+
+function shouldClassifyAsOutcome(value: string, claimZone: ResumeZone, source: 'responsibility' | 'outcome'): boolean {
+  if (claimZone === 'featured_achievements') return true;
+  if (source === 'outcome') return true;
+
+  const normalized = normalizeIdentityToken(value);
+  if (!normalized) return false;
+  const hasScale = OUTCOME_SCALE_TERM_RE.test(normalized) || METRIC_FRAGMENT_RE.test(normalized);
+  const hasChangeVerb = OUTCOME_CHANGE_VERB_RE.test(normalized);
+  const hasImpactTerm = OUTCOME_IMPACT_TERM_RE.test(normalized);
+
+  if (hasScale && (hasChangeVerb || hasImpactTerm)) return true;
+  if (hasChangeVerb && hasImpactTerm) return true;
+  return false;
+}
+
+function shouldMergeResponsibilityFragment(previous: string | undefined, candidate: string): boolean {
+  if (!previous) return false;
+  const normalizedCandidate = normalizeIdentityToken(candidate);
+  if (!normalizedCandidate) return false;
+  if (looksLikeBoundary(normalizedCandidate) || DATE_RANGE_RE.test(normalizedCandidate)) return false;
+
+  const startsLikeContinuation = /^[a-z]/.test(normalizedCandidate) || FRAGMENT_VERB_LEADING_RE.test(normalizedCandidate);
+  if (!startsLikeContinuation) return false;
+
+  const candidateWords = normalizedCandidate.split(/\s+/).length;
+  if (candidateWords > 10) return false;
+
+  const previousMissingTerminalPunctuation = !/[.!?]$/.test(previous.trim());
+  return previousMissingTerminalPunctuation || /^[a-z]/.test(normalizedCandidate);
+}
+
+function mergeResponsibilityFragments(lines: string[]): string[] {
+  const merged: string[] = [];
+
+  for (const line of lines) {
+    const normalized = normalizeIdentityToken(line);
+    if (!normalized) continue;
+    const previous = merged[merged.length - 1];
+    if (shouldMergeResponsibilityFragment(previous, normalized)) {
+      merged[merged.length - 1] = `${previous} ${normalized}`.replace(/\s+/g, ' ').trim();
+      continue;
+    }
+    merged.push(normalized);
+  }
+
+  return merged;
+}
+
+function normalizeClaimEvidence(claim: ParsedClaim, claimZone: ResumeZone): {
+  responsibilities: string[];
+  outcomes: Array<{ description: string; metric?: string; isNumeric: boolean }>;
+} {
+  const responsibilities: string[] = [];
+  const outcomes: Array<{ description: string; metric?: string; isNumeric: boolean }> = [];
+  const seenResponsibilities = new Set<string>();
+  const seenOutcomes = new Set<string>();
+
+  const pushResponsibility = (value: string) => {
+    const normalized = normalizeIdentityToken(value);
+    if (!normalized) return;
+    const key = normalized.toLowerCase();
+    if (seenResponsibilities.has(key)) return;
+    seenResponsibilities.add(key);
+    responsibilities.push(normalized);
+  };
+
+  const pushOutcome = (value: string) => {
+    const normalized = normalizeIdentityToken(value);
+    if (!normalized) return;
+    const key = normalized.toLowerCase();
+    if (seenOutcomes.has(key)) return;
+    seenOutcomes.add(key);
+    outcomes.push({
+      description: normalized,
+      metric: toOutcomeMetric(normalized),
+      isNumeric: /\d/.test(normalized),
+    });
+  };
+
+  const evidence = [
+    ...claim.responsibilities.map((text) => ({ text, source: 'responsibility' as const })),
+    ...claim.outcomes.map((outcome) => ({ text: outcome.description, source: 'outcome' as const })),
+  ];
+
+  for (const entry of evidence) {
+    const clauses = splitEvidenceClauses(entry.text);
+    for (const clause of clauses) {
+      if (shouldClassifyAsOutcome(clause, claimZone, entry.source)) {
+        pushOutcome(clause);
+      } else {
+        pushResponsibility(clause);
+      }
+    }
+  }
+
+  return { responsibilities: mergeResponsibilityFragments(responsibilities), outcomes };
+}
+
 function buildRole(
   claim: ParsedClaim,
   lines: string[],
   roleIndex: number,
+  claimZone: ResumeZone,
   forceNeedsAttention = false,
 ): ImportDraftRole {
-  const normalizedResponsibilities = [...claim.responsibilities];
-  const normalizedOutcomes = claim.outcomes.map((outcome) => ({ ...outcome }));
+  const normalizedEvidence = normalizeClaimEvidence(claim, claimZone);
+  const normalizedResponsibilities = [...normalizedEvidence.responsibilities];
+  const normalizedOutcomes = normalizedEvidence.outcomes.map((outcome) => ({ ...outcome }));
   const trailingResponsibility = normalizedResponsibilities[normalizedResponsibilities.length - 1]?.trim();
   const leadingOutcome = normalizedOutcomes[0]?.description.trim();
   if (
@@ -673,6 +844,66 @@ function toOutcomeMetric(text: string): string | undefined {
   return match?.[1];
 }
 
+function isFeaturedAchievementRole(role: ImportDraftRole): boolean {
+  const normalizedTitle = normalizeIdentityToken(role.title).toLowerCase();
+  if (normalizedTitle !== 'featured achievements' && normalizedTitle !== 'featured proof') return false;
+  const hasDate = Boolean(role.startDate.trim() || (role.endDate ?? '').trim() || role.currentRole);
+  return !hasDate;
+}
+
+function mergeAnchoredFeaturedAchievementRoles(companies: ImportDraftCompany[]): ImportDraftCompany[] {
+  return companies.map((company) => {
+    const featuredRoles = company.roles.filter(isFeaturedAchievementRole);
+    if (featuredRoles.length === 0) return company;
+
+    const targetRoleIndex = company.roles.findIndex((role) =>
+      !isFeaturedAchievementRole(role)
+      && Boolean(role.title.trim() || role.startDate.trim() || (role.endDate ?? '').trim() || role.currentRole));
+    if (targetRoleIndex < 0) return company;
+
+    const nextRoles = company.roles.map((role) => ({
+      ...role,
+      highlights: [...role.highlights],
+      outcomes: [...role.outcomes],
+      tools: [...role.tools],
+      skills: [...role.skills],
+      sourceRefs: [...role.sourceRefs],
+    }));
+    const targetRole = nextRoles[targetRoleIndex];
+    const seenOutcomeLines = new Set(targetRole.outcomes.map((item) => normalizeIdentityToken(item.text).toLowerCase()));
+    let promotedCount = 0;
+
+    for (const featuredRole of featuredRoles) {
+      const featuredItems = [...featuredRole.highlights, ...featuredRole.outcomes];
+      for (const item of featuredItems) {
+        const normalizedText = normalizeIdentityToken(item.text);
+        if (!normalizedText) continue;
+        const normalizedKey = normalizedText.toLowerCase();
+        if (seenOutcomeLines.has(normalizedKey)) continue;
+        seenOutcomeLines.add(normalizedKey);
+        targetRole.outcomes.push({
+          ...item,
+          id: `${targetRole.id}-featured-${promotedCount}`,
+          type: 'outcome',
+          text: normalizedText,
+          metric: item.metric ?? toOutcomeMetric(normalizedText),
+          confidence: clampConfidence(Math.max(item.confidence, targetRole.confidence * 0.82)),
+          status: item.status === 'rejected' ? 'needs_review' : item.status,
+        });
+        promotedCount += 1;
+      }
+    }
+
+    if (promotedCount === 0) return company;
+    targetRole.status = targetRole.status === 'active' ? 'active' : 'needs_review';
+
+    return {
+      ...company,
+      roles: nextRoles.filter((role) => !isFeaturedAchievementRole(role)),
+    };
+  });
+}
+
 function buildFallbackClaimsFromLines(lines: string[]): ParsedClaim[] {
   const items: string[] = [];
 
@@ -707,9 +938,9 @@ function buildFallbackClaimsFromLines(lines: string[]): ParsedClaim[] {
 
   if (items.length === 0) return [];
 
-  const responsibilities = items.filter((item) => !/[$€£]?\d/.test(item));
+  const responsibilities = items.filter((item) => !shouldClassifyAsOutcome(item, 'experience_timeline', 'responsibility'));
   const outcomes = items
-    .filter((item) => /[$€£]?\d/.test(item))
+    .filter((item) => shouldClassifyAsOutcome(item, 'experience_timeline', 'responsibility'))
     .map((description) => ({
       description,
       metric: toOutcomeMetric(description),
@@ -779,7 +1010,11 @@ function buildImportDraftForMode(
     }
 
     const roleValue = claim.role.trim();
-    const companyValue = claim.company.trim();
+    const parsedCompanyValue = claim.company.trim();
+    const inferredFeaturedCompany = claimZone === 'featured_achievements' && !parsedCompanyValue
+      ? extractCompanyAnchorFromEvidence(claim)
+      : '';
+    const companyValue = parsedCompanyValue || inferredFeaturedCompany;
     if (claimZone === 'featured_title' && !companyValue && !claim.startDate && !claim.endDate) {
       continue;
     }
@@ -790,11 +1025,12 @@ function buildImportDraftForMode(
     const suspiciousCompany = isLikelySuspiciousCompanyName(companyValue);
     const anchoredCompany = hasHighConfidenceCompanyAnchor(claim, roleValue, companyValue, claimZone);
     const featuredEvidenceBucket = claimZone === 'featured_achievements' && !anchoredCompany;
-    const unresolvedBucket = featuredEvidenceBucket || !anchoredCompany;
-    const unresolvedIdentity = unresolvedBucket || !roleValue || suspiciousRole || claimZone === 'featured_achievements';
+    const unresolvedBucket = !anchoredCompany;
+    const unresolvedIdentity = unresolvedBucket
+      || (claimZone !== 'featured_achievements' && (!roleValue || suspiciousRole));
     const companyName = unresolvedBucket ? 'Unassigned' : companyValue;
     const groupKey = unresolvedBucket
-      ? (featuredEvidenceBucket ? 'featured-achievements' : `unassigned-${roleCounter}`)
+      ? (featuredEvidenceBucket ? 'featured-proof' : `unassigned-${roleCounter}`)
       : companyName.toLowerCase();
 
     if (
@@ -824,13 +1060,14 @@ function buildImportDraftForMode(
     const role = buildRole(
       {
         ...claim,
-        role: claimZone === 'featured_achievements' && !roleValue
+        role: claimZone === 'featured_achievements' && (!roleValue || suspiciousRole)
           ? 'Featured achievements'
           : (suspiciousRole ? '' : roleValue),
         company: companyValue,
       },
       lines,
       roleCounter,
+      claimZone,
       unresolvedIdentity,
     );
     grouped.get(groupKey)?.roles.push(role);
@@ -838,7 +1075,7 @@ function buildImportDraftForMode(
   }
 
   const draft: ImportDraft = {
-    companies: [...grouped.values()],
+    companies: mergeAnchoredFeaturedAchievementRoles([...grouped.values()]),
   };
 
   return {

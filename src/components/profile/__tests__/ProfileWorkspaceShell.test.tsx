@@ -165,6 +165,32 @@ describe('ProfileWorkspaceShell', () => {
     expect(startStep.getAttribute('data-status')).toBe('completed');
   });
 
+  it('scrolls to the top when resume upload advances to details', async () => {
+    const scrollToSpy = vi.fn();
+    const scrollIntoViewSpy = vi.fn();
+    const originalScrollIntoView = Element.prototype.scrollIntoView;
+    Object.defineProperty(window, 'scrollTo', {
+      value: scrollToSpy,
+      configurable: true,
+      writable: true,
+    });
+    Element.prototype.scrollIntoView = scrollIntoViewSpy as typeof Element.prototype.scrollIntoView;
+
+    render(<ProfileWorkspaceShell mode="setup" initialIdentity={initialIdentity} />);
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText('Start Here resume file'), {
+        target: {
+          files: [new File(['resume'], 'resume.txt', { type: 'text/plain' })],
+        },
+      });
+    });
+
+    expect(scrollToSpy).toHaveBeenCalled();
+    expect(scrollIntoViewSpy).toHaveBeenCalled();
+    Element.prototype.scrollIntoView = originalScrollIntoView;
+  });
+
   it('details completion is criteria-based and reversible with inline validation', () => {
     render(<ProfileWorkspaceShell mode="setup" initialIdentity={initialIdentity} />);
 
@@ -404,6 +430,41 @@ describe('ProfileWorkspaceShell', () => {
     });
 
     expect(timeline.map((company) => company.company)).toEqual(['Current Company LLC', 'Past Company LLC']);
+  });
+
+  it('marks unresolved featured-achievement buckets as featured proof', () => {
+    const timeline = toTimelineCompanies({
+      companies: [
+        {
+          id: 'company-featured',
+          name: 'Unassigned',
+          confidence: 0.44,
+          status: 'needs_review',
+          sourceRefs: [],
+          roles: [
+            {
+              id: 'role-featured',
+              title: 'Featured achievements',
+              startDate: '',
+              endDate: '',
+              currentRole: false,
+              confidence: 0.45,
+              status: 'needs_review',
+              sourceRefs: [],
+              highlights: [],
+              outcomes: [
+                { id: 'outcome-featured', type: 'outcome', text: 'Prosper Wireless: Increased activations by 42%', confidence: 0.5, status: 'needs_review', sourceRefs: [] },
+              ],
+              tools: [],
+              skills: [],
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(timeline[0]?.unresolvedPlacement).toBe(true);
+    expect(timeline[0]?.unresolvedKind).toBe('featured_proof');
   });
 
   it('requires delete confirmation, supports undo, and can persist do-not-ask-again', () => {

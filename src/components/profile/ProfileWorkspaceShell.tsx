@@ -151,7 +151,7 @@ const URL_OR_CONTACT_RE = /(@|https?:\/\/|www\.)/i;
 const COMPANY_ENTITY_HINT_RE = /\b(inc|corp|llc|ltd|group|company|co\.|media|software|labs|systems|agency|partners)\b/i;
 const COMPANY_WEB_BRAND_RE = /\b[a-z0-9][a-z0-9.'’&-]*\.(?:com|io|ai|co|net|org)\b/i;
 const COMPANY_NAME_SHAPE_RE = /^[A-Z][A-Za-z0-9&.'’-]*(?:\s+[A-Z][A-Za-z0-9&.'’-]*){0,5}$/;
-const CONTINUATION_TRAILING_RE = /([,(/:+-]|\b(and|or|to|for|with|across|including|through|via|from|plus))$/i;
+const CONTINUATION_TRAILING_RE = /([,(/:+&-]|\b(and|or|to|for|with|across|including|through|via|from|plus|of|in|on|by|into|over|under|between|generated|resulting))$/i;
 
 function canUseLocalStorage(): boolean {
   return typeof window !== 'undefined'
@@ -185,11 +185,15 @@ function normalizePersistedTimeline(rawValue: unknown): ExperienceTimelineCompan
       }];
     });
 
+    const unresolvedPlacement = Boolean(company.unresolvedPlacement);
     return [{
       id: company.id ?? createTimelineId('company'),
       company: company.company ?? '',
       needsReview: Boolean(company.needsReview),
-      unresolvedPlacement: Boolean(company.unresolvedPlacement),
+      unresolvedPlacement,
+      unresolvedKind: unresolvedPlacement
+        ? (company.unresolvedKind === 'featured_proof' ? 'featured_proof' : 'generic')
+        : undefined,
       roles: roles.length > 0 ? roles : [{
         id: createTimelineId('role'),
         title: '',
@@ -429,11 +433,18 @@ export function toTimelineCompanies(draft: ImportDraft): ExperienceTimelineCompa
       const suspiciousCompanyName = isLikelyNoiseCompanyName(company.name);
       const unresolvedPlacement = !company.name.trim()
         || (suspiciousCompanyName && !(hasStrongRoleAnchor && hasEvidenceLines));
+      const featuredProofOnly = unresolvedPlacement && roles.every((role) => {
+        const title = role.title.trim().toLowerCase();
+        return title === 'featured achievements' || title === 'featured proof';
+      });
 
       const nextCompany: ExperienceTimelineCompanyDraft = {
         id: company.id || createTimelineId('company'),
         company: unresolvedPlacement ? '' : company.name.trim(),
         unresolvedPlacement,
+        unresolvedKind: unresolvedPlacement
+          ? (featuredProofOnly ? 'featured_proof' : 'generic')
+          : undefined,
         needsReview: true,
         roles: roles.length > 0 ? roles : [{
           id: createTimelineId('role'),
@@ -471,7 +482,9 @@ function toExperiencePreviewGroups(companies: ExperienceTimelineCompanyDraft[]):
     .map((company) => ({
       id: company.id,
       company: company.unresolvedPlacement
-        ? 'Unresolved placement (assign company)'
+        ? (company.unresolvedKind === 'featured_proof'
+          ? 'Featured proof (assign company)'
+          : 'Unresolved placement (assign company)')
         : (company.company.trim() || 'Company needs review'),
       roles: company.roles.map((role) => ({
         id: role.id,
@@ -897,6 +910,7 @@ export function ProfileWorkspaceShell({ mode, initialIdentity, forceFreshSetup =
     setImportError(null);
     resetExtractionProgress();
     setActiveStep('details');
+    scrollWorkspaceToTop();
     void runResumeExtractionPipeline(file);
   };
 
@@ -1028,7 +1042,7 @@ export function ProfileWorkspaceShell({ mode, initialIdentity, forceFreshSetup =
     >
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10 [background-image:radial-gradient(circle,#e5e7eb_1px,transparent_1px)] [background-size:20px_20px]"
+        className="pointer-events-none absolute inset-0 -z-10 opacity-90 [background-image:radial-gradient(circle_at_1px_1px,rgba(229,231,235,0.96)_1px,transparent_0),linear-gradient(180deg,rgba(255,255,255,0.36),rgba(236,243,240,0.7))] [background-size:20px_20px,100%_100%]"
       />
       <header className="profile-workspace-glass mb-4 p-3 sm:p-4">
         <div className="flex items-center justify-between gap-3">

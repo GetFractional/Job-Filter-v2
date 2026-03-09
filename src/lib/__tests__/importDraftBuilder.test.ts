@@ -248,4 +248,51 @@ describe('importDraftBuilder', () => {
     expect(unresolvedText).toMatch(/30K\+ leads|55% conversion/i);
     expect(result.draft.companies.some((company) => /prosper wireless/i.test(company.name))).toBe(true);
   });
+
+  it('attaches selected achievements to company results when a high-confidence company anchor is explicit', () => {
+    const input = [
+      'Selected Achievements',
+      'Prosper Wireless (Telecom): Built lifecycle infrastructure supporting scale from $45M to $120M+.',
+      '',
+      'Prosper Wireless',
+      'Director of Growth & Retention',
+      'Sep 2023 - Nov 2025',
+      '- Owned acquisition and retention systems',
+    ].join('\n');
+
+    const result = buildImportDraftFromText(input, { mode: 'default' });
+    const prosperCompany = result.draft.companies.find((company) => /prosper wireless/i.test(company.name));
+    const prosperOutcomeText = (prosperCompany?.roles ?? [])
+      .flatMap((role) => role.outcomes.map((item) => item.text))
+      .join(' ');
+    const unresolvedText = result.draft.companies
+      .filter((company) => company.name === 'Unassigned')
+      .flatMap((company) => company.roles)
+      .flatMap((role) => [...role.highlights, ...role.outcomes])
+      .map((item) => item.text)
+      .join(' ');
+
+    expect(prosperCompany).toBeDefined();
+    expect(prosperOutcomeText).toMatch(/\$45M to \$120M\+/i);
+    expect(unresolvedText).not.toMatch(/\$45M to \$120M\+/i);
+  });
+
+  it('keeps wrapped Prosper-style bullet continuations attached as one responsibility line', () => {
+    const input = [
+      'Prosper Wireless',
+      'Director of Growth & Retention',
+      'Sep 2023 - Nov 2025',
+      '- Role ended in a company-wide reduction in force after ACP-driven revenue contraction',
+      '- retained 1+ year through final restructuring.',
+    ].join('\n');
+
+    const result = buildImportDraftFromText(input, { mode: 'default' });
+    const prosperCompany = result.draft.companies.find((company) => /prosper wireless/i.test(company.name));
+    const responsibilityLines = (prosperCompany?.roles ?? [])
+      .flatMap((role) => role.highlights.map((item) => item.text));
+
+    expect(prosperCompany).toBeDefined();
+    expect(responsibilityLines.some((line) => /revenue contraction retained 1\+ year through final restructuring/i.test(line))).toBe(true);
+    expect(responsibilityLines.filter((line) => /retained 1\+ year through final restructuring/i.test(line))).toHaveLength(1);
+  });
 });

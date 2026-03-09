@@ -66,7 +66,7 @@ html {
 }
 
 :root {
-  --app-bg: #EEF3F1;
+  --app-bg: #E9F0ED;
   --surface-bg: #FCFFFE;
   --surface-muted: #F2F6F4;
   --surface-strong: #E4ECE8;
@@ -85,9 +85,9 @@ html {
   --status-danger-bg: #fef2f2;
   --status-danger-border: #fca5a5;
   --status-danger-text: #991b1b;
-  --workspace-glass-bg: rgba(255, 255, 255, 0.7);
-  --workspace-glass-border: rgba(255, 255, 255, 0.3);
-  --workspace-glass-shadow: 0 16px 34px rgba(12, 24, 19, 0.1);
+  --workspace-glass-bg: rgba(255, 255, 255, 0.78);
+  --workspace-glass-border: rgba(255, 255, 255, 0.56);
+  --workspace-glass-shadow: 0 22px 42px rgba(8, 20, 16, 0.14), 0 5px 14px rgba(8, 20, 16, 0.08);
   --workspace-glass-radius: 16px;
   --radius-card: 18px;
   --radius-panel: 16px;
@@ -100,8 +100,9 @@ html {
 
 body {
   background:
-    radial-gradient(circle at 15% -10%, rgba(255, 255, 255, 0.68) 0%, rgba(255, 255, 255, 0) 48%),
-    radial-gradient(circle at 90% 5%, rgba(198, 225, 214, 0.55) 0%, rgba(198, 225, 214, 0) 46%),
+    radial-gradient(circle at 15% -10%, rgba(255, 255, 255, 0.76) 0%, rgba(255, 255, 255, 0) 48%),
+    radial-gradient(circle at 90% 5%, rgba(198, 225, 214, 0.62) 0%, rgba(198, 225, 214, 0) 46%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.24), rgba(233, 240, 237, 0.1)),
     var(--app-bg);
   color: var(--text-primary);
   font-size: 15px;
@@ -157,7 +158,7 @@ body {
 .profile-workspace-glass {
   border: 1px solid var(--workspace-glass-border);
   background: var(--workspace-glass-bg);
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(14px) saturate(125%);
   border-radius: var(--workspace-glass-radius);
   box-shadow: var(--workspace-glass-shadow);
   background-clip: padding-box;

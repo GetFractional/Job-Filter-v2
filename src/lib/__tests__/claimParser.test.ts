@@ -192,6 +192,37 @@ partnerships
     expect(lines.some((line) => /paid, lifecycle, and partnerships/i.test(line))).toBe(true);
   });
 
+  it('merges short wrapped fragments when previous bullet ends with an incomplete verb', () => {
+    const text = `
+Prosper Wireless
+Director of Growth & Retention
+Sep 2023 - Nov 2025
+- Revenue rose quickly and generated
+30K+ qualified leads in 2 quarters
+    `;
+
+    const claims = parseResumeStructured(text);
+    expect(claims.length).toBe(1);
+    const lines = [...claims[0].responsibilities, ...claims[0].outcomes.map((o) => o.description)];
+    expect(lines.some((line) => /generated 30K\+ qualified leads/i.test(line))).toBe(true);
+  });
+
+  it('merges wrapped bullet continuations that repeat the bullet marker', () => {
+    const text = `
+Prosper Wireless
+Director of Growth & Retention
+Sep 2023 - Nov 2025
+- Role ended in a company-wide reduction in force after ACP-driven revenue contraction
+- retained 1+ year through final restructuring.
+    `;
+
+    const claims = parseResumeStructured(text);
+    expect(claims.length).toBe(1);
+    const lines = [...claims[0].responsibilities, ...claims[0].outcomes.map((o) => o.description)];
+    expect(lines.some((line) => /revenue contraction retained 1\+ year through final restructuring/i.test(line))).toBe(true);
+    expect(lines.filter((line) => /retained 1\+ year through final restructuring/i.test(line))).toHaveLength(1);
+  });
+
   it('keeps summary-only older-role boundary bullets separate from the prior employer block', () => {
     const text = `
 Bob's Watches

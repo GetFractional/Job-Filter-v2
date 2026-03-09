@@ -177,7 +177,7 @@ const DATE_PATTERNS: RegExp[] = [
 ];
 
 // Bullet point prefixes
-const BULLET_RE = /^[\s]*[-–—*\u2022\u25CF\u25E6\u25AA\u25AB\u25B8\u25BA\u2023\u27A2\u2219\u2043✅✔➤➔]\s*/u;
+const BULLET_RE = /^[\s]*[-–—*\u2022\u25CF\u25E6\u25AA\u25AB\u25B8\u25BA\u2023\u27A2\u2219\u2043\uF0B7\uF0A7\uF0FC✅✔➤➔]\s*/u;
 const ZERO_WIDTH_RE = /\u200B|\u200C|\u200D|\uFEFF/g;
 
 // Metric indicators for outcome classification
@@ -247,8 +247,10 @@ const AT_HEADER_WITH_DATE_RE =
 const ARROW_HEADER_WITH_DATE_RE =
   /^[A-Z][A-Za-z0-9&.'’/()\- ]{1,90}\s*(?:→|->)\s*[A-Z][A-Za-z0-9&.'’/()\- ]{1,90}\s*\|\s*(?:.+)$/;
 const FEATURED_ACHIEVEMENTS_HEADER_RE = /^(featured|selected)\s+(achievements|highlights|results)$/i;
-const CONTINUATION_LEADING_RE = /^([+%(]|and\b|or\b|to\b|for\b|with\b|via\b|while\b|including\b|across\b|resulting\b)/i;
-const CONTINUATION_TRAILING_RE = /([,(/:+-]|\b(and|or|to|for|with|across|including|through|via|while|plus))$/i;
+const CONTINUATION_LEADING_RE = /^([+%(]|[$€£]?\d|and\b|or\b|to\b|for\b|with\b|via\b|while\b|including\b|across\b|resulting\b)/i;
+const CONTINUATION_TRAILING_RE = /([,(/:+&-]|\b(and|or|to|for|with|across|including|through|via|while|plus|of|in|on|by|into|over|under|between|generated|resulting))$/i;
+const INCOMPLETE_VERB_TRAILING_RE = /\b(generated|resulting|including|supporting|driving|building|leading|managing|delivering|improving)$/i;
+const FRAGMENT_VERB_LEADING_RE = /^(retained|supported|supporting)\b/i;
 const ACHIEVEMENT_VERB_RE = /\b(achieved|increased|reduced|grew|generated|drove|scaled|launched|delivered|improved)\b/i;
 
 function looksLikeRoleTitle(text: string): boolean {
@@ -307,9 +309,10 @@ function shouldMergeContinuationLine(
 
   const startsLikeContinuation = CONTINUATION_LEADING_RE.test(trimmed) || /^[a-z]/.test(trimmed);
   const previousSignalsContinuation = CONTINUATION_TRAILING_RE.test(previousBullet.trim());
+  const previousIncompleteVerb = INCOMPLETE_VERB_TRAILING_RE.test(previousBullet.trim());
   const shortTailFragment = trimmed.split(/\s+/).length <= 5 && !/[.!?]$/.test(trimmed);
 
-  if (!(startsLikeContinuation || previousSignalsContinuation || shortTailFragment)) {
+  if (!(startsLikeContinuation || previousSignalsContinuation || previousIncompleteVerb || shortTailFragment)) {
     return false;
   }
 
@@ -317,7 +320,7 @@ function shouldMergeContinuationLine(
     const nextIsBoundary = nextLine.kind === 'role_header'
       || nextLine.kind === 'section_header'
       || nextLine.kind === 'date_line';
-    if (nextIsBoundary && !previousSignalsContinuation && !startsLikeContinuation) {
+    if (nextIsBoundary && !previousSignalsContinuation && !startsLikeContinuation && !previousIncompleteVerb) {
       return false;
     }
   }
@@ -334,11 +337,12 @@ function shouldMergeEvidenceTextLine(previousLine: string | undefined, candidate
   if (looksLikeSummaryBoundaryLine(trimmed)) return false;
 
   const previousSignalsContinuation = CONTINUATION_TRAILING_RE.test(previousLine.trim());
+  const previousIncompleteVerb = INCOMPLETE_VERB_TRAILING_RE.test(previousLine.trim());
   const candidateSignalsContinuation = CONTINUATION_LEADING_RE.test(trimmed) || /^[a-z]/.test(trimmed) || /^[$€£]?\d/.test(trimmed);
   const shortTailFragment = trimmed.split(/\s+/).length <= 6 && !/[.!?]$/.test(trimmed);
 
-  if (previousSignalsContinuation || candidateSignalsContinuation) return true;
-  return shortTailFragment && previousSignalsContinuation;
+  if (previousSignalsContinuation || candidateSignalsContinuation || previousIncompleteVerb) return true;
+  return shortTailFragment && (previousSignalsContinuation || previousIncompleteVerb);
 }
 
 function mergeEvidenceTextLines(lines: string[]): string[] {
@@ -358,6 +362,29 @@ function mergeEvidenceTextLines(lines: string[]): string[] {
     merged.push(trimmed);
   }
   return merged;
+}
+
+function shouldMergeBulletLineIntoPrevious(
+  previousBullet: string | undefined,
+  candidateBullet: string,
+  nextLine: ClassifiedLine | undefined,
+): boolean {
+  if (!previousBullet) return false;
+  if (!candidateBullet.trim()) return false;
+
+  if (!shouldMergeContinuationLine(previousBullet, candidateBullet, nextLine)) {
+    return false;
+  }
+
+  const startsLikeContinuation = CONTINUATION_LEADING_RE.test(candidateBullet) || /^[a-z]/.test(candidateBullet) || /^[$€£]?\d/.test(candidateBullet);
+  const previousSignalsContinuation = CONTINUATION_TRAILING_RE.test(previousBullet.trim()) || INCOMPLETE_VERB_TRAILING_RE.test(previousBullet.trim());
+  if (startsLikeContinuation || previousSignalsContinuation) {
+    return true;
+  }
+
+  const candidateWords = candidateBullet.trim().split(/\s+/).length;
+  const looksLikeVerbFragment = FRAGMENT_VERB_LEADING_RE.test(candidateBullet.trim());
+  return looksLikeVerbFragment && candidateWords <= 10;
 }
 
 // ============================================================
@@ -684,6 +711,16 @@ function buildRawBlocks(classified: ClassifiedLine[]): RawClaimBlock[] {
       }
       const bulletText = cl.trimmed.replace(BULLET_RE, '').trim();
       if (bulletText) {
+        const previousBullet = current.bullets[current.bullets.length - 1];
+        const nextLine = classified[i + 1];
+        if (shouldMergeBulletLineIntoPrevious(previousBullet, bulletText, nextLine)) {
+          current.bullets[current.bullets.length - 1] = `${previousBullet} ${bulletText}`
+            .replace(/\s+/g, ' ')
+            .trim();
+          i++;
+          continue;
+        }
+
         // Resume summaries often include old jobs as bullet headers.
         // Keep those as independent review boundaries instead of silently
         // attaching them to the previous role.

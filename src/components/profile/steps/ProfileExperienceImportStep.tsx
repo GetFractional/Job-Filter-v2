@@ -33,6 +33,7 @@ export interface ExperienceTimelineCompanyDraft {
   company: string;
   needsReview: boolean;
   unresolvedPlacement?: boolean;
+  unresolvedKind?: 'generic' | 'featured_proof';
   roles: ExperienceTimelineRoleDraft[];
 }
 
@@ -57,6 +58,10 @@ const CONFIRMATION_CHECKLIST = [
   'Save once this timeline is trustworthy.',
 ];
 const TOAST_AUTO_DISMISS_MS = 7_000;
+const UTILITY_ICON_BUTTON_CLASS = 'inline-flex h-8 w-8 items-center justify-center rounded-[10px] border border-[var(--border-subtle)] bg-white/92 text-[var(--text-secondary)] shadow-[0_8px_14px_rgba(11,24,19,0.08)] hover:border-[var(--color-brand-300)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-45';
+const UTILITY_DELETE_BUTTON_CLASS = 'inline-flex h-8 w-8 items-center justify-center rounded-[10px] border border-[var(--border-subtle)] bg-white/92 text-[var(--text-secondary)] shadow-[0_8px_14px_rgba(11,24,19,0.08)] hover:border-[var(--status-danger-border)] hover:text-[var(--status-danger-text)]';
+const UTILITY_BADGE_CLASS = 'inline-flex h-8 items-center rounded-[10px] border px-2.5 text-[11px] font-medium';
+const UNRESOLVED_NOTE_CLASS = 'mt-2 rounded-[10px] border px-3 py-2.5 text-xs';
 
 function createDraftId(prefix: 'company' | 'role' | 'line'): string {
   return `${prefix}-manual-${Math.random().toString(36).slice(2, 10)}`;
@@ -130,7 +135,7 @@ function IconMoveButtons({
         type="button"
         onClick={onMoveUp}
         disabled={disableUp}
-        className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-[var(--border-subtle)] bg-white text-[var(--text-secondary)] hover:border-[var(--color-brand-300)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-45"
+        className={UTILITY_ICON_BUTTON_CLASS}
         aria-label={upLabel}
       >
         <ArrowUp size={13} aria-hidden />
@@ -139,7 +144,7 @@ function IconMoveButtons({
         type="button"
         onClick={onMoveDown}
         disabled={disableDown}
-        className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-[var(--border-subtle)] bg-white text-[var(--text-secondary)] hover:border-[var(--color-brand-300)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-45"
+        className={UTILITY_ICON_BUTTON_CLASS}
         aria-label={downLabel}
       >
         <ArrowDown size={13} aria-hidden />
@@ -161,7 +166,7 @@ function ExpandButton({
     <button
       type="button"
       onClick={onToggle}
-      className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-[var(--border-subtle)] bg-white text-[var(--text-secondary)] hover:border-[var(--color-brand-300)] hover:text-[var(--text-primary)]"
+      className={UTILITY_ICON_BUTTON_CLASS}
       aria-label={label}
       aria-expanded={expanded}
     >
@@ -361,6 +366,7 @@ export function ProfileExperienceImportStep({
         company: '',
         needsReview: true,
         unresolvedPlacement: true,
+        unresolvedKind: 'generic',
         roles: [createEmptyRole()],
       },
     ]);
@@ -419,7 +425,12 @@ export function ProfileExperienceImportStep({
   const updateCompany = (companyId: string, value: string) => {
     applyTimelineChange(
       timelineCompanies.map((company) => (company.id === companyId
-        ? { ...company, company: value, unresolvedPlacement: !value.trim() }
+        ? {
+          ...company,
+          company: value,
+          unresolvedPlacement: !value.trim(),
+          unresolvedKind: value.trim() ? undefined : (company.unresolvedKind ?? 'generic'),
+        }
         : company)),
     );
   };
@@ -627,29 +638,39 @@ export function ProfileExperienceImportStep({
         {timelineCompanies.map((company, companyIndex) => {
           const expandedCompany = isCompanyExpanded(company.id);
           const unresolvedPlacement = Boolean(company.unresolvedPlacement) || !company.company.trim();
+          const unresolvedKind = unresolvedPlacement && company.unresolvedKind === 'featured_proof'
+            ? 'featured_proof'
+            : 'generic';
+          const unresolvedHeading = unresolvedKind === 'featured_proof' ? 'Featured proof needs placement' : 'Unresolved placement';
+          const unresolvedNote = unresolvedKind === 'featured_proof'
+            ? 'These featured achievements appear before the timeline and need a company assignment before they can be reused in assets.'
+            : 'These lines could not be confidently placed under a company. Assign a company to resolve this evidence.';
+          const unresolvedChip = unresolvedKind === 'featured_proof' ? 'Featured proof' : 'Needs assignment';
 
           return (
             <div key={company.id} className="mr-0.5 rounded-[18px] border border-[var(--border-subtle)] bg-white/90 p-3 shadow-[0_14px_28px_rgba(15,25,20,0.08)]">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="min-w-0">
                   <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                    {unresolvedPlacement ? `Unresolved evidence ${companyIndex + 1}` : `Company ${companyIndex + 1}`}
+                    {unresolvedPlacement
+                      ? `${unresolvedKind === 'featured_proof' ? 'Featured proof' : 'Unresolved evidence'} ${companyIndex + 1}`
+                      : `Company ${companyIndex + 1}`}
                   </p>
                   {!unresolvedPlacement && company.company.trim() && (
                     <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{company.company}</p>
                   )}
                   {unresolvedPlacement && (
-                    <p className="truncate text-sm font-semibold text-[var(--status-warn-text)]">Unresolved placement</p>
+                    <p className="truncate text-sm font-semibold text-[var(--status-warn-text)]">{unresolvedHeading}</p>
                   )}
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center justify-end gap-1.5">
                   {unresolvedPlacement && (
-                    <span className="rounded-full border border-[var(--status-warn-border)] bg-[var(--status-warn-bg)] px-2 py-0.5 text-[11px] font-medium text-[var(--status-warn-text)]">
-                      Needs assignment
+                    <span className={`${UTILITY_BADGE_CLASS} border-[var(--status-warn-border)] bg-[var(--status-warn-bg)] text-[var(--status-warn-text)]`}>
+                      {unresolvedChip}
                     </span>
                   )}
                   {company.needsReview && (
-                    <span className="rounded-full border border-[var(--status-warn-border)] bg-[var(--status-warn-bg)] px-2 py-0.5 text-[11px] font-medium text-[var(--status-warn-text)]">
+                    <span className={`${UTILITY_BADGE_CLASS} border-[var(--status-warn-border)] bg-[var(--status-warn-bg)] text-[var(--status-warn-text)]`}>
                       Needs review
                     </span>
                   )}
@@ -669,7 +690,7 @@ export function ProfileExperienceImportStep({
                   <button
                     type="button"
                     onClick={() => removeCompany(company.id)}
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-[var(--border-subtle)] bg-white text-[var(--text-secondary)] hover:border-[var(--status-danger-border)] hover:text-[var(--status-danger-text)]"
+                    className={UTILITY_DELETE_BUTTON_CLASS}
                     aria-label="Remove company"
                   >
                     <Trash2 size={14} aria-hidden />
@@ -680,8 +701,8 @@ export function ProfileExperienceImportStep({
               {expandedCompany && (
                 <>
                   {unresolvedPlacement && (
-                    <p className="mt-2 rounded-[12px] border border-[var(--status-warn-border)] bg-[var(--status-warn-bg)] px-3 py-2 text-xs text-[var(--status-warn-text)]">
-                      These lines could not be confidently placed under a company. Assign a company to resolve this evidence.
+                    <p className={`${UNRESOLVED_NOTE_CLASS} border-[var(--status-warn-border)] bg-[var(--status-warn-bg)] text-[var(--status-warn-text)]`}>
+                      {unresolvedNote}
                     </p>
                   )}
                   <label className="mt-2 block text-xs font-medium text-[var(--text-secondary)]">
@@ -706,7 +727,7 @@ export function ProfileExperienceImportStep({
                         <div key={role.id} className="rounded-[14px] border border-[var(--border-subtle)] bg-[var(--surface-bg)] p-3">
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Role {roleIndex + 1}</p>
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center justify-end gap-1.5">
                               <IconMoveButtons
                                 onMoveUp={() => moveRole(company.id, roleIndex, 'up')}
                                 onMoveDown={() => moveRole(company.id, roleIndex, 'down')}
@@ -723,7 +744,7 @@ export function ProfileExperienceImportStep({
                               <button
                                 type="button"
                                 onClick={() => removeRole(company.id, role.id)}
-                                className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-[var(--border-subtle)] bg-white text-[var(--text-secondary)] hover:border-[var(--status-danger-border)] hover:text-[var(--status-danger-text)]"
+                                className={UTILITY_DELETE_BUTTON_CLASS}
                                 aria-label="Remove role"
                               >
                                 <Trash2 size={14} aria-hidden />
@@ -817,7 +838,7 @@ export function ProfileExperienceImportStep({
                                           <button
                                             type="button"
                                             onClick={() => removeRoleLine(company.id, role.id, 'responsibilities', lineIndex)}
-                                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-[var(--border-subtle)] bg-white text-[var(--text-secondary)] hover:border-[var(--status-danger-border)] hover:text-[var(--status-danger-text)]"
+                                            className={UTILITY_DELETE_BUTTON_CLASS}
                                             aria-label="Remove responsibility"
                                           >
                                             <Trash2 size={14} aria-hidden />
@@ -862,7 +883,7 @@ export function ProfileExperienceImportStep({
                                           <button
                                             type="button"
                                             onClick={() => removeRoleLine(company.id, role.id, 'results', lineIndex)}
-                                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-[var(--border-subtle)] bg-white text-[var(--text-secondary)] hover:border-[var(--status-danger-border)] hover:text-[var(--status-danger-text)]"
+                                            className={UTILITY_DELETE_BUTTON_CLASS}
                                             aria-label="Remove result"
                                           >
                                             <Trash2 size={14} aria-hidden />
