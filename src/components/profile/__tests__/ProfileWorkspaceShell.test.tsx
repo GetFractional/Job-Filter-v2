@@ -662,7 +662,7 @@ describe('ProfileWorkspaceShell', () => {
     await waitFor(() => {
       expect(screen.getByLabelText('Assign company')).toBeTruthy();
     });
-    expect(screen.getByText(/Needs assignment/i)).toBeTruthy();
+    expect(screen.getByText(/Assignment needed/i)).toBeTruthy();
     expect(screen.queryByDisplayValue('TN | Jun 2020')).toBeNull();
   });
 

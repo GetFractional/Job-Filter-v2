@@ -686,11 +686,11 @@ export function ProfileExperienceImportStep({
           const unresolvedKind = unresolvedPlacement && company.unresolvedKind === 'featured_proof'
             ? 'featured_proof'
             : 'generic';
-          const unresolvedHeading = unresolvedKind === 'featured_proof' ? 'Featured proof needs placement' : 'Unresolved placement';
+          const unresolvedTitle = unresolvedKind === 'featured_proof' ? 'Featured proof' : 'Unresolved evidence';
           const unresolvedNote = unresolvedKind === 'featured_proof'
             ? 'These featured achievements appear before the timeline and need a company assignment before they can be reused in assets.'
             : 'These lines could not be confidently placed under a company. Assign a company to resolve this evidence.';
-          const unresolvedChip = unresolvedKind === 'featured_proof' ? 'Featured proof' : 'Needs assignment';
+          const unresolvedChip = 'Assignment needed';
 
           return (
             <div key={company.id} className="mr-0.5 rounded-[18px] border border-[var(--border-subtle)] bg-white/90 p-3 shadow-[0_14px_28px_rgba(15,25,20,0.08)]">
@@ -698,23 +698,20 @@ export function ProfileExperienceImportStep({
                 <div className="min-w-0">
                   <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
                     {unresolvedPlacement
-                      ? `${unresolvedKind === 'featured_proof' ? 'Featured proof' : 'Unresolved evidence'} ${companyIndex + 1}`
+                      ? unresolvedTitle
                       : `Company ${companyIndex + 1}`}
                   </p>
                   {!unresolvedPlacement && company.company.trim() && (
                     <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{company.company}</p>
                   )}
-                  {unresolvedPlacement && (
-                    <p className="truncate text-sm font-semibold text-[var(--status-warn-text)]">{unresolvedHeading}</p>
-                  )}
-                  {(unresolvedPlacement || company.needsReview) && (
+                  {(unresolvedPlacement || (!unresolvedPlacement && company.needsReview)) && (
                     <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                       {unresolvedPlacement && (
                         <span className={`${UTILITY_BADGE_CLASS} border-[var(--status-warn-border)] bg-[var(--status-warn-bg)] text-[var(--status-warn-text)]`}>
                           {unresolvedChip}
                         </span>
                       )}
-                      {company.needsReview && (
+                      {!unresolvedPlacement && company.needsReview && (
                         <span className={`${UTILITY_BADGE_CLASS} border-[var(--status-warn-border)] bg-[var(--status-warn-bg)] text-[var(--status-warn-text)]`}>
                           Needs review
                         </span>
@@ -903,14 +900,16 @@ export function ProfileExperienceImportStep({
                                       </div>
                                     ))}
                                   </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => addRoleLine(company.id, role.id, 'responsibilities')}
-                                    className="workspace-btn-secondary mt-2"
-                                  >
-                                    <Plus size={14} aria-hidden />
-                                    Add responsibility
-                                  </button>
+                                  <div className="mt-2 flex justify-end">
+                                    <button
+                                      type="button"
+                                      onClick={() => addRoleLine(company.id, role.id, 'responsibilities')}
+                                      className="workspace-btn-secondary"
+                                    >
+                                      <Plus size={14} aria-hidden />
+                                      Add responsibility
+                                    </button>
+                                  </div>
                                 </div>
 
                                 <div className={PROOF_SECTION_WRAPPER_CLASS}>
@@ -948,14 +947,16 @@ export function ProfileExperienceImportStep({
                                       </div>
                                     ))}
                                   </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => addRoleLine(company.id, role.id, 'results')}
-                                    className="workspace-btn-secondary mt-2"
-                                  >
-                                    <Plus size={14} aria-hidden />
-                                    Add result
-                                  </button>
+                                  <div className="mt-2 flex justify-end">
+                                    <button
+                                      type="button"
+                                      onClick={() => addRoleLine(company.id, role.id, 'results')}
+                                      className="workspace-btn-secondary"
+                                    >
+                                      <Plus size={14} aria-hidden />
+                                      Add result
+                                    </button>
+                                  </div>
                                 </div>
                               </div>
                             </>
@@ -965,10 +966,12 @@ export function ProfileExperienceImportStep({
                     })}
                   </div>
 
-                  <button type="button" onClick={() => addRole(company.id)} className="workspace-btn-secondary mt-3">
-                    <Plus size={14} aria-hidden />
-                    Add role
-                  </button>
+                  <div className="mt-3 flex justify-end">
+                    <button type="button" onClick={() => addRole(company.id)} className="workspace-btn-secondary">
+                      <Plus size={14} aria-hidden />
+                      Add role
+                    </button>
+                  </div>
                 </>
               )}
             </div>
@@ -982,10 +985,12 @@ export function ProfileExperienceImportStep({
         </p>
       )}
 
-      <button type="button" onClick={addCompany} className="workspace-btn-secondary mt-3">
-        <Plus size={14} aria-hidden />
-        Add company
-      </button>
+      <div className="mt-3 flex justify-end">
+        <button type="button" onClick={addCompany} className="workspace-btn-secondary">
+          <Plus size={14} aria-hidden />
+          Add company
+        </button>
+      </div>
 
       {experienceConfirmed && (
         <p className="mt-4 rounded-[var(--radius-control)] border border-[var(--status-success-border)] bg-[var(--status-success-bg)] px-3 py-2 text-sm font-medium text-[var(--status-success-text)]">
