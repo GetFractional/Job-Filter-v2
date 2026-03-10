@@ -177,7 +177,7 @@ const DATE_PATTERNS: RegExp[] = [
 ];
 
 // Bullet point prefixes
-const BULLET_RE = /^[\s]*[-–—*\u2022\u25CF\u25E6\u25AA\u25AB\u25B8\u25BA\u2023\u27A2\u2219\u2043✅✔➤➔]\s*/u;
+const BULLET_RE = /^[\s]*[-–—*\u2022\u25CF\u25E6\u25AA\u25AB\u25B8\u25BA\u2023\u27A2\u2219\u2043\uF0B7\uF0A7\uF0FC✅✔➤➔]\s*/u;
 const ZERO_WIDTH_RE = /\u200B|\u200C|\u200D|\uFEFF/g;
 
 // Metric indicators for outcome classification
@@ -240,6 +240,18 @@ const LOCATION_LINE_RE =
   /\b(remote|hybrid|onsite|on-site|in office)\b|^[A-Z][a-zA-Z\s]+,\s*[A-Z]{2}(?:\s+\d{5})?$/i;
 const METRIC_LINE_RE =
   /^[$€£]?\d[\d,]*(?:\.\d+)?\s*(?:%|x|k|m|b)?(?:\s*[-–—]\s*[$€£]?\d[\d,]*(?:\.\d+)?\s*(?:%|x|k|m|b)?)?$/i;
+const PIPE_HEADER_WITH_DATE_RE =
+  /^[A-Z][A-Za-z0-9&.'’/()\- ]{1,90}\s*\|\s*[A-Z][A-Za-z0-9&.'’/()\- ]{1,90}\s*\|\s*(?:.+)$/;
+const AT_HEADER_WITH_DATE_RE =
+  /^[A-Z][A-Za-z0-9&.'’/()\- ]{1,90}\s+(?:at|@)\s+[A-Z][A-Za-z0-9&.'’/()\- ]{1,90}\s*[|–—-]\s*(?:.+)$/i;
+const ARROW_HEADER_WITH_DATE_RE =
+  /^[A-Z][A-Za-z0-9&.'’/()\- ]{1,90}\s*(?:→|->)\s*[A-Z][A-Za-z0-9&.'’/()\- ]{1,90}\s*\|\s*(?:.+)$/;
+const FEATURED_ACHIEVEMENTS_HEADER_RE = /^(featured|selected)\s+(achievements|highlights|results)$/i;
+const CONTINUATION_LEADING_RE = /^([+%(]|[$€£]?\d|and\b|or\b|to\b|for\b|with\b|via\b|while\b|including\b|across\b|resulting\b)/i;
+const CONTINUATION_TRAILING_RE = /([,(/:+&-]|\b(and|or|to|for|with|across|including|through|via|while|plus|of|in|on|by|into|over|under|between|generated|resulting))$/i;
+const INCOMPLETE_VERB_TRAILING_RE = /\b(generated|resulting|including|supporting|driving|building|leading|managing|delivering|improving)$/i;
+const FRAGMENT_VERB_LEADING_RE = /^(retained|supported|supporting)\b/i;
+const ACHIEVEMENT_VERB_RE = /\b(achieved|increased|reduced|grew|generated|drove|scaled|launched|delivered|improved)\b/i;
 
 function looksLikeRoleTitle(text: string): boolean {
   return ROLE_KEYWORDS_RE.test(text);
@@ -253,6 +265,126 @@ function isHeaderNoise(text: string): boolean {
   if (LOCATION_LINE_RE.test(trimmed)) return true;
   if (/^[A-Z]{2,}\s+\d{5}(?:-\d{4})?$/.test(trimmed)) return true;
   return false;
+}
+
+function looksLikeSummaryBoundaryLine(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+  const hasDate = Boolean(extractDateRange(trimmed)) || /\b(?:19|20)\d{2}\b/.test(trimmed);
+  if (!hasDate) return false;
+  if (PIPE_HEADER_WITH_DATE_RE.test(trimmed)) return true;
+  if (AT_HEADER_WITH_DATE_RE.test(trimmed)) return true;
+  if (ARROW_HEADER_WITH_DATE_RE.test(trimmed)) return true;
+  if (/^[A-Z]{2}\s*[|/,]\s*(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\s+\d{4}$/i.test(trimmed)) {
+    return true;
+  }
+  return false;
+}
+
+function shouldCapturePreExperienceEvidence(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed) return false;
+  if (isSectionHeader(trimmed)) return false;
+  if (isHeaderNoise(trimmed)) return false;
+  if (looksLikeRoleTitle(trimmed) && trimmed.split(/\s+/).length <= 8) return false;
+  if (FEATURED_ACHIEVEMENTS_HEADER_RE.test(trimmed)) return true;
+  if (METRIC_RE.test(trimmed)) return true;
+  if (ACHIEVEMENT_VERB_RE.test(trimmed) && trimmed.split(/\s+/).length <= 18) return true;
+  return false;
+}
+
+function shouldMergeContinuationLine(
+  previousBullet: string | undefined,
+  candidate: string,
+  nextLine: ClassifiedLine | undefined,
+): boolean {
+  if (!previousBullet) return false;
+
+  const trimmed = candidate.trim();
+  if (!trimmed) return false;
+  if (isSectionHeader(trimmed)) return false;
+  if (extractDateRange(trimmed)) return false;
+  if (looksLikeSummaryBoundaryLine(trimmed)) return false;
+  if (BULLET_RE.test(trimmed)) return false;
+
+  const startsLikeContinuation = CONTINUATION_LEADING_RE.test(trimmed) || /^[a-z]/.test(trimmed);
+  const previousSignalsContinuation = CONTINUATION_TRAILING_RE.test(previousBullet.trim());
+  const previousIncompleteVerb = INCOMPLETE_VERB_TRAILING_RE.test(previousBullet.trim());
+  const shortTailFragment = trimmed.split(/\s+/).length <= 5 && !/[.!?]$/.test(trimmed);
+
+  if (!(startsLikeContinuation || previousSignalsContinuation || previousIncompleteVerb || shortTailFragment)) {
+    return false;
+  }
+
+  if (nextLine) {
+    const nextIsBoundary = nextLine.kind === 'role_header'
+      || nextLine.kind === 'section_header'
+      || nextLine.kind === 'date_line';
+    if (nextIsBoundary && !previousSignalsContinuation && !startsLikeContinuation && !previousIncompleteVerb) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function shouldMergeEvidenceTextLine(previousLine: string | undefined, candidate: string): boolean {
+  if (!previousLine) return false;
+  const trimmed = candidate.trim();
+  if (!trimmed) return false;
+  if (isSectionHeader(trimmed)) return false;
+  if (extractDateRange(trimmed)) return false;
+  if (looksLikeSummaryBoundaryLine(trimmed)) return false;
+
+  const previousSignalsContinuation = CONTINUATION_TRAILING_RE.test(previousLine.trim());
+  const previousIncompleteVerb = INCOMPLETE_VERB_TRAILING_RE.test(previousLine.trim());
+  const candidateSignalsContinuation = CONTINUATION_LEADING_RE.test(trimmed) || /^[a-z]/.test(trimmed) || /^[$€£]?\d/.test(trimmed);
+  const shortTailFragment = trimmed.split(/\s+/).length <= 6 && !/[.!?]$/.test(trimmed);
+
+  if (previousSignalsContinuation || candidateSignalsContinuation || previousIncompleteVerb) return true;
+  return shortTailFragment && (previousSignalsContinuation || previousIncompleteVerb);
+}
+
+function mergeEvidenceTextLines(lines: string[]): string[] {
+  const merged: string[] = [];
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    const previous = merged[merged.length - 1];
+    if (shouldMergeEvidenceTextLine(previous, trimmed)) {
+      merged[merged.length - 1] = `${previous} ${trimmed}`
+        .replace(/\s+/g, ' ')
+        .trim();
+      continue;
+    }
+
+    merged.push(trimmed);
+  }
+  return merged;
+}
+
+function shouldMergeBulletLineIntoPrevious(
+  previousBullet: string | undefined,
+  candidateBullet: string,
+  nextLine: ClassifiedLine | undefined,
+): boolean {
+  if (!previousBullet) return false;
+  if (!candidateBullet.trim()) return false;
+
+  if (!shouldMergeContinuationLine(previousBullet, candidateBullet, nextLine)) {
+    return false;
+  }
+
+  const startsLikeContinuation = CONTINUATION_LEADING_RE.test(candidateBullet) || /^[a-z]/.test(candidateBullet) || /^[$€£]?\d/.test(candidateBullet);
+  const previousSignalsContinuation = CONTINUATION_TRAILING_RE.test(previousBullet.trim()) || INCOMPLETE_VERB_TRAILING_RE.test(previousBullet.trim());
+  if (startsLikeContinuation || previousSignalsContinuation) {
+    return true;
+  }
+
+  const candidateWords = candidateBullet.trim().split(/\s+/).length;
+  const looksLikeVerbFragment = FRAGMENT_VERB_LEADING_RE.test(candidateBullet.trim());
+  return looksLikeVerbFragment && candidateWords <= 10;
 }
 
 // ============================================================
@@ -501,6 +633,8 @@ function tryLinkedInBlock(
 function buildRawBlocks(classified: ClassifiedLine[]): RawClaimBlock[] {
   const blocks: RawClaimBlock[] = [];
   let current: RawClaimBlock | null = null;
+  let sawStructuredTimeline = false;
+  const preExperienceEvidence: string[] = [];
 
   const pushCurrent = () => {
     if (current) {
@@ -522,6 +656,7 @@ function buildRawBlocks(classified: ClassifiedLine[]): RawClaimBlock[] {
     // Explicit role_header — always starts a new block
     if (cl.kind === 'role_header' && cl.headerMatch) {
       pushCurrent();
+      sawStructuredTimeline = true;
       current = {
         role: cl.headerMatch.role,
         company: cl.headerMatch.company,
@@ -539,6 +674,7 @@ function buildRawBlocks(classified: ClassifiedLine[]): RawClaimBlock[] {
       const linked = tryLinkedInBlock(classified, i);
       if (linked) {
         pushCurrent();
+        sawStructuredTimeline = true;
         current = {
           role: linked.role,
           company: linked.company,
@@ -575,6 +711,32 @@ function buildRawBlocks(classified: ClassifiedLine[]): RawClaimBlock[] {
       }
       const bulletText = cl.trimmed.replace(BULLET_RE, '').trim();
       if (bulletText) {
+        const previousBullet = current.bullets[current.bullets.length - 1];
+        const nextLine = classified[i + 1];
+        if (shouldMergeBulletLineIntoPrevious(previousBullet, bulletText, nextLine)) {
+          current.bullets[current.bullets.length - 1] = `${previousBullet} ${bulletText}`
+            .replace(/\s+/g, ' ')
+            .trim();
+          i++;
+          continue;
+        }
+
+        // Resume summaries often include old jobs as bullet headers.
+        // Keep those as independent review boundaries instead of silently
+        // attaching them to the previous role.
+        if (current && (current.role || current.company) && looksLikeSummaryBoundaryLine(bulletText)) {
+          pushCurrent();
+          current = {
+            role: '',
+            company: '',
+            startDate: '',
+            endDate: '',
+            bullets: [bulletText],
+            textLines: [],
+          };
+          i++;
+          continue;
+        }
         current.bullets.push(bulletText);
         i++;
         continue;
@@ -615,20 +777,15 @@ function buildRawBlocks(classified: ClassifiedLine[]): RawClaimBlock[] {
       if (current) {
         const previousBullet = current.bullets[current.bullets.length - 1];
         const nextLine = classified[i + 1];
-        const continuationCandidate = /^[\s]*([+%(]|[a-z])/.test(cl.trimmed);
-        const nextLooksLikeBoundary = !!nextLine && (
-          nextLine.kind === 'role_header' ||
-          nextLine.kind === 'section_header' ||
-          nextLine.kind === 'date_line'
-        );
-
-        if (previousBullet && continuationCandidate && !nextLooksLikeBoundary) {
+        if (shouldMergeContinuationLine(previousBullet, cl.trimmed, nextLine)) {
           current.bullets[current.bullets.length - 1] = `${previousBullet} ${cl.trimmed}`
             .replace(/\s+/g, ' ')
             .trim();
         } else {
           current.textLines.push(cl.trimmed);
         }
+      } else if (!sawStructuredTimeline && shouldCapturePreExperienceEvidence(cl.trimmed)) {
+        preExperienceEvidence.push(cl.trimmed);
       }
       // If there's no current block, we discard stray text (not enough info
       // to start a claim).
@@ -641,6 +798,16 @@ function buildRawBlocks(classified: ClassifiedLine[]): RawClaimBlock[] {
   }
 
   pushCurrent();
+  if (preExperienceEvidence.length > 0) {
+    blocks.unshift({
+      role: '',
+      company: '',
+      startDate: '',
+      endDate: '',
+      bullets: [],
+      textLines: preExperienceEvidence,
+    });
+  }
   return blocks;
 }
 
@@ -664,6 +831,24 @@ function makeClaim(): ParsedClaim {
   };
 }
 
+function shouldTreatTextLineAsEvidence(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed) return false;
+  if (isSectionHeader(trimmed)) return false;
+  if (extractDateRange(trimmed)) return false;
+  if (looksLikeSummaryBoundaryLine(trimmed)) return true;
+  if (trimmed.length < 12) return false;
+  if (
+    looksLikeRoleTitle(trimmed)
+    && !METRIC_RE.test(trimmed)
+    && !/[.!?]/.test(trimmed)
+    && trimmed.split(/\s+/).length <= 8
+  ) {
+    return false;
+  }
+  return /[a-z]/.test(trimmed) || /\d/.test(trimmed);
+}
+
 function blockToClaim(block: RawClaimBlock): ParsedClaim {
   const claim = makeClaim();
   claim.role = block.role;
@@ -674,7 +859,7 @@ function blockToClaim(block: RawClaimBlock): ParsedClaim {
   // Collect tools from all text
   const allToolsSet = new Set<string>();
 
-  for (const bullet of block.bullets) {
+  for (const bullet of mergeEvidenceTextLines(block.bullets)) {
     // Detect tools
     for (const t of detectTools(bullet)) {
       allToolsSet.add(t);
@@ -693,11 +878,28 @@ function blockToClaim(block: RawClaimBlock): ParsedClaim {
     }
   }
 
-  // Also scan non-bullet text lines for tools
-  for (const line of block.textLines) {
+  // Also scan non-bullet text lines for tools and evidence that extraction
+  // may not have marked with bullet glyphs.
+  for (const line of mergeEvidenceTextLines(block.textLines)) {
+    const normalized = line.trim();
+    if (!normalized) continue;
+
     for (const t of detectTools(line)) {
       allToolsSet.add(t);
     }
+
+    if (!shouldTreatTextLineAsEvidence(normalized)) continue;
+    if (METRIC_RE.test(normalized)) {
+      const metricMatch = normalized.match(METRIC_VALUE_RE);
+      claim.outcomes.push({
+        description: normalized,
+        metric: metricMatch?.[1],
+        isNumeric: !!metricMatch,
+      });
+      continue;
+    }
+
+    claim.responsibilities.push(normalized);
   }
 
   claim.tools = [...allToolsSet];
@@ -717,8 +919,16 @@ function mergeAdjacentRolelessClaims(claims: ParsedClaim[]): ParsedClaim[] {
     const prev = merged[merged.length - 1];
     const curr = claims[i];
 
+    const evidenceLines = [
+      ...curr.responsibilities,
+      ...curr.outcomes.map((outcome) => outcome.description),
+    ];
+    const isBoundarySignal = Boolean(curr.startDate || curr.endDate)
+      || evidenceLines.some((line) => looksLikeSummaryBoundaryLine(line));
+
     // If current has neither role nor company, merge into previous
-    if (!curr.role && !curr.company) {
+    // only when it is clearly a fragment, not an unresolved older-job boundary.
+    if (!curr.role && !curr.company && !isBoundarySignal) {
       prev.responsibilities.push(...curr.responsibilities);
       prev.outcomes.push(...curr.outcomes);
       // Merge tools (dedup handled later)

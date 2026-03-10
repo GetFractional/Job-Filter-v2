@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useStore } from './store/useStore';
 import { AppShell } from './components/layout/AppShell';
 import { PipelinePage } from './pages/PipelinePage';
@@ -7,6 +7,7 @@ import { JobWorkspacePage } from './pages/JobWorkspacePage';
 import { DashboardPage } from './pages/DashboardPage';
 import { ContactsPage } from './pages/ContactsPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { ProfileWorkspacePage } from './pages/ProfileWorkspacePage';
 import { CaptureModal } from './components/jobs/CaptureModal';
 import { OnboardingWizard } from './components/onboarding/OnboardingWizard';
 import { ONBOARDING_STORAGE_KEY } from './lib/profileState';
@@ -15,6 +16,7 @@ export default function App() {
   const initialize = useStore((s) => s.initialize);
   const isLoading = useStore((s) => s.isLoading);
   const jobs = useStore((s) => s.jobs);
+  const location = useLocation();
 
   useEffect(() => {
     initialize();
@@ -27,6 +29,7 @@ export default function App() {
     () => !isLoading && !dismissed && jobs.length === 0,
     [isLoading, dismissed, jobs.length],
   );
+  const isProfileWorkspaceRoute = location.pathname.startsWith('/profile');
 
   const handleOnboardingComplete = () => {
     localStorage.setItem(ONBOARDING_STORAGE_KEY, 'true');
@@ -45,7 +48,7 @@ export default function App() {
     );
   }
 
-  if (showOnboarding) {
+  if (showOnboarding && !isProfileWorkspaceRoute) {
     return <OnboardingWizard onComplete={handleOnboardingComplete} />;
   }
 
@@ -58,6 +61,7 @@ export default function App() {
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/contacts" element={<ContactsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/profile" element={<ProfileWorkspacePage />} />
       </Routes>
       <CaptureModal />
     </AppShell>

@@ -298,6 +298,16 @@ export interface MustHaveSummary {
   hasBlockers: boolean;
 }
 
+export type ProfileWorkspaceMode = 'setup' | 'edit' | 'complete';
+
+export type ProfileWorkspaceSectionId =
+  | 'start_here'
+  | 'details'
+  | 'experience'
+  | 'skills'
+  | 'extras'
+  | 'preferences';
+
 export interface Profile {
   id: string;
   name: string;

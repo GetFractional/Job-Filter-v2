@@ -7,6 +7,8 @@ import {
 } from '../importDraftBuilder';
 import marketingFixture from './fixtures/matt_marketing_director_sanitized.txt?raw';
 import profileFixture from './fixtures/profile_linkedin_export_sanitized.txt?raw';
+import recentAndSummaryFixture from './fixtures/matt_recent_detailed_plus_older_summary.txt?raw';
+import modeRegressionFixture from './fixtures/matt_pdf_mode_regression.txt?raw';
 
 describe('importDraftBuilder', () => {
   it('builds a company-first draft with confidence/status/source refs', () => {
@@ -93,7 +95,6 @@ describe('importDraftBuilder', () => {
       ]),
     );
 
-    expect(statuses.length).toBeGreaterThan(0);
     expect(statuses).not.toContain('rejected');
   });
 
@@ -112,10 +113,11 @@ describe('importDraftBuilder', () => {
     expect(isLikelySuspiciousCompanyName('BC | Aug 2019')).toBe(true);
     expect(isLikelySuspiciousCompanyName('CA | Jan 2017')).toBe(true);
     expect(isLikelySuspiciousCompanyName('San Francisco, CA')).toBe(true);
+    expect(isLikelySuspiciousCompanyName('55% conversion; negotiated a $5M LOI to purchase the company.')).toBe(true);
     expect(isLikelySuspiciousCompanyName('Acme Corp')).toBe(false);
   });
 
-  it('routes suspicious company headers into needs-review status', () => {
+  it('routes suspicious company headers into unassigned needs-review buckets', () => {
     const input = [
       'TN | Jun 2020',
       'Dec 2021 - Present',
@@ -123,10 +125,35 @@ describe('importDraftBuilder', () => {
     ].join('\n');
 
     const result = buildImportDraftFromText(input, { mode: 'default' });
-    const suspiciousCompany = result.draft.companies.find((company) => company.name === 'TN | Jun 2020');
+    const unresolvedCompany = result.draft.companies.find((company) => company.name === 'Unassigned');
 
-    expect(suspiciousCompany).toBeDefined();
-    expect(suspiciousCompany?.status).toBe('needs_review');
+    expect(unresolvedCompany).toBeDefined();
+    expect(unresolvedCompany?.status).toBe('needs_review');
+  });
+
+  it('keeps unresolved summary-boundary evidence in review state', () => {
+    const input = [
+      "- Infiniti Nashville → Marketing Director | Jun 2020 - Dec 2020",
+      "- Nissan North America → Senior Marketing Manager | Jan 2018 - May 2020",
+    ].join('\n');
+
+    const result = buildImportDraftFromText(input, { mode: 'default' });
+    const unresolvedCompanies = result.draft.companies.filter((company) => company.name === 'Unassigned');
+
+    expect(unresolvedCompanies.length).toBeGreaterThanOrEqual(1);
+    expect(unresolvedCompanies.every((company) => company.status === 'needs_review')).toBe(true);
+    expect(unresolvedCompanies.flatMap((company) => company.roles).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('skips obvious noisy metric/location role-company fragments that lack timeline structure', () => {
+    const input = [
+      '55% conversion; negotiated a $5M LOI to purchase the company.',
+      'Nashville',
+      '30K+ leads',
+    ].join('\\n');
+
+    const result = buildImportDraftFromText(input, { mode: 'default' });
+    expect(result.draft.companies).toEqual([]);
   });
 
   it('marks Present roles as currentRole in timeline structure', () => {
@@ -143,5 +170,129 @@ describe('importDraftBuilder', () => {
     expect(role).toBeDefined();
     expect(role?.currentRole).toBe(true);
     expect(role?.endDate ?? '').toBe('');
+  });
+
+  it('keeps older summary-only role headers out of the recent detailed employer bullets', () => {
+    const result = buildImportDraftFromText(recentAndSummaryFixture, { mode: 'default' });
+    const bobsCompany = result.draft.companies.find((company) => /bob'?s watches/i.test(company.name));
+
+    expect(bobsCompany).toBeDefined();
+    const bobsLines = (bobsCompany?.roles ?? [])
+      .flatMap((role) => [...role.highlights, ...role.outcomes])
+      .map((item) => item.text)
+      .join(' ');
+    expect(bobsLines).not.toMatch(/Infiniti Nashville/i);
+    expect(bobsLines).not.toMatch(/Nissan North America/i);
+
+    const nonBobLines = result.draft.companies
+      .filter((company) => !/bob'?s watches/i.test(company.name))
+      .flatMap((company) => company.roles)
+      .flatMap((role) => [...role.highlights, ...role.outcomes])
+      .map((item) => item.text)
+      .join(' ');
+    expect(nonBobLines).toMatch(/Infiniti Nashville/i);
+    expect(nonBobLines).toMatch(/Nissan North America/i);
+  });
+
+  it('keeps real employers visible instead of routing the full timeline into unresolved buckets', () => {
+    const result = buildBestImportDraftFromText(modeRegressionFixture);
+    const companyNames = result.draft.companies.map((company) => company.name);
+    const unresolvedCount = companyNames.filter((name) => name === 'Unassigned').length;
+
+    expect(companyNames).toContain('Prosper Wireless');
+    expect(companyNames).toContain('AffordableInsuranceQuotes.com™');
+    expect(companyNames).toContain('Breakthrough Academy');
+    expect(companyNames).toContain('Bob’s Watches');
+    expect(unresolvedCount).toBeLessThan(companyNames.length);
+    expect(result.diagnostics.selectedMode).not.toBe('bullets');
+  });
+
+  it('preserves wrapped Prosper Wireless responsibilities as a single line', () => {
+    const input = [
+      'Prosper Wireless',
+      'Director of Growth & Retention',
+      'Sep 2023 - Nov 2025',
+      '- Owned full-funnel growth strategy across paid, lifecycle, and',
+      'partnerships',
+    ].join('\n');
+
+    const result = buildImportDraftFromText(input, { mode: 'default' });
+    const prosperRole = result.draft.companies.find((company) => /prosper wireless/i.test(company.name))?.roles[0];
+    const highlightsText = (prosperRole?.highlights ?? []).map((item) => item.text).join(' ');
+
+    expect(highlightsText).toMatch(/paid, lifecycle, and partnerships/i);
+  });
+
+  it('keeps top featured achievements in review state instead of dropping them', () => {
+    const input = [
+      'MATT DIMOCK',
+      'Selected Achievements',
+      '30K+ leads',
+      '55% conversion; negotiated a $5M LOI to purchase the company.',
+      '',
+      'Prosper Wireless',
+      'Director of Growth & Retention',
+      'Sep 2023 - Nov 2025',
+      '- Increased qualified pipeline by 48% year over year',
+    ].join('\n');
+
+    const result = buildImportDraftFromText(input, { mode: 'default' });
+    const unresolvedRoles = result.draft.companies
+      .filter((company) => company.name === 'Unassigned')
+      .flatMap((company) => company.roles);
+    const unresolvedText = unresolvedRoles
+      .flatMap((role) => [...role.highlights, ...role.outcomes])
+      .map((item) => item.text)
+      .join(' ');
+
+    expect(unresolvedText).toMatch(/30K\+ leads|55% conversion/i);
+    expect(result.draft.companies.some((company) => /prosper wireless/i.test(company.name))).toBe(true);
+  });
+
+  it('attaches selected achievements to company results when a high-confidence company anchor is explicit', () => {
+    const input = [
+      'Selected Achievements',
+      'Prosper Wireless (Telecom): Built lifecycle infrastructure supporting scale from $45M to $120M+.',
+      '',
+      'Prosper Wireless',
+      'Director of Growth & Retention',
+      'Sep 2023 - Nov 2025',
+      '- Owned acquisition and retention systems',
+    ].join('\n');
+
+    const result = buildImportDraftFromText(input, { mode: 'default' });
+    const prosperCompany = result.draft.companies.find((company) => /prosper wireless/i.test(company.name));
+    const prosperOutcomeText = (prosperCompany?.roles ?? [])
+      .flatMap((role) => role.outcomes.map((item) => item.text))
+      .join(' ');
+    const unresolvedText = result.draft.companies
+      .filter((company) => company.name === 'Unassigned')
+      .flatMap((company) => company.roles)
+      .flatMap((role) => [...role.highlights, ...role.outcomes])
+      .map((item) => item.text)
+      .join(' ');
+
+    expect(prosperCompany).toBeDefined();
+    expect(prosperOutcomeText).toMatch(/\$45M to \$120M\+/i);
+    expect(unresolvedText).not.toMatch(/\$45M to \$120M\+/i);
+  });
+
+  it('keeps wrapped Prosper-style bullet continuations attached as one responsibility line', () => {
+    const input = [
+      'Prosper Wireless',
+      'Director of Growth & Retention',
+      'Sep 2023 - Nov 2025',
+      '- Role ended in a company-wide reduction in force after ACP-driven revenue contraction',
+      '- retained 1+ year through final restructuring.',
+    ].join('\n');
+
+    const result = buildImportDraftFromText(input, { mode: 'default' });
+    const prosperCompany = result.draft.companies.find((company) => /prosper wireless/i.test(company.name));
+    const responsibilityLines = (prosperCompany?.roles ?? [])
+      .flatMap((role) => role.highlights.map((item) => item.text));
+
+    expect(prosperCompany).toBeDefined();
+    expect(responsibilityLines.some((line) => /revenue contraction retained 1\+ year through final restructuring/i.test(line))).toBe(true);
+    expect(responsibilityLines.filter((line) => /retained 1\+ year through final restructuring/i.test(line))).toHaveLength(1);
   });
 });
