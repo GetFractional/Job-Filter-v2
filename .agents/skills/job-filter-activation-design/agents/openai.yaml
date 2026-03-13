@@ -1,7 +1,7 @@
 interface:
   display_name: "Job Filter Activation Design"
   short_description: "Packet-bound design guidance for approved Job Filter UX"
-  default_prompt: "Use $job-filter-activation-design to turn the approved Job Filter brand and product direction into a decision-complete UX, copy, and component packet without redefining settled CTA, IA, or visual guardrails."
+  default_prompt: "Use $job-filter-activation-design to turn the approved Job Filter brand, market-intelligence, and product direction into a decision-complete UX, copy, and component packet without redefining settled CTA, IA, or visual guardrails."
 
 policy:
   allow_implicit_invocation: false

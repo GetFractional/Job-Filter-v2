@@ -10,14 +10,15 @@ Use this skill to keep delivery governance consistent.
 ## Workflow
 
 1. Read the active task or PR context and the active packet if one exists.
-2. Read the relevant references:
+2. If a live upstream Foundation Series chapter already exists for the phase you are evaluating, read that chapter before grading downstream work.
+3. Read the relevant references:
    - `references/task-packet-template.md`
    - `references/sync-receipt-template.md`
    - `references/wip-rules.md`
    - `references/pr-governance.md`
-3. Check whether the task packet is decision-complete and whether the phase ownership is clear.
-4. Check whether the proposed repo work matches ClickUp scope and the approved packet.
-5. Produce the smallest governance action or review, preferring comments for approvals, carry-forward decisions, and phase handoffs.
+4. Check whether the task packet is decision-complete and whether the phase ownership is clear.
+5. Check whether the proposed repo work matches ClickUp scope, the approved packet, and any live upstream chapter constraints.
+6. Produce the smallest governance action or review, preferring comments for approvals, carry-forward decisions, and phase handoffs.
 
 ## Guardrails
 
@@ -30,6 +31,9 @@ Use this skill to keep delivery governance consistent.
   - `868hvvda6` owns Foundation Series chapter 06, lifecycle messaging and email system
   - `868huafcx` stays blocked until `FS8` refreshes the implementation packet after chapters 01 through 05 approval
 - Use `docs/product/job-filter-foundation-series-governing-packet-v7.md` as the canonical governance packet.
+- Use live Foundation Series chapter docs as binding upstream inputs once they exist.
+- Current live upstream chapter:
+  - `docs/product/foundation-series/01-market-intelligence.md` is binding input for chapters 02 through 06
 - Do not claim ClickUp mutation without read-after-write proof.
 - Prefer comments for evidence, stable descriptions for task packets.
 - Keep PRs small and coherent.
