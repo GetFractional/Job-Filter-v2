@@ -30,17 +30,19 @@ Use it to answer:
 3. [`foundation-series/01-market-intelligence.md`](./foundation-series/01-market-intelligence.md)
 4. [`foundation-series/02-brand-strategy.md`](./foundation-series/02-brand-strategy.md)
 5. [`foundation-series/03-product-system.md`](./foundation-series/03-product-system.md)
-6. [`packets/868hunzqm.md`](./packets/868hunzqm.md)
-7. [`packets/868huafcx.md`](./packets/868huafcx.md)
-8. [`GPT_5_4_JOB_FILTER_OPERATING_PROMPTS.md`](./GPT_5_4_JOB_FILTER_OPERATING_PROMPTS.md)
-9. [`orchestration/project-profile.md`](./orchestration/project-profile.md)
-10. [`PRD_V2.md`](./PRD_V2.md), [`EPIC_SPECS_V2.md`](./EPIC_SPECS_V2.md), [`AI_OPERATING_MODEL.md`](./AI_OPERATING_MODEL.md)
+6. [`foundation-series/04-website-public-funnel.md`](./foundation-series/04-website-public-funnel.md)
+7. [`packets/868hunzqm.md`](./packets/868hunzqm.md)
+8. [`packets/868huafcx.md`](./packets/868huafcx.md)
+9. [`GPT_5_4_JOB_FILTER_OPERATING_PROMPTS.md`](./GPT_5_4_JOB_FILTER_OPERATING_PROMPTS.md)
+10. [`orchestration/project-profile.md`](./orchestration/project-profile.md)
+11. [`PRD_V2.md`](./PRD_V2.md), [`EPIC_SPECS_V2.md`](./EPIC_SPECS_V2.md), [`AI_OPERATING_MODEL.md`](./AI_OPERATING_MODEL.md)
 
 ## Live Foundation Series Chapters
 
 - Chapter 01, [`foundation-series/01-market-intelligence.md`](./foundation-series/01-market-intelligence.md)
 - Chapter 02, [`foundation-series/02-brand-strategy.md`](./foundation-series/02-brand-strategy.md)
 - Chapter 03, [`foundation-series/03-product-system.md`](./foundation-series/03-product-system.md)
+- Chapter 04, [`foundation-series/04-website-public-funnel.md`](./foundation-series/04-website-public-funnel.md)
 
 ## Locked Program Decisions
 
@@ -63,8 +65,8 @@ Use it to answer:
 - `FS1`: chapter 01
 - `FS2`: chapter 02
 - `FS3`: chapter 03
-- `FS4`: chapter 04A
-- `FS5`: chapter 04B
+- `FS4`: chapter 04 strategy source
+- `FS5`: chapter 04 artifact packets
 - `FS6`: chapter 05
 - `FS7`: chapter 06
 - `FS8`: implementation reset for `868huafcx`

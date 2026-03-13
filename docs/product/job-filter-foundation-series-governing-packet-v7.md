@@ -79,8 +79,8 @@ This naming plan is now the program default for artifact references, handoffs, a
 | `FS1` | chapter 01 | market intelligence chapter |
 | `FS2` | chapter 02 | brand strategy chapter |
 | `FS3` | chapter 03 | shared visual and product system chapter |
-| `FS4` | chapter 04A | website desktop |
-| `FS5` | chapter 04B | website mobile |
+| `FS4` | chapter 04 | website and public funnel strategy source |
+| `FS5` | chapter 04 artifacts | website desktop and mobile artifact packets |
 | `FS6` | chapter 05 | activation and core app |
 | `FS7` | chapter 06 | lifecycle messaging and email system |
 | `FS8` | implementation reset | refreshed `868huafcx` packet after chapters 01 through 05 approval |
@@ -201,5 +201,6 @@ Chapter 05 defines the canonical activation and core-app surfaces. `868huafcx` d
 - `docs/product/foundation-series/01-market-intelligence.md`
 - `docs/product/foundation-series/02-brand-strategy.md`
 - `docs/product/foundation-series/03-product-system.md`
+- `docs/product/foundation-series/04-website-public-funnel.md`
 - `docs/product/GPT_5_4_JOB_FILTER_OPERATING_PROMPTS.md`
 - `docs/product/orchestration/project-profile.md`
