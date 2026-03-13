@@ -12,20 +12,21 @@ Use this skill to review or specify work that could weaken truthfulness.
 1. Read the active packet first when one exists.
 2. When trust, claims, or downstream rationale are in scope, read `docs/product/foundation-series/01-market-intelligence.md` before evaluating the change.
 3. When trust-sensitive copy, messaging, or rationale presentation is in scope, read `docs/product/foundation-series/02-brand-strategy.md` before evaluating the change.
-4. Read the relevant references:
+4. When system states, rationale surfaces, or downstream review behavior are in scope, read `docs/product/foundation-series/03-product-system.md` before evaluating the change.
+5. Read the relevant references:
    - `references/proof-contracts.md`
    - `references/grounding-rules.md`
    - `references/extraction-decision-rules.md`
    - `references/regression-checklist.md`
-5. Inspect the code path or artifact being changed.
-6. Identify where data is:
+6. Inspect the code path or artifact being changed.
+7. Identify where data is:
    - extracted
    - suggested
    - transformed
    - approved
    - reused
-7. State clearly whether the change is safe, risky, or disallowed.
-8. Recommend the smallest safe fix or packet.
+8. State clearly whether the change is safe, risky, or disallowed.
+9. Recommend the smallest safe fix or packet.
 
 ## Guardrails
 
@@ -42,6 +43,11 @@ Use this skill to review or specify work that could weaken truthfulness.
   - mechanism before outcome
   - no proof-risk language that outruns product truth
   - no trust copy that hides review boundaries
+- Respect chapter-03 system constraints:
+  - suggestion and approved truth remain visually distinct
+  - `used`, `missing`, and `excluded` stay explicit on rationale surfaces
+  - preview and rationale remain close enough to preserve review-before-send visibility
+  - no hidden auto-apply cues or misleading automation states
 - Do not allow compare-option logic to hide meaningful structural differences.
 - Prefer confidence ranking and human confirmation over invention.
 - Preserve lineage where proof is reused downstream.
