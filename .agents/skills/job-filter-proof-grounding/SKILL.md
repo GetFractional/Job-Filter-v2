@@ -11,20 +11,21 @@ Use this skill to review or specify work that could weaken truthfulness.
 
 1. Read the active packet first when one exists.
 2. When trust, claims, or downstream rationale are in scope, read `docs/product/foundation-series/01-market-intelligence.md` before evaluating the change.
-3. Read the relevant references:
+3. When trust-sensitive copy, messaging, or rationale presentation is in scope, read `docs/product/foundation-series/02-brand-strategy.md` before evaluating the change.
+4. Read the relevant references:
    - `references/proof-contracts.md`
    - `references/grounding-rules.md`
    - `references/extraction-decision-rules.md`
    - `references/regression-checklist.md`
-4. Inspect the code path or artifact being changed.
-5. Identify where data is:
+5. Inspect the code path or artifact being changed.
+6. Identify where data is:
    - extracted
    - suggested
    - transformed
    - approved
    - reused
-6. State clearly whether the change is safe, risky, or disallowed.
-7. Recommend the smallest safe fix or packet.
+7. State clearly whether the change is safe, risky, or disallowed.
+8. Recommend the smallest safe fix or packet.
 
 ## Guardrails
 
@@ -37,6 +38,10 @@ Use this skill to review or specify work that could weaken truthfulness.
   - no auto-apply in current-state promise
   - review-before-send is visible product behavior
   - inspectable reasoning is trust architecture, not optional polish
+- Respect chapter-02 brand constraints:
+  - mechanism before outcome
+  - no proof-risk language that outruns product truth
+  - no trust copy that hides review boundaries
 - Do not allow compare-option logic to hide meaningful structural differences.
 - Prefer confidence ranking and human confirmation over invention.
 - Preserve lineage where proof is reused downstream.
