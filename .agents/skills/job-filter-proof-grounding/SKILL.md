@@ -13,20 +13,21 @@ Use this skill to review or specify work that could weaken truthfulness.
 2. When trust, claims, or downstream rationale are in scope, read `docs/product/foundation-series/01-market-intelligence.md` before evaluating the change.
 3. When trust-sensitive copy, messaging, or rationale presentation is in scope, read `docs/product/foundation-series/02-brand-strategy.md` before evaluating the change.
 4. When system states, rationale surfaces, or downstream review behavior are in scope, read `docs/product/foundation-series/03-product-system.md` before evaluating the change.
-5. Read the relevant references:
+5. When public proof architecture, pricing-entry claims, worksheet capture, or auth/public handoff copy is in scope, read `docs/product/foundation-series/04-website-public-funnel.md` before evaluating the change.
+6. Read the relevant references:
    - `references/proof-contracts.md`
    - `references/grounding-rules.md`
    - `references/extraction-decision-rules.md`
    - `references/regression-checklist.md`
-6. Inspect the code path or artifact being changed.
-7. Identify where data is:
+7. Inspect the code path or artifact being changed.
+8. Identify where data is:
    - extracted
    - suggested
    - transformed
    - approved
    - reused
-8. State clearly whether the change is safe, risky, or disallowed.
-9. Recommend the smallest safe fix or packet.
+9. State clearly whether the change is safe, risky, or disallowed.
+10. Recommend the smallest safe fix or packet.
 
 ## Guardrails
 
@@ -48,6 +49,11 @@ Use this skill to review or specify work that could weaken truthfulness.
   - `used`, `missing`, and `excluded` stay explicit on rationale surfaces
   - preview and rationale remain close enough to preserve review-before-send visibility
   - no hidden auto-apply cues or misleading automation states
+- Respect chapter-04 public-funnel constraints:
+  - free-to-start clarity stays visible where pricing-entry questions are likely
+  - worksheet capture remains a secondary path, not the main product story
+  - core pages carry mechanism and trust proof close to the claim they support
+  - public copy does not imply hidden automation, outcome certainty, or unsupported proof
 - Do not allow compare-option logic to hide meaningful structural differences.
 - Prefer confidence ranking and human confirmation over invention.
 - Preserve lineage where proof is reused downstream.
