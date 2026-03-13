@@ -14,13 +14,14 @@ Use this skill to turn approved Job Filter direction into concrete UI decisions 
    - `docs/product/job-filter-foundation-series-governing-packet-v7.md`
    - the active chapter-owner packet under `docs/product/packets/`
    - the relevant approved Foundation Series chapter artifact when it exists
-3. Read only the references needed from this skill:
+3. If the task is for chapter 02, 03, 04, 05, or 06, read `docs/product/foundation-series/01-market-intelligence.md` before older strategy or design docs.
+4. Read only the references needed from this skill:
    - `references/brand-direction.md`
    - `references/copy-system.md`
    - `references/screen-patterns.md`
    - `references/inspiration-map.md`
-4. Inspect the current implementation or current artifact before proposing change.
-5. Produce a decision-complete packet or review:
+5. Inspect the current implementation or current artifact before proposing change.
+6. Produce a decision-complete packet or review:
    - user job and belief shift
    - exact UX model
    - exact copy
@@ -39,6 +40,7 @@ Use this skill to turn approved Job Filter direction into concrete UI decisions 
 - Preserve the calmer premium document-workspace feel already proven in `Profile`.
 - Preserve the top horizontal step grammar, minimized step-bar focus, and persistent preview relationship unless a packet explicitly reopens them.
 - Reuse the canonical terminology from `references/copy-system.md` and the governing packet.
+- Do not contradict the chapter-01 market read on trust, free-to-start clarity, no auto-apply, guided story extraction, multiple role lanes, or inspectable reasoning.
 - Keep the approved CTA ladder unless a packet explicitly reopens it:
   - `Build my job profile`
   - `See how it works`

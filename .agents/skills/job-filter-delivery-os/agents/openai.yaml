@@ -1,7 +1,7 @@
 interface:
   display_name: "Job Filter Delivery OS"
   short_description: "Governance and phase-control for Job Filter delivery"
-  default_prompt: "Use $job-filter-delivery-os to review Job Filter Foundation Series packets, ClickUp ownership, blocked implementation gates, and GitHub readiness so repo docs and tracker state stay aligned."
+  default_prompt: "Use $job-filter-delivery-os to review Job Filter Foundation Series packets, live upstream chapter constraints, ClickUp ownership, blocked implementation gates, and GitHub readiness so repo docs and tracker state stay aligned."
 
 policy:
   allow_implicit_invocation: false

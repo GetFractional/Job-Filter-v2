@@ -27,11 +27,16 @@ Use it to answer:
 
 1. [`job-filter-foundation-series-governing-packet-v7.md`](./job-filter-foundation-series-governing-packet-v7.md)
 2. [`packets/868hukucf.md`](./packets/868hukucf.md)
-3. [`packets/868hunzqm.md`](./packets/868hunzqm.md)
-4. [`packets/868huafcx.md`](./packets/868huafcx.md)
-5. [`GPT_5_4_JOB_FILTER_OPERATING_PROMPTS.md`](./GPT_5_4_JOB_FILTER_OPERATING_PROMPTS.md)
-6. [`orchestration/project-profile.md`](./orchestration/project-profile.md)
-7. [`PRD_V2.md`](./PRD_V2.md), [`EPIC_SPECS_V2.md`](./EPIC_SPECS_V2.md), [`AI_OPERATING_MODEL.md`](./AI_OPERATING_MODEL.md)
+3. [`foundation-series/01-market-intelligence.md`](./foundation-series/01-market-intelligence.md)
+4. [`packets/868hunzqm.md`](./packets/868hunzqm.md)
+5. [`packets/868huafcx.md`](./packets/868huafcx.md)
+6. [`GPT_5_4_JOB_FILTER_OPERATING_PROMPTS.md`](./GPT_5_4_JOB_FILTER_OPERATING_PROMPTS.md)
+7. [`orchestration/project-profile.md`](./orchestration/project-profile.md)
+8. [`PRD_V2.md`](./PRD_V2.md), [`EPIC_SPECS_V2.md`](./EPIC_SPECS_V2.md), [`AI_OPERATING_MODEL.md`](./AI_OPERATING_MODEL.md)
+
+## Live Foundation Series Chapters
+
+- Chapter 01, [`foundation-series/01-market-intelligence.md`](./foundation-series/01-market-intelligence.md)
 
 ## Locked Program Decisions
 
