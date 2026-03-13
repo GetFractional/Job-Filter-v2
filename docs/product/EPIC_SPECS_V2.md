@@ -15,6 +15,25 @@ Each epic below is intended to be turned into one parent ClickUp task with small
 
 Do not start implementation from the PRD alone. Start from the relevant epic packet plus current repo context.
 
+### 1.1 Foundation Series governance overlay
+
+Before implementation work touches design-governed chapters, use:
+
+- `docs/product/job-filter-foundation-series-governing-packet-v7.md`
+- `docs/product/packets/868hukucf.md`
+- `docs/product/packets/868hunzqm.md`
+- `docs/product/packets/868huafcx.md`
+
+Current governance locks:
+
+- `868hukucf` owns Foundation Series chapters 01, 02, 03, and 05
+- `868hunzqm` owns chapter 04 and the public-funnel decisions
+- chapter 06 requires a new task
+- `868huafcx` remains blocked until chapters 01 through 05 are approved and the `FS8` packet reset is complete
+- entry model = `Free tier`
+- broader MVP app IA = design-locked now
+- auto-apply = future-state only
+
 ## 2. Epic Sequence
 
 1. Truth Layer and Proof Library

@@ -1,7 +1,7 @@
 interface:
   display_name: "Job Filter Proof Grounding"
-  short_description: "Truth-preserving guidance for proof-backed flows"
-  default_prompt: "Use $job-filter-proof-grounding to review a Job Filter change for proof, grounding, and no-hallucination safety."
+  short_description: "Truth-preserving guidance for Profile, proof, and assets"
+  default_prompt: "Use $job-filter-proof-grounding to review a Job Filter change for proof, lineage, suggested-versus-approved separation, and no-hallucination safety."
 
 policy:
   allow_implicit_invocation: false
