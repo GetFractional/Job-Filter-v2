@@ -199,5 +199,6 @@ Chapter 05 defines the canonical activation and core-app surfaces. `868huafcx` d
 - `docs/product/packets/868hunzqm.md`
 - `docs/product/packets/868huafcx.md`
 - `docs/product/foundation-series/01-market-intelligence.md`
+- `docs/product/foundation-series/02-brand-strategy.md`
 - `docs/product/GPT_5_4_JOB_FILTER_OPERATING_PROMPTS.md`
 - `docs/product/orchestration/project-profile.md`

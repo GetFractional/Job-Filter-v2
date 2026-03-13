@@ -43,7 +43,7 @@ Own the Foundation Series design-governance work for chapters 01, 02, 03, and 05
 | Chapter | Deliverable | Planned artifact |
 | --- | --- | --- |
 | 01 | `docs/product/foundation-series/01-market-intelligence.md` | `01-market-intelligence.html` later if an artifact pass is opened |
-| 02 | Brand Strategy | `02-brand-strategy.html` |
+| 02 | `docs/product/foundation-series/02-brand-strategy.md` | `02-brand-strategy.html` later if an artifact pass is opened |
 | 03 | Shared Visual and Product System | `03-product-system.html` |
 | 05 | Activation and Core App | `06-activation-desktop.html`, `07-activation-mobile.html` |
 
@@ -80,6 +80,7 @@ Own the Foundation Series design-governance work for chapters 01, 02, 03, and 05
 
 - `docs/product/job-filter-foundation-series-governing-packet-v7.md`
 - `docs/product/foundation-series/01-market-intelligence.md`
+- `docs/product/foundation-series/02-brand-strategy.md`
 - `docs/product/packets/868hukucf.md`
 - `docs/product/packets/868hunzqm.md`
 - `docs/product/packets/868huafcx.md`
