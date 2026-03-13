@@ -1,6 +1,6 @@
 # Job Filter PRD v2
 
-Last updated: 2026-03-06
+Last updated: 2026-03-12
 
 ## 1. Document Intent
 
@@ -37,7 +37,7 @@ It does not yet contain verified production-grade implementations for:
 
 ### 2.2 Verified workflow state
 
-ClickUp currently shows two active `in development` tasks and two open GitHub PRs tied to claims review and onboarding/job-feeds UX. That means the near-term implementation baseline is still trust hardening and activation, not full SaaS expansion.
+ClickUp currently shows the Foundation Series governance split in effect: `868hukucf` is active in design, `868hunzqm` is the chapter-04 backlog owner, `868huafcx` has been moved back to backlog pending `FS8`, and chapter 06 now exists as `868hvvda6`. No clean packet-scoped GitHub PR should be assumed from a dirty workspace. That means the near-term baseline is governance alignment and upstream chapter approval, not implementation restart or broad SaaS expansion.
 
 ### 2.3 Consequence
 
@@ -48,6 +48,21 @@ The product plan must describe three layers separately:
 3. Longer-range target-state SaaS vision
 
 If those layers are blended together, future AI agents will overstate what already exists.
+
+### 2.4 Foundation Series Governance Overlay
+
+Design and messaging governance now flows through the Foundation Series:
+
+- canonical governance packet: `docs/product/job-filter-foundation-series-governing-packet-v7.md`
+- chapter governance packet: `docs/product/packets/868hukucf.md`
+- website/public funnel packet: `docs/product/packets/868hunzqm.md`
+- blocked implementation packet: `docs/product/packets/868huafcx.md`
+
+Program locks that this PRD must not conflict with:
+
+- entry model = `Free tier`
+- broader MVP app IA = design-locked now
+- auto-apply = future-state only
 
 ## 3. Product Thesis
 
@@ -422,6 +437,7 @@ Exit criteria:
 ### 11.1 Core Offer Stack
 
 - Free: light qualification and workspace value
+- Free tier is the canonical entry model
 - Seasonal Pass: default 90-day offer for active searchers
 - Pro plus credits: premium research and annual-plan usage
 - Coach or consultant: later expansion for multi-client workflows
@@ -485,7 +501,7 @@ Verified interviews per active user per 90-day season.
 | Product strategist | convert pains into specs | PRD, feature sequence, experiments | GPT-5.4 with human review |
 | UX / service designer | simplify core flows | IA, state handling, copy guidance | GPT-5.4 with human review |
 | AI systems architect | ground all generation | prompt contracts, evals, model routing | GPT-5.4 plus human review |
-| Staff engineer | implement and review | code, tests, migrations, refactors | GPT-5.3-Codex |
+| Staff engineer | implement and review | code, tests, migrations, refactors | GPT-5.4 coding thread |
 | Data and experimentation lead | instrument learning | KPI tree, telemetry, dashboards | GPT-5.4 with human review |
 | Growth / pricing lead | sharpen offer and funnel | pricing, lifecycle, referral, launch | GPT-5.4 with human review |
 | Trust / security lead | prevent product harm | permissions, privacy, abuse controls | Human with Codex support |

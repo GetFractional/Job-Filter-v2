@@ -1,7 +1,7 @@
 interface:
   display_name: "Job Filter Delivery OS"
-  short_description: "Governance guidance for ClickUp, PRs, and WIP"
-  default_prompt: "Use $job-filter-delivery-os to review Job Filter task packets, PR readiness, and ClickUp/GitHub alignment."
+  short_description: "Governance and phase-control for Job Filter delivery"
+  default_prompt: "Use $job-filter-delivery-os to review Job Filter Foundation Series packets, ClickUp ownership, blocked implementation gates, and GitHub readiness so repo docs and tracker state stay aligned."
 
 policy:
   allow_implicit_invocation: false

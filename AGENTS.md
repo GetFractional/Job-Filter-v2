@@ -19,6 +19,35 @@ Ship reliable increments with WIP<=2 coding tasks, ClickUp as the work gate, and
      - Checkpoint B: diff summary + verify output + PR link.
    - Do not request approvals for micro-steps.
 
+## Foundation Series Governance Reset
+
+- Canonical governance packet: `docs/product/job-filter-foundation-series-governing-packet-v7.md`
+- Design-governance packet: `docs/product/packets/868hukucf.md`
+- Website/public funnel packet: `docs/product/packets/868hunzqm.md`
+- Blocked implementation packet: `docs/product/packets/868huafcx.md`
+- Prompt source: `docs/product/GPT_5_4_JOB_FILTER_OPERATING_PROMPTS.md`
+
+Locked program decisions:
+
+- entry model = `Free tier`
+- broader MVP app IA = design-locked now
+- auto-apply = future-state only
+
+Current chapter ownership:
+
+- `868hukucf` owns chapters 01, 02, 03, and 05, plus design governance
+- `868hunzqm` owns chapter 04
+- chapter 06 requires a new task
+- `868huafcx` stays blocked until chapters 01 through 05 are approved and its packet is refreshed
+
+Operating model:
+
+- one permanent lead thread
+- one active coding thread
+- no build without a packet
+- one writer per packet
+- governance first, implementation second
+
 ## ClickUp Task Packet (must exist before coding)
 The task description must contain:
 - Objective (1 sentence)
@@ -154,3 +183,15 @@ If verification is missing:
 ### Verification
 ### Risks + Rollback
 ### Next actions
+
+## Strategy Library
+- When Alen Sultanic strategy is relevant, read `docs/strategy/alen-sultanic/application-map.md` first.
+- Then load only the specific file(s) needed from `docs/strategy/alen-sultanic/`.
+- By default, load no more than 2 follow-on docs. The only routine exception is `guardrails.md` for trust-sensitive work.
+- Default to 1 primary framework and at most 2 supporting frameworks, not the whole library.
+- Use this library for offers, positioning, pricing and trial framing, objection handling, customer ascension, content strategy, and conversion-oriented product messaging.
+- Pair this library with proof-grounding when claims, evidence, or trust-sensitive outputs are involved.
+- Pair this library with activation-design when the strategy needs to be translated into screen-level UX, copy, or activation decisions.
+- When useful, name the chosen frameworks briefly in the output. Do not dump long source summaries or swipe excerpts unless explicitly asked.
+- Read `source-map.md` only for provenance checks or library maintenance.
+- Do not use this library for generic bug fixing, backend-only work, or tasks where strategic persuasion is not relevant.
