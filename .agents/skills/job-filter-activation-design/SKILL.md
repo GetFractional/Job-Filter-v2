@@ -16,13 +16,14 @@ Use this skill to turn approved Job Filter direction into concrete UI decisions 
    - the relevant approved Foundation Series chapter artifact when it exists
 3. If the task is for chapter 02, 03, 04, 05, or 06, read `docs/product/foundation-series/01-market-intelligence.md` before older strategy or design docs.
 4. If the task is for chapter 03, 04, 05, or 06, read `docs/product/foundation-series/02-brand-strategy.md` before older strategy or design docs.
-5. Read only the references needed from this skill:
+5. If the task is for chapter 04, 05, or 06, read `docs/product/foundation-series/03-product-system.md` before older product-system or activation artifacts.
+6. Read only the references needed from this skill:
    - `references/brand-direction.md`
    - `references/copy-system.md`
    - `references/screen-patterns.md`
    - `references/inspiration-map.md`
-6. Inspect the current implementation or current artifact before proposing change.
-7. Produce a decision-complete packet or review:
+7. Inspect the current implementation or current artifact before proposing change.
+8. Produce a decision-complete packet or review:
    - user job and belief shift
    - exact UX model
    - exact copy
@@ -30,7 +31,7 @@ Use this skill to turn approved Job Filter direction into concrete UI decisions 
    - component and state structure
    - acceptance criteria
    - carry-forward risks
-8. Keep the output packet-bound and implementation-oriented. Avoid vague inspiration language or broad redesign briefs.
+9. Keep the output packet-bound and implementation-oriented. Avoid vague inspiration language or broad redesign briefs.
 
 ## Guardrails
 
@@ -43,6 +44,7 @@ Use this skill to turn approved Job Filter direction into concrete UI decisions 
 - Reuse the canonical terminology from `references/copy-system.md` and the governing packet.
 - Do not contradict the chapter-01 market read on trust, free-to-start clarity, no auto-apply, guided story extraction, multiple role lanes, or inspectable reasoning.
 - Do not contradict the chapter-02 brand system on category framing, brand promise, message hierarchy, CTA ladder, trust and proof rules, or language classification.
+- Do not contradict the chapter-03 product system on visual hierarchy, containment, state grammar, trust surfaces, step grammar, preview relationship, or anti-patterns.
 - Keep the approved CTA ladder unless a packet explicitly reopens it:
   - `Build my job profile`
   - `See how it works`

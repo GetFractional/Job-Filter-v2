@@ -35,6 +35,7 @@ Use this skill to keep delivery governance consistent.
 - Current live upstream chapter:
   - `docs/product/foundation-series/01-market-intelligence.md` is binding input for chapters 02 through 06
   - `docs/product/foundation-series/02-brand-strategy.md` is binding input for chapters 03 through 06
+  - `docs/product/foundation-series/03-product-system.md` is binding input for chapters 04 through 06
 - Do not claim ClickUp mutation without read-after-write proof.
 - Prefer comments for evidence, stable descriptions for task packets.
 - Keep PRs small and coherent.
