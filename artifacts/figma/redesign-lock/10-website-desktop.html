@@ -1,0 +1,807 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>03. Website System, Desktop</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --canvas: #f8f6f2;
+        --surface: #fff;
+        --surface-alt: #f4f7f4;
+        --surface-ink: #1f2a24;
+        --text-muted: #5c675f;
+        --forest: #2f5d50;
+        --forest-strong: #23473c;
+        --line: #d7ddd7;
+        --line-strong: #c8d0c8;
+        --amber-soft: #f6eadb;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background:
+          radial-gradient(1200px 420px at 90% -10%, rgba(47, 93, 80, 0.1), transparent 62%),
+          radial-gradient(820px 300px at -5% -8%, rgba(35, 71, 60, 0.07), transparent 55%),
+          var(--canvas);
+        color: var(--surface-ink);
+        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+      }
+      .review {
+        max-width: 1380px;
+        margin: 0 auto;
+        padding: 26px 20px 60px;
+      }
+      .intro {
+        border: 1px solid var(--line-strong);
+        border-radius: 18px;
+        background: linear-gradient(180deg, #ffffff, #f7faf7);
+        padding: 22px;
+        box-shadow: 0 14px 34px rgba(17, 30, 25, 0.08);
+      }
+      .overline {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+      }
+      h1 {
+        margin: 8px 0 10px;
+        font-family: "Newsreader", Georgia, serif;
+        font-size: clamp(31px, 3.2vw, 46px);
+        line-height: 1.07;
+      }
+      .meta { display: flex; flex-wrap: wrap; gap: 8px; }
+      .chip {
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: #fff;
+        padding: 6px 10px;
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .intro-copy {
+        margin: 0;
+        max-width: 760px;
+        color: var(--text-muted);
+        font-size: 14px;
+        line-height: 1.55;
+      }
+      .header-grid {
+        margin-top: 18px;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+      }
+      .header-card {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.92);
+        padding: 12px;
+      }
+      .header-card h2 {
+        margin: 0 0 8px;
+        font-size: 12px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+      }
+      .header-card p,
+      .header-card li {
+        margin: 0;
+        font-size: 12px;
+        line-height: 1.5;
+      }
+      .header-card ul {
+        margin: 0;
+        padding-left: 16px;
+      }
+      .screens { margin-top: 20px; display: grid; gap: 16px; }
+      .screen {
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: #fff;
+        padding: 14px;
+        box-shadow: 0 10px 24px rgba(17, 30, 25, 0.06);
+      }
+      .screen-head {
+        margin-bottom: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 10px;
+      }
+      .id {
+        font-size: 11px;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        font-weight: 700;
+      }
+      .name { font-size: 17px; font-weight: 700; }
+      .note { font-size: 12px; color: var(--text-muted); text-align: right; }
+
+      .browser {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        overflow: hidden;
+      }
+      .chrome {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border-bottom: 1px solid var(--line);
+        background: #edf1ee;
+        color: var(--text-muted);
+        padding: 8px 12px;
+        font-size: 12px;
+      }
+      .dots { display: flex; gap: 5px; }
+      .dots span { width: 8px; height: 8px; border-radius: 50%; background: #bfcbc0; }
+      .page {
+        min-height: 560px;
+        background: #fbfcfb;
+      }
+      .nav {
+        height: 66px;
+        border-bottom: 1px solid var(--line);
+        background: #fff;
+        display: grid;
+        grid-template-columns: auto 1fr auto auto;
+        align-items: center;
+        gap: 16px;
+        padding: 0 20px;
+      }
+      .brand { font-size: 14px; font-weight: 700; }
+      .links { display: flex; gap: 16px; font-size: 13px; color: var(--text-muted); }
+      .links .active { color: var(--surface-ink); font-weight: 700; }
+      .btn {
+        border: 1px solid var(--line);
+        border-radius: 11px;
+        background: #fff;
+        padding: 8px 12px;
+        font-size: 13px;
+        font-weight: 700;
+      }
+      .btn.primary {
+        border-color: var(--forest);
+        background: linear-gradient(180deg, #356856, #2c5648);
+        color: #fff;
+        box-shadow: 0 10px 18px rgba(34, 70, 58, 0.26);
+      }
+      .content {
+        max-width: 1280px;
+        margin: 0 auto;
+        padding: 22px;
+        display: grid;
+        gap: 14px;
+      }
+
+      .hero-shell {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: linear-gradient(145deg, #ffffff, #f6faf7 55%, #f1f6f2);
+        padding: 18px;
+        display: grid;
+        grid-template-columns: 1.05fr 1fr;
+        gap: 14px;
+      }
+      .hero-shell h2 {
+        margin: 8px 0 10px;
+        font-family: "Newsreader", Georgia, serif;
+        font-size: 40px;
+        line-height: 1.02;
+      }
+      .hero-shell p { margin: 0; color: var(--text-muted); font-size: 15px; }
+      .cta-row { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 10px; }
+
+      .montage {
+        display: grid;
+        gap: 8px;
+        grid-template-columns: 1.15fr 1fr;
+      }
+      .shot {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: #fff;
+        min-height: 112px;
+        padding: 10px;
+        display: grid;
+        gap: 8px;
+      }
+      .shot .s-title {
+        font-size: 10px;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        font-weight: 700;
+      }
+      .shot .s-line { margin-top: 7px; height: 8px; border-radius: 999px; background: #e8ece8; }
+      .shot .s-line.short { width: 58%; }
+      .shot .s-chip {
+        margin-top: 8px;
+        display: inline-block;
+        border: 1px solid #bfd0c2;
+        border-radius: 999px;
+        padding: 4px 8px;
+        font-size: 10px;
+        font-weight: 700;
+        color: #2e5548;
+        background: #eef6f1;
+      }
+      .shot .s-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+      }
+      .shot .s-pill {
+        border: 1px solid #bfd0c2;
+        border-radius: 999px;
+        padding: 3px 6px;
+        font-size: 9px;
+        font-weight: 700;
+        color: #2e5548;
+        background: #eef6f1;
+      }
+      .shot .s-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+      }
+      .shot .s-card {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fbfdfb;
+        padding: 6px;
+      }
+      .shot .s-k { font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; }
+      .shot .s-v { margin-top: 3px; font-size: 11px; font-weight: 700; }
+      .shot .s-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 6px;
+        align-items: center;
+      }
+      .shot .s-row .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #3f6f5f;
+      }
+      .shot .s-bars { display: grid; gap: 4px; }
+      .shot .s-bars .b {
+        height: 6px;
+        border-radius: 999px;
+        background: #e2e9e4;
+      }
+      .shot .s-bars .b.short { width: 65%; }
+      .shot .s-bars .b.mid { width: 82%; }
+      .kpi-strip {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 8px;
+      }
+      .kpi {
+        border: 1px solid var(--line);
+        border-radius: 11px;
+        background: #fff;
+        padding: 9px;
+      }
+      .kpi .k-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); font-weight: 700; }
+      .kpi .k-val { margin-top: 5px; font-size: 15px; font-weight: 700; }
+
+      .timeline {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: #fff;
+        padding: 14px;
+        display: grid;
+        grid-template-columns: 0.9fr 1.1fr;
+        gap: 14px;
+      }
+      .timeline-list { position: relative; padding-left: 14px; }
+      .timeline-list::before {
+        content: "";
+        position: absolute;
+        left: 3px;
+        top: 7px;
+        bottom: 7px;
+        width: 2px;
+        background: #d8e2da;
+      }
+      .step-node { position: relative; margin-bottom: 13px; }
+      .step-node:last-child { margin-bottom: 0; }
+      .step-node::before {
+        content: "";
+        position: absolute;
+        left: -14px;
+        top: 3px;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--forest);
+        box-shadow: 0 0 0 3px #e8f2eb;
+      }
+      .step-node .t { font-size: 12px; font-weight: 700; }
+      .step-node .d { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+
+      .module {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: #fff;
+        padding: 12px;
+        display: grid;
+        grid-template-columns: 1.2fr 0.8fr;
+        gap: 10px;
+        align-items: center;
+      }
+      .module.alt { grid-template-columns: 0.8fr 1.2fr; }
+      .module-copy h3 { margin: 0; font-size: 17px; }
+      .module-copy p { margin: 7px 0 0; color: var(--text-muted); font-size: 13px; }
+      .module-shot {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: linear-gradient(180deg, #ffffff, #f7faf7);
+        min-height: 112px;
+        padding: 10px;
+        display: grid;
+        gap: 7px;
+      }
+      .module-shot .m-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .module-shot .m-title {
+        font-size: 10px;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        font-weight: 700;
+      }
+      .module-shot .m-tag {
+        border: 1px solid #bfd0c2;
+        border-radius: 999px;
+        background: #eef6f1;
+        color: #2e5548;
+        font-size: 9px;
+        font-weight: 700;
+        padding: 3px 6px;
+      }
+      .module-shot .m-row {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fff;
+        padding: 6px;
+      }
+      .module-shot .m-row .k {
+        font-size: 9px;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: 700;
+      }
+      .module-shot .m-row .v {
+        margin-top: 3px;
+        font-size: 11px;
+        font-weight: 700;
+      }
+      .module-shot .m-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+      .module-shot .m-chip {
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 3px 6px;
+        font-size: 9px;
+        font-weight: 700;
+        background: #fff;
+      }
+
+      .evidence-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+      }
+      .evidence {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: #fff;
+        padding: 10px;
+      }
+      .evidence h3 { margin: 0 0 7px; font-size: 14px; }
+      .meta-table {
+        display: grid;
+        gap: 5px;
+        font-size: 11px;
+        color: var(--text-muted);
+      }
+      .meta-table span b { color: var(--surface-ink); }
+
+      .pricing-layout {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: linear-gradient(180deg, #fff, #f8fbf8);
+        padding: 14px;
+        display: grid;
+        grid-template-columns: 0.85fr 1.15fr;
+        gap: 12px;
+      }
+      .pricing-rail {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: #fff;
+        padding: 11px;
+      }
+      .pricing-compare {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: #fff;
+        padding: 10px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+      }
+      th, td {
+        border: 1px solid var(--line);
+        text-align: left;
+        padding: 7px;
+        vertical-align: top;
+      }
+      th { background: var(--surface-alt); font-size: 11px; }
+
+      .faq-layout {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: #fff;
+        padding: 14px;
+        display: grid;
+        grid-template-columns: 1.05fr 0.95fr;
+        gap: 12px;
+      }
+      .faq-group {
+        border: 1px solid var(--line);
+        border-radius: 11px;
+        padding: 10px;
+        margin-bottom: 8px;
+      }
+      .faq-group:last-child { margin-bottom: 0; }
+      .faq-group h3 { margin: 0; font-size: 13px; }
+      .faq-group p { margin: 6px 0 0; color: var(--text-muted); font-size: 12px; }
+      .objection-map {
+        border: 1px solid var(--line);
+        border-radius: 11px;
+        background: #fff;
+        padding: 10px;
+      }
+      .objection-map .row {
+        display: grid;
+        grid-template-columns: 0.8fr 1.2fr;
+        gap: 8px;
+        margin-bottom: 7px;
+      }
+      .objection-map .row:last-child { margin-bottom: 0; }
+      .auth-layout {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: #fff;
+        padding: 14px;
+        display: grid;
+        grid-template-columns: 0.95fr 1.05fr;
+        gap: 12px;
+      }
+      .route-card {
+        border: 1px solid var(--line);
+        border-radius: 11px;
+        padding: 10px;
+        background: #fff;
+      }
+      .route-card h3 { margin: 0; font-size: 13px; }
+      .route-card p { margin: 5px 0 0; color: var(--text-muted); font-size: 12px; }
+      .subtle {
+        border: 1px solid #dfc7ad;
+        border-radius: 10px;
+        background: var(--amber-soft);
+        color: #7b5022;
+        padding: 8px;
+        font-size: 11px;
+      }
+      @media (max-width: 1100px) {
+        .hero-shell,
+        .timeline,
+        .module,
+        .module.alt,
+        .pricing-layout,
+        .faq-layout,
+        .auth-layout,
+        .evidence-grid,
+        .header-grid { grid-template-columns: 1fr; }
+        .kpi-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="review">
+      <section class="intro">
+        <div class="overline">Job Filter Foundation Series · Document 03</div>
+        <h1>Website System, Desktop</h1>
+        <p class="intro-copy">
+          Desktop reference for the public page set. This document applies the locked brand, CTA system, and shared
+          visual language to contained SaaS-style website compositions without redefining the foundation.
+        </p>
+        <div class="header-grid">
+          <article class="header-card">
+            <h2>Purpose</h2>
+            <p>Show the desktop composition rules for Home, How It Works, Product, Proof, Pricing, FAQ, and Auth handoff.</p>
+          </article>
+          <article class="header-card">
+            <h2>Scope In</h2>
+            <ul>
+              <li>Public nav and hero composition</li>
+              <li>Page-level CTA continuity</li>
+              <li>Distinct desktop page rhythm</li>
+            </ul>
+          </article>
+          <article class="header-card">
+            <h2>Scope Out</h2>
+            <ul>
+              <li>New brand strategy</li>
+              <li>New product scope</li>
+              <li>Production website implementation</li>
+            </ul>
+          </article>
+          <article class="header-card">
+            <h2>Locked Decisions</h2>
+            <ul>
+              <li>Header CTA: <strong>`Build my job profile`</strong></li>
+              <li>Exploratory CTA: <strong>`See how it works`</strong></li>
+              <li>Stable nav remains unchanged</li>
+            </ul>
+          </article>
+          <article class="header-card">
+            <h2>Pending Proof / Open Items</h2>
+            <p>Pricing remains architecture-only. Proof surfaces remain evidence-led, not claim-heavy.</p>
+          </article>
+          <article class="header-card">
+            <h2>Review Checklist</h2>
+            <p>Contained layouts, clear CTA hierarchy, real SaaS page structure, and no legacy file-letter naming.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="screens">
+        <article class="screen">
+          <div class="screen-head"><div><div class="id">W1</div><div class="name">Home</div></div><div class="note">Asymmetrical hero + product montage + value tension</div></div>
+          <div class="browser">
+            <div class="chrome"><div class="dots"><span></span><span></span><span></span></div><div>https://jobfilter.com</div><div style="margin-left:auto;">1440x900</div></div>
+            <div class="page">
+              <div class="nav"><div class="brand">Job Filter</div><div class="links"><span class="active">Product</span><span>How It Works</span><span>Proof</span><span>Pricing</span><span>FAQ</span></div><button class="btn">Sign in</button><button class="btn primary">Build my job profile</button></div>
+              <div class="content">
+                <div class="hero-shell">
+                  <div>
+                    <div class="overline">For selective job seekers</div>
+                    <h2>Apply to fewer roles, with stronger positioning</h2>
+                    <p>Build your profile once, target the right lanes, and move into explainable drafts without the rewrite loop.</p>
+                    <div class="cta-row"><button class="btn primary">Build my job profile</button><button class="btn">See how it works</button></div>
+                    <div class="kpi-strip" style="margin-top:12px;">
+                      <div class="kpi"><div class="k-label">Mode</div><div class="k-val">Feed-first</div></div>
+                      <div class="kpi"><div class="k-label">Control</div><div class="k-val">High</div></div>
+                      <div class="kpi"><div class="k-label">Draft trust</div><div class="k-val">Visible</div></div>
+                      <div class="kpi"><div class="k-label">Rework</div><div class="k-val">Lower</div></div>
+                    </div>
+                  </div>
+                  <div class="montage">
+                    <div class="shot">
+                      <div class="s-top"><div class="s-title">Profile setup</div><span class="s-pill">Step 4/6</span></div>
+                      <div class="s-grid">
+                        <div class="s-card"><div class="s-k">Current</div><div class="s-v">Skills &amp; Tools</div></div>
+                        <div class="s-card"><div class="s-k">Next</div><div class="s-v">Profile</div></div>
+                      </div>
+                      <div class="s-bars"><div class="b"></div><div class="b mid"></div><div class="b short"></div></div>
+                    </div>
+                    <div class="shot">
+                      <div class="s-top"><div class="s-title">Role feeds</div><span class="s-pill">Top fit 89</span></div>
+                      <div class="s-card"><div class="s-row"><div class="s-v" style="font-size:10px;">Senior Growth Manager</div><span class="dot"></span></div><div class="s-line short"></div></div>
+                      <div class="s-card"><div class="s-row"><div class="s-v" style="font-size:10px;">Lifecycle Lead</div><span class="dot"></span></div><div class="s-line short"></div></div>
+                    </div>
+                    <div class="shot">
+                      <div class="s-top"><div class="s-title">Assets</div><span class="s-pill">Draft ready</span></div>
+                      <div class="s-card"><div class="s-k">Cover letter</div><div class="s-line"></div><div class="s-line mid"></div></div>
+                      <div class="s-bars"><div class="b"></div><div class="b short"></div></div>
+                    </div>
+                    <div class="shot">
+                      <div class="s-top"><div class="s-title">Why this draft</div><span class="s-pill">Context check</span></div>
+                      <div class="s-card"><div class="s-row"><div class="s-k">Used</div><div class="s-v" style="font-size:10px;">4 sources</div></div></div>
+                      <div class="s-card"><div class="s-row"><div class="s-k">Missing</div><div class="s-v" style="font-size:10px;">1 field</div></div></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="screen">
+          <div class="screen-head"><div><div class="id">W2</div><div class="name">How It Works</div></div><div class="note">Designed sequence, not summary cards</div></div>
+          <div class="browser">
+            <div class="chrome"><div class="dots"><span></span><span></span><span></span></div><div>https://jobfilter.com/how-it-works</div><div style="margin-left:auto;">1440x900</div></div>
+            <div class="page">
+              <div class="nav"><div class="brand">Job Filter</div><div class="links"><span>Product</span><span class="active">How It Works</span><span>Proof</span><span>Pricing</span><span>FAQ</span></div><button class="btn">Sign in</button><button class="btn primary">Build my job profile</button></div>
+              <div class="content">
+                <div class="timeline">
+                  <div class="timeline-list">
+                    <div class="step-node"><div class="t">1. Build profile setup</div><div class="d">Start Here through Targeting with visible progress.</div></div>
+                    <div class="step-node"><div class="t">2. Open role-seeded feeds</div><div class="d">Targeting creates lanes and ordering.</div></div>
+                    <div class="step-node"><div class="t">3. Select job and optional Research Brief</div><div class="d">Manual add remains available, secondary.</div></div>
+                    <div class="step-node"><div class="t">4. Generate assets and review context</div><div class="d">Why this draft before apply.</div></div>
+                  </div>
+                  <div>
+                    <div class="overline">Mechanism</div>
+                    <h3 style="margin:8px 0 8px;font-size:24px;font-family:'Newsreader',Georgia,serif;">One path from setup to apply-quality drafts</h3>
+                    <p style="margin:0;color:var(--text-muted);font-size:14px;">The sequence is explicit so the user always knows what changes next and why it matters.</p>
+                    <div class="cta-row"><button class="btn primary">Build my job profile</button><button class="btn">See product</button></div>
+                    <div class="subtle" style="margin-top:10px;">Default handoff after setup is role-seeded feeds, not manual job entry.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="screen">
+          <div class="screen-head"><div><div class="id">W3</div><div class="name">Product</div></div><div class="note">Screenshot-led modules with asymmetrical rhythm</div></div>
+          <div class="browser">
+            <div class="chrome"><div class="dots"><span></span><span></span><span></span></div><div>https://jobfilter.com/product</div><div style="margin-left:auto;">1440x900</div></div>
+            <div class="page">
+              <div class="nav"><div class="brand">Job Filter</div><div class="links"><span class="active">Product</span><span>How It Works</span><span>Proof</span><span>Pricing</span><span>FAQ</span></div><button class="btn">Sign in</button><button class="btn primary">Build my job profile</button></div>
+              <div class="content">
+                <div class="module">
+                  <div class="module-copy"><h3>Profile workspace</h3><p>Six-step progression with persistent preview and clear save rhythm.</p><div class="cta-row"><button class="btn primary">Build my job profile</button></div></div>
+                  <div class="module-shot">
+                    <div class="m-head"><div class="m-title">Preview + editor layout</div><span class="m-tag">Desktop</span></div>
+                    <div class="m-row"><div class="k">Step header</div><div class="v">Start Here -> Targeting</div></div>
+                    <div class="m-row"><div class="k">Preview</div><div class="v">Persistent right panel</div></div>
+                  </div>
+                </div>
+                <div class="module alt">
+                  <div class="module-shot">
+                    <div class="m-head"><div class="m-title">Role lane board</div><span class="m-tag">Jobs</span></div>
+                    <div class="m-row"><div class="k">Lane A</div><div class="v">Growth Marketing · 12</div></div>
+                    <div class="m-row"><div class="k">Lane B</div><div class="v">Demand Gen · 9</div></div>
+                  </div>
+                  <div class="module-copy"><h3>Jobs and role lanes</h3><p>Targeting drives feed quality. Manual add is present as fallback, not default.</p></div>
+                </div>
+                <div class="module">
+                  <div class="module-copy"><h3>Assets and trust checks</h3><p>Draft generation plus explicit used, missing, and excluded context review before apply.</p><div class="cta-row"><button class="btn">See proof</button></div></div>
+                  <div class="module-shot">
+                    <div class="m-head"><div class="m-title">Why this draft panel</div><span class="m-tag">Audit</span></div>
+                    <div class="m-row"><div class="k">Used</div><div class="v">Headline · Experience · Proof IDs</div></div>
+                    <div class="m-row"><div class="k">Excluded</div><div class="v">Unresolved claims</div></div>
+                    <div class="m-chips"><span class="m-chip">Used</span><span class="m-chip">Missing</span><span class="m-chip">Excluded</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="screen">
+          <div class="screen-head"><div><div class="id">W4</div><div class="name">Proof</div></div><div class="note">Evidence modules with source/date/behavior labels</div></div>
+          <div class="browser">
+            <div class="chrome"><div class="dots"><span></span><span></span><span></span></div><div>https://jobfilter.com/proof</div><div style="margin-left:auto;">1440x900</div></div>
+            <div class="page">
+              <div class="nav"><div class="brand">Job Filter</div><div class="links"><span>Product</span><span>How It Works</span><span class="active">Proof</span><span>Pricing</span><span>FAQ</span></div><button class="btn">Sign in</button><button class="btn primary">Build my job profile</button></div>
+              <div class="content">
+                <div class="hero-shell" style="grid-template-columns:1fr;">
+                  <div>
+                    <div class="overline">Proof and trust</div>
+                    <h2 style="font-size:34px;">Review the evidence behind the product claims</h2>
+                    <p>Evidence cards are structured by source, date, and behavior so trust is inspectable rather than implied.</p>
+                  </div>
+                </div>
+                <div class="evidence-grid">
+                  <div class="evidence"><h3>Evidence module A</h3><div class="meta-table"><span><b>Source:</b> UX session archive (attachment pending)</span><span><b>Date:</b> 2026-03-xx</span><span><b>Behavior:</b> setup-to-feeds handoff clarity</span></div></div>
+                  <div class="evidence"><h3>Evidence module B</h3><div class="meta-table"><span><b>Source:</b> draft review logs (attachment pending)</span><span><b>Date:</b> 2026-03-xx</span><span><b>Behavior:</b> Why this draft confidence check</span></div></div>
+                  <div class="evidence"><h3>Evidence module C</h3><div class="meta-table"><span><b>Source:</b> product walkthrough captures</span><span><b>Date:</b> 2026-03-xx</span><span><b>Behavior:</b> feed-first path vs manual fallback</span></div></div>
+                </div>
+                <div class="cta-row"><button class="btn primary">Build my job profile</button><button class="btn">See pricing</button></div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="screen">
+          <div class="screen-head"><div><div class="id">W5</div><div class="name">Pricing architecture</div></div><div class="note">Premium comparison layout, no numeric prices or credit counts</div></div>
+          <div class="browser">
+            <div class="chrome"><div class="dots"><span></span><span></span><span></span></div><div>https://jobfilter.com/pricing</div><div style="margin-left:auto;">1440x900</div></div>
+            <div class="page">
+              <div class="nav"><div class="brand">Job Filter</div><div class="links"><span>Product</span><span>How It Works</span><span>Proof</span><span class="active">Pricing</span><span>FAQ</span></div><button class="btn">Sign in</button><button class="btn primary">Build my job profile</button></div>
+              <div class="content">
+                <div class="pricing-layout">
+                  <div class="pricing-rail">
+                    <div class="overline">Plan intent</div>
+                    <h3 style="margin:8px 0 8px;font-size:24px;font-family:'Newsreader',Georgia,serif;">Choose by search mode, not by feature noise</h3>
+                    <p style="margin:0;color:var(--text-muted);font-size:13px;">This page locks plan architecture only. Numeric pricing and credit counts remain pending product decision.</p>
+                    <div class="cta-row"><button class="btn">Compare plans</button></div>
+                  </div>
+                  <div class="pricing-compare">
+                    <table>
+                      <thead><tr><th>Plan</th><th>Best for</th><th>Core access</th><th>Primary CTA</th></tr></thead>
+                      <tbody>
+                        <tr><td><b>Free</b></td><td>Low-risk start</td><td>Setup + baseline feeds + basic assets</td><td><button class="btn primary">Start free</button></td></tr>
+                        <tr><td><b>Seasonal Pass</b></td><td>Concentrated search cycle</td><td>Expanded usage during active search</td><td><button class="btn primary">Choose Seasonal Pass</button></td></tr>
+                        <tr><td><b>Pro + credits</b></td><td>Ongoing strategic search</td><td>Research Brief + advanced strategic workflows</td><td><button class="btn primary">Explore Pro</button></td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="screen">
+          <div class="screen-head"><div><div class="id">W6</div><div class="name">FAQ</div></div><div class="note">Grouped objections with stronger persuasion hierarchy</div></div>
+          <div class="browser">
+            <div class="chrome"><div class="dots"><span></span><span></span><span></span></div><div>https://jobfilter.com/faq</div><div style="margin-left:auto;">1440x900</div></div>
+            <div class="page">
+              <div class="nav"><div class="brand">Job Filter</div><div class="links"><span>Product</span><span>How It Works</span><span>Proof</span><span>Pricing</span><span class="active">FAQ</span></div><button class="btn">Sign in</button><button class="btn primary">Build my job profile</button></div>
+              <div class="content">
+                <div class="faq-layout">
+                  <div>
+                    <div class="overline">FAQ</div>
+                    <h3 style="margin:8px 0 8px;font-size:28px;font-family:'Newsreader',Georgia,serif;">Answers that remove hesitation and keep momentum</h3>
+                    <div class="faq-group"><h3>Setup effort</h3><p>Six guided steps with explicit completion cues and immediate downstream effect.</p></div>
+                    <div class="faq-group"><h3>Output trust</h3><p>Why this draft exposes used, missing, and excluded context before apply.</p></div>
+                    <div class="faq-group"><h3>Control</h3><p>Manual add remains available even when feeds are the default path.</p></div>
+                    <div class="cta-row"><button class="btn primary">Build my job profile</button><button class="btn">See how it works</button></div>
+                  </div>
+                  <div class="objection-map">
+                    <div class="row"><div><b>Objection</b></div><div><b>Mechanism response</b></div></div>
+                    <div class="row"><div>“Too much setup”</div><div>Step grammar + progress + feed unlock path.</div></div>
+                    <div class="row"><div>“Generic drafts”</div><div>Context row transparency before accept.</div></div>
+                    <div class="row"><div>“Another tracker”</div><div>Profile -> feeds -> assets is one operational loop.</div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="screen">
+          <div class="screen-head"><div><div class="id">W7</div><div class="name">Auth handoff</div></div><div class="note">Signed-out to signed-in routing remains explicit</div></div>
+          <div class="browser">
+            <div class="chrome"><div class="dots"><span></span><span></span><span></span></div><div>https://app.jobfilter.com/auth</div><div style="margin-left:auto;">1440x900</div></div>
+            <div class="page">
+              <div class="nav"><div class="brand">Job Filter</div><div class="links"><span>Product</span><span>How It Works</span><span>Proof</span><span>Pricing</span><span>FAQ</span></div><button class="btn">Sign in</button><button class="btn primary">Build my job profile</button></div>
+              <div class="content">
+                <div class="auth-layout">
+                  <div>
+                    <div class="overline">Continue</div>
+                    <h3 style="margin:8px 0 8px;font-size:30px;font-family:'Newsreader',Georgia,serif;">Sign in to continue</h3>
+                    <p style="margin:0;color:var(--text-muted);font-size:14px;">After auth, routing follows readiness and job state. No dead ends.</p>
+                    <div class="cta-row"><button class="btn primary">Continue</button><button class="btn">Back</button></div>
+                  </div>
+                  <div>
+                    <div class="route-card"><h3>Not asset-ready</h3><p>Route to <code>/profile?mode=setup</code></p></div>
+                    <div class="route-card" style="margin-top:8px;"><h3>Asset-ready, no jobs</h3><p>Route to role-seeded feeds</p></div>
+                    <div class="route-card" style="margin-top:8px;"><h3>Asset-ready, jobs present</h3><p>Open first selected job, Assets tab default</p></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>

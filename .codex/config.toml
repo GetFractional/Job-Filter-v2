@@ -1,9 +1,9 @@
 startup_timeout_sec = 30
 tool_timeout_sec = 120
 
-[mcp_servers.clickup]
-command = "npx"
-args = ["-y", "@hauptsache.net/clickup-mcp@latest"]
-enabled = true
-env = { CLICKUP_MCP_MODE = "write", MAX_IMAGES = "0", MAX_RESPONSE_SIZE_MB = "2" }
-env_vars = ["CLICKUP_API_KEY", "CLICKUP_TEAM_ID"]
+# ClickUp MCP is configured in ~/.codex/config.toml because it requires
+# private credentials. Do not add ClickUp secrets to this repo-local file.
+#
+# A repo-local [mcp_servers.clickup] block can shadow the global server config
+# in Codex Desktop sessions unless CLICKUP_* env vars are injected into the app
+# process, which makes ClickUp tools disappear or fail during startup.

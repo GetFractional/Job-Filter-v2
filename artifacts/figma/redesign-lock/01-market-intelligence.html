@@ -1,0 +1,1623 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>01. Market Intelligence</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,600&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        color-scheme: dark;
+        --canvas: #05070a;
+        --canvas-depth: #091018;
+        --shell: rgba(14, 20, 28, 0.84);
+        --shell-strong: rgba(20, 28, 38, 0.92);
+        --shell-soft: rgba(12, 17, 24, 0.74);
+        --shell-muted: rgba(17, 24, 34, 0.68);
+        --shell-elevated: rgba(24, 32, 43, 0.9);
+        --shell-review: rgba(20, 31, 35, 0.95);
+        --shell-overlay: rgba(7, 11, 16, 0.82);
+        --line: rgba(223, 233, 244, 0.12);
+        --line-strong: rgba(223, 233, 244, 0.22);
+        --line-accent: rgba(121, 214, 180, 0.34);
+        --text: #f4f7fb;
+        --text-secondary: #c9d2dc;
+        --text-muted: #94a2b2;
+        --text-faint: #718094;
+        --accent: #79d6b4;
+        --accent-strong: #49bb91;
+        --accent-soft: rgba(121, 214, 180, 0.14);
+        --mineral: #8fb1d9;
+        --mineral-soft: rgba(143, 177, 217, 0.14);
+        --warning: #d4a66b;
+        --warning-soft: rgba(212, 166, 107, 0.15);
+        --danger: #cc8c97;
+        --danger-soft: rgba(204, 140, 151, 0.14);
+        --shadow-lg: 0 32px 90px rgba(0, 0, 0, 0.42);
+        --shadow-md: 0 18px 42px rgba(0, 0, 0, 0.3);
+        --shadow-sm: 0 12px 26px rgba(0, 0, 0, 0.22);
+        --radius-xl: 28px;
+        --radius-lg: 22px;
+        --radius-md: 16px;
+        --radius-sm: 12px;
+        --page-width: 1180px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        font-family: "Plus Jakarta Sans", sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(circle at top, rgba(121, 214, 180, 0.1), transparent 34%),
+          radial-gradient(circle at 80% 12%, rgba(143, 177, 217, 0.12), transparent 24%),
+          linear-gradient(180deg, #06090d 0%, #090f14 100%);
+      }
+
+      body {
+        position: relative;
+        padding: 28px 20px 48px;
+      }
+
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        opacity: 0.2;
+        background-image: radial-gradient(rgba(255, 255, 255, 0.06) 0.8px, transparent 0.8px);
+        background-size: 28px 28px;
+        mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.65), transparent 72%);
+      }
+
+      a {
+        color: var(--mineral);
+        text-decoration-color: rgba(143, 177, 217, 0.55);
+        text-underline-offset: 3px;
+      }
+
+      code {
+        font-family: "Plus Jakarta Sans", sans-serif;
+        font-size: 12px;
+        color: var(--text-secondary);
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 3px 7px;
+      }
+
+      .page {
+        position: relative;
+        width: min(100%, var(--page-width));
+        margin: 0 auto;
+      }
+
+      .hero,
+      .section {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-xl);
+        background: linear-gradient(180deg, rgba(20, 28, 38, 0.88), rgba(10, 15, 22, 0.82));
+        box-shadow: var(--shadow-lg);
+        backdrop-filter: blur(18px);
+      }
+
+      .hero {
+        padding: 28px 30px 30px;
+      }
+
+      .section {
+        margin-top: 22px;
+        padding: 28px;
+      }
+
+      .hero::before,
+      .section::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        border-radius: inherit;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 18%);
+      }
+
+      h1,
+      h2,
+      h3,
+      h4 {
+        margin: 0;
+      }
+
+      h1,
+      h2 {
+        font-family: "Newsreader", serif;
+        font-weight: 600;
+      }
+
+      h1 {
+        max-width: 920px;
+        font-size: clamp(2.8rem, 4.2vw, 4.5rem);
+        line-height: 0.96;
+        letter-spacing: -0.04em;
+      }
+
+      h2 {
+        font-size: clamp(2rem, 2.6vw, 3rem);
+        line-height: 1.06;
+      }
+
+      .summary {
+        max-width: 920px;
+        margin: 16px 0 0;
+        color: var(--text-secondary);
+        font-size: 17px;
+        line-height: 1.75;
+      }
+
+      .eyebrow,
+      .strong-label,
+      .legend-label,
+      .meta-label {
+        display: block;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .eyebrow {
+        color: var(--accent);
+        margin-bottom: 12px;
+      }
+
+      .strong-label,
+      .legend-label,
+      .meta-label {
+        color: var(--text-muted);
+      }
+
+      .series-panel,
+      .purpose-card,
+      .summary-card,
+      .source-card,
+      .legend-card,
+      .signal-card,
+      .persona-card,
+      .callout-card,
+      .jtbd-card,
+      .cluster-card,
+      .proof-card,
+      .note-card,
+      .requirement-card,
+      .unproven-card {
+        position: relative;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-lg);
+        background: linear-gradient(180deg, rgba(26, 34, 45, 0.88), rgba(16, 23, 32, 0.88));
+        box-shadow: var(--shadow-md);
+      }
+
+      .series-panel,
+      .purpose-card,
+      .summary-card,
+      .source-card,
+      .legend-card,
+      .signal-card,
+      .persona-card,
+      .callout-card,
+      .jtbd-card,
+      .cluster-card,
+      .proof-card,
+      .note-card,
+      .requirement-card,
+      .unproven-card {
+        padding: 20px;
+      }
+
+      .purpose-card,
+      .summary-card,
+      .source-card,
+      .legend-card,
+      .callout-card,
+      .proof-card,
+      .note-card,
+      .requirement-card,
+      .unproven-card {
+        background: linear-gradient(180deg, rgba(20, 31, 35, 0.95), rgba(14, 21, 27, 0.92));
+      }
+
+      .hero-intro {
+        margin-top: 30px;
+      }
+
+      .series-grid,
+      .purpose-grid,
+      .grid-2,
+      .grid-3,
+      .grid-4,
+      .legend-grid,
+      .market-summary-grid,
+      .persona-grid,
+      .signal-grid,
+      .jtbd-grid,
+      .cluster-grid,
+      .proof-grid,
+      .requirements-grid,
+      .unproven-grid {
+        display: grid;
+        gap: 16px;
+      }
+
+      .series-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .purpose-grid,
+      .grid-2,
+      .signal-grid,
+      .jtbd-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .grid-3,
+      .legend-grid,
+      .market-summary-grid,
+      .cluster-grid,
+      .proof-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .grid-4,
+      .requirements-grid,
+      .unproven-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      .persona-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .toc-card {
+        min-height: 134px;
+        padding: 18px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .toc-card.active {
+        border-color: var(--line-accent);
+        background: linear-gradient(180deg, rgba(121, 214, 180, 0.12), rgba(22, 30, 40, 0.88));
+        box-shadow: 0 18px 44px rgba(73, 187, 145, 0.14);
+      }
+
+      .toc-number {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 34px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.05);
+        color: var(--text-secondary);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .toc-card h3 {
+        margin-top: 12px;
+        font-size: 16px;
+        line-height: 1.28;
+      }
+
+      .toc-card p,
+      .purpose-card p,
+      .summary-card p,
+      .source-card p,
+      .legend-card p,
+      .signal-card p,
+      .persona-card p,
+      .callout-card p,
+      .jtbd-card p,
+      .cluster-card p,
+      .proof-card p,
+      .note-card p,
+      .requirement-card p,
+      .unproven-card p,
+      li,
+      td,
+      th {
+        margin: 10px 0 0;
+        color: var(--text-secondary);
+        font-size: 14px;
+        line-height: 1.72;
+      }
+
+      .section-head {
+        max-width: 900px;
+        margin-bottom: 20px;
+      }
+
+      .section-note,
+      .footer-note,
+      .subtle-note {
+        margin-top: 10px;
+        color: var(--text-muted);
+        font-size: 13px;
+        line-height: 1.68;
+      }
+
+      .chip-row,
+      .list-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .status-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 10px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--text-secondary);
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+
+      .status-chip.verified {
+        border-color: rgba(121, 214, 180, 0.24);
+        color: var(--accent);
+        background: rgba(121, 214, 180, 0.12);
+      }
+
+      .status-chip.inferred {
+        border-color: rgba(143, 177, 217, 0.24);
+        color: var(--mineral);
+        background: rgba(143, 177, 217, 0.12);
+      }
+
+      .status-chip.unproven {
+        border-color: rgba(212, 166, 107, 0.24);
+        color: #f1cf9b;
+        background: rgba(212, 166, 107, 0.12);
+      }
+
+      .number-chip {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 34px;
+        height: 34px;
+        padding: 0 12px;
+        border-radius: 999px;
+        border: 1px solid rgba(121, 214, 180, 0.22);
+        background: rgba(121, 214, 180, 0.12);
+        color: var(--accent);
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .card-badge {
+        margin-top: auto;
+        align-self: flex-start;
+      }
+
+      .source-list,
+      .card-list,
+      .rule-list,
+      .boundary-list {
+        margin: 12px 0 0;
+        padding-left: 18px;
+      }
+
+      .source-list li + li,
+      .card-list li + li,
+      .rule-list li + li,
+      .boundary-list li + li {
+        margin-top: 8px;
+      }
+
+      .table-wrap {
+        overflow: auto;
+        margin-top: 14px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      table {
+        width: 100%;
+        min-width: 760px;
+        border-collapse: collapse;
+      }
+
+      th,
+      td {
+        padding: 14px 16px;
+        text-align: left;
+        vertical-align: top;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        font-size: 13px;
+        line-height: 1.62;
+      }
+
+      th {
+        color: var(--text);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      tr:last-child td {
+        border-bottom: 0;
+      }
+
+      td .status-chip {
+        margin-top: 0;
+      }
+
+      .table-subtext {
+        display: block;
+        margin-top: 6px;
+        color: var(--text-muted);
+        font-size: 12px;
+        line-height: 1.56;
+      }
+
+      .evidence-rail {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .legend-card,
+      .signal-card,
+      .persona-card,
+      .cluster-card,
+      .proof-card,
+      .requirement-card,
+      .unproven-card {
+        border-radius: 18px;
+      }
+
+      .purpose-card,
+      .summary-card,
+      .source-card,
+      .legend-card,
+      .signal-card,
+      .persona-card,
+      .callout-card,
+      .jtbd-card,
+      .cluster-card,
+      .proof-card,
+      .note-card,
+      .requirement-card,
+      .unproven-card {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .legend-card,
+      .summary-card,
+      .signal-card,
+      .persona-card,
+      .cluster-card,
+      .proof-card,
+      .unproven-card {
+        row-gap: 10px;
+      }
+
+      .summary-card h3,
+      .callout-card h3,
+      .persona-card h3,
+      .jtbd-card h3,
+      .signal-card h3,
+      .proof-card h3,
+      .requirement-card h3,
+      .unproven-card h3,
+      .cluster-card h3 {
+        margin-top: 10px;
+        font-size: 18px;
+        line-height: 1.3;
+      }
+
+      .market-summary-grid .summary-card {
+        min-height: 180px;
+      }
+
+      .persona-card {
+        min-height: 360px;
+      }
+
+      .persona-stack {
+        display: grid;
+        gap: 14px;
+        margin-top: 16px;
+      }
+
+      .persona-detail {
+        padding-top: 14px;
+        border-top: 1px solid var(--line);
+      }
+
+      .persona-detail:first-of-type {
+        padding-top: 0;
+        border-top: 0;
+      }
+
+      .persona-detail p {
+        margin-top: 6px;
+      }
+
+      .meta-line {
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid var(--line);
+        color: var(--text-muted);
+        font-size: 13px;
+        line-height: 1.62;
+      }
+
+      .signal-group {
+        margin-top: 18px;
+      }
+
+      .signal-group:first-child {
+        margin-top: 0;
+      }
+
+      .signal-group h3 {
+        font-size: 18px;
+        line-height: 1.28;
+      }
+
+      .signal-group ul {
+        margin: 12px 0 0;
+        padding-left: 18px;
+      }
+
+      .signal-group li strong,
+      .cluster-card li strong,
+      .proof-card li strong,
+      .requirement-card li strong,
+      .unproven-card li strong {
+        color: var(--text);
+      }
+
+      .jtbd-card ol {
+        margin: 12px 0 0;
+        padding-left: 0;
+        list-style: none;
+      }
+
+      .jtbd-card ol li {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 12px;
+        align-items: flex-start;
+        margin-top: 12px;
+      }
+
+      .jtbd-card ol li:first-child {
+        margin-top: 0;
+      }
+
+      .callout-card {
+        padding: 22px;
+      }
+
+      .callout-card h3 {
+        margin-top: 12px;
+        font-size: 26px;
+        line-height: 1.08;
+      }
+
+      .jtbd-core-card h3 {
+        font-size: 18px;
+        line-height: 1.3;
+      }
+
+      .jtbd-core-text {
+        max-width: 960px;
+        margin: 12px 0 0;
+        color: var(--text-secondary);
+        font-size: 17px;
+        line-height: 1.8;
+      }
+
+      .proof-grid .proof-card,
+      .cluster-grid .cluster-card {
+        min-height: 220px;
+      }
+
+      .requirements-grid .requirement-card,
+      .unproven-grid .unproven-card {
+        min-height: 230px;
+      }
+
+      .requirement-card .number-chip {
+        min-width: 34px;
+        width: 34px;
+        padding: 0;
+        flex: 0 0 auto;
+      }
+
+      .footer-note {
+        margin-top: 18px;
+      }
+
+      @media (max-width: 1120px) {
+        .grid-4,
+        .persona-grid,
+        .requirements-grid,
+        .unproven-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .grid-3,
+        .legend-grid,
+        .market-summary-grid,
+        .cluster-grid,
+        .proof-grid,
+        .series-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      @media (max-width: 760px) {
+        body {
+          padding: 20px 14px 36px;
+        }
+
+        .hero,
+        .section {
+          padding: 20px;
+        }
+
+        .grid-2,
+        .grid-3,
+        .grid-4,
+        .legend-grid,
+        .market-summary-grid,
+        .persona-grid,
+        .signal-grid,
+        .jtbd-grid,
+        .cluster-grid,
+        .proof-grid,
+        .requirements-grid,
+        .unproven-grid,
+        .series-grid,
+        .purpose-grid {
+          grid-template-columns: 1fr;
+        }
+
+        table {
+          min-width: 640px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <div class="hero">
+        <div class="eyebrow">Foundation Series</div>
+        <div class="series-panel">
+          <div class="series-grid">
+            <div class="toc-card active">
+              <span class="toc-number">01</span>
+              <h3>Market Intelligence</h3>
+              <p>Category tensions, trust triggers, pricing friction, and lane-level workflow needs.</p>
+            </div>
+            <div class="toc-card">
+              <span class="toc-number">02</span>
+              <h3>Brand Strategy</h3>
+              <p>Category framing, CTA ladder, message hierarchy, and trust-safe language.</p>
+            </div>
+            <div class="toc-card">
+              <span class="toc-number">03</span>
+              <h3>Shared Visual and Product System</h3>
+              <p>Reusable foundations, states, component anatomy, and product assemblies for downstream work.</p>
+            </div>
+            <div class="toc-card">
+              <span class="toc-number">04</span>
+              <h3>Website and Public Funnel</h3>
+              <p>Public-site IA, page roles, proof placement, worksheet entry, and auth handoff.</p>
+            </div>
+            <div class="toc-card">
+              <span class="toc-number">05</span>
+              <h3>Activation and Core App</h3>
+              <p>Route-level app composition, setup flows, tracking, and lane-driven workspaces.</p>
+            </div>
+            <div class="toc-card">
+              <span class="toc-number">06</span>
+              <h3>Lifecycle Messaging and Email</h3>
+              <p>Status language, reusable email components, and trust-safe follow-up patterns.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="hero-intro">
+          <h1>01. Market Intelligence</h1>
+          <p class="summary">
+            Memorialize the canonical market and buyer-reality layer that later brand, product system, website,
+            activation, and lifecycle work must inherit. This artifact is not a research export or a prompt dump. It
+            is the durable intelligence layer for the Foundation Series.
+          </p>
+        </div>
+
+        <div class="purpose-grid" style="margin-top: 24px;">
+          <div class="purpose-card">
+            <div class="eyebrow">Chapter purpose and how to use it</div>
+            <p>
+              Use this artifact to lock audience state, market psychology, category tension, trust requirements, and
+              downstream product needs before writing copy or designing surfaces. Later work should inherit it, not
+              re-derive it.
+            </p>
+          </div>
+          <div class="purpose-card">
+            <div class="eyebrow">Operating constraint</div>
+            <p>
+              Treat evidence quality labels as operating rules. Do not convert inferred opportunity into product truth,
+              proof language, or governance changes. Update this layer only when the normalized research corpus or
+              verified program evidence changes materially.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-head">
+          <div class="eyebrow">Evidence Base and Evidence-Quality Legend</div>
+          <h2>Ground every downstream artifact in the same evidence stack and the same confidence model.</h2>
+          <p>
+            This market-intelligence layer is only useful if later work can see what it rests on and how strongly each
+            claim is supported.
+            This section establishes the evidence base and the meaning of each evidence label.
+          </p>
+        </div>
+
+        <div class="grid-2">
+          <div class="source-card">
+            <span class="strong-label">Canonical evidence base</span>
+            <ul class="source-list">
+              <li><code>docs/product/job-filter-foundation-series-governing-packet-v7.md</code></li>
+              <li><code>docs/product/foundation-series/01-market-intelligence.md</code></li>
+              <li><code>docs/product/foundation-series/research/README.md</code></li>
+              <li><code>docs/product/foundation-series/research/01-competitor-pricing.md</code></li>
+              <li><code>docs/product/foundation-series/research/02-demand-capture-before-signup.md</code></li>
+              <li><code>docs/product/foundation-series/research/03-competitor-brand-strategy.md</code></li>
+              <li><code>docs/product/foundation-series/research/04-job-search-funnel-benchmarks.md</code></li>
+            </ul>
+          </div>
+
+          <div class="source-card">
+            <span class="strong-label">What this evidence base does not do</span>
+            <ul class="source-list">
+              <li>It does not reopen the governance lock that entry model = <strong>Free tier</strong>.</li>
+              <li>It does not silently approve pricing, website, activation, or lifecycle decisions.</li>
+              <li>It does not convert normalized research into direct proof claims.</li>
+              <li>It does not override the governing packet, active task packets, or current repo reality.</li>
+            </ul>
+            <div class="meta-line">
+              Research recommendations stay recommendations until a downstream artifact or packet explicitly adopts them.
+            </div>
+          </div>
+        </div>
+
+        <div class="legend-grid" style="margin-top: 18px;">
+          <div class="legend-card">
+            <h3>Safe to encode into canonical artifact direction.</h3>
+            <p>Supported by current program docs, normalized research corpus, or clear source convergence.</p>
+            <span class="status-chip verified card-badge">Verified fact</span>
+          </div>
+          <div class="legend-card">
+            <h3>Safe for design direction, not for proof claims.</h3>
+            <p>Strong implication drawn from verified facts and the current product thesis.</p>
+            <span class="status-chip inferred card-badge">Inferred opportunity</span>
+          </div>
+          <div class="legend-card">
+            <h3>Must remain a question, test, or caution.</h3>
+            <p>Important open question, weaker source pattern, or recommendation that still needs validation.</p>
+            <span class="status-chip unproven card-badge">Not yet proven</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-head">
+          <div class="eyebrow">Locked Market Read</div>
+          <h2>Lock the market truths that every downstream artifact must inherit.</h2>
+          <p>
+            These are the signals that define the buyer-reality layer. Later brand, website, product-system, and
+            activation work should translate them, not argue with them.
+          </p>
+        </div>
+
+        <div class="market-summary-grid">
+          <div class="summary-card">
+            <span class="strong-label">Trust tension</span>
+            <h3>Users are tired of noisy, low-trust tooling.</h3>
+            <p>Clarity, control, and workflow quality matter more than novelty or hype.</p>
+            <span class="status-chip verified card-badge">Verified fact</span>
+          </div>
+          <div class="summary-card">
+            <span class="strong-label">Real pain</span>
+            <h3>The pain is choosing better roles and shaping a credible story.</h3>
+            <p>Writing faster is secondary to targeting quality, story quality, and reusable leverage.</p>
+            <span class="status-chip verified card-badge">Verified fact</span>
+          </div>
+          <div class="summary-card">
+            <span class="strong-label">Entry expectation</span>
+            <h3>Free-to-start clarity is part of trust, not a pricing footnote.</h3>
+            <p>The first useful output must be legible before deeper commitment or monetization asks feel safe.</p>
+            <span class="status-chip verified card-badge">Verified fact</span>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Signal</th>
+                <th>Why it matters</th>
+                <th>Evidence quality</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Experienced applicants are tired of noisy, low-trust job-search tooling.</td>
+                <td>Job Filter should lead with clarity, control, and workflow quality rather than novelty or hype.</td>
+                <td><span class="status-chip verified">Verified fact</span></td>
+              </tr>
+              <tr>
+                <td>The core pain is not writing faster. The core pain is choosing better roles, shaping a credible story, and sustaining momentum without chaos.</td>
+                <td>Brand and product should prioritize decision quality, story quality, and reusable leverage before speed claims.</td>
+                <td><span class="status-chip verified">Verified fact</span></td>
+              </tr>
+              <tr>
+                <td>Multiple adjacent role lanes are normal for the beachhead user, not edge cases.</td>
+                <td>Lane selection, comparison, and learning must become first-class product behavior.</td>
+                <td><span class="status-chip verified">Verified fact</span></td>
+              </tr>
+              <tr>
+                <td>Setup is tolerated only when it clearly creates a reusable asset that improves the rest of the search.</td>
+                <td>Activation must prove that <strong>Profile</strong> becomes leverage for targeting, lane creation, and later job-search execution, not intake overhead.</td>
+                <td><span class="status-chip verified">Verified fact</span></td>
+              </tr>
+              <tr>
+                <td>Review-before-send and inspectable reasoning are part of the product value, not reassurance layers.</td>
+                <td>Trust must be earned through visible behavior, not only through copy.</td>
+                <td><span class="status-chip verified">Verified fact</span></td>
+              </tr>
+              <tr>
+                <td>Guided storytelling is a first-class requirement for this market.</td>
+                <td>Users need help extracting and shaping usable stories before those stories become assets.</td>
+                <td><span class="status-chip verified">Verified fact</span></td>
+              </tr>
+              <tr>
+                <td>Company and market research should act as grounding inputs, not optional enrichment.</td>
+                <td>Downstream work should help users understand fit, context, and tradeoffs before drafting or sending.</td>
+                <td><span class="status-chip inferred">Inferred opportunity</span></td>
+              </tr>
+              <tr>
+                <td>Free-to-start clarity lowers trust friction for skeptical users.</td>
+                <td>Website and pricing-entry framing must make the <strong>Free tier</strong> concrete and legible.</td>
+                <td><span class="status-chip verified">Verified fact</span></td>
+              </tr>
+              <tr>
+                <td>The category often captures demand through a working utility, not through vague email capture.</td>
+                <td>Public funnel strategy should bias toward useful first-touch value over generic list growth.</td>
+                <td><span class="status-chip verified">Verified fact</span></td>
+              </tr>
+              <tr>
+                <td>Pricing opacity, unclear limits, and awkward renewal structures create trust friction.</td>
+                <td>Job Filter can differentiate through boundary clarity even before downstream pricing-detail packets.</td>
+                <td><span class="status-chip verified">Verified fact</span></td>
+              </tr>
+              <tr>
+                <td>The category is crowded with generic AI, all-in-one, and high-volume application claims.</td>
+                <td>Positioning should contrast against black-box convenience and volume theater without inventing named-comparison claims.</td>
+                <td><span class="status-chip verified">Verified fact</span></td>
+              </tr>
+              <tr>
+                <td>The audience wants quality over volume, but still needs a way to measure momentum and learn over time.</td>
+                <td>Application tracking, lane-level learning, and later A/B asset testing are downstream requirements, not side features.</td>
+                <td><span class="status-chip verified">Verified fact</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-head">
+          <div class="eyebrow">Locked Persona Stack</div>
+          <h2>Make the core user states memorable enough that downstream work does not flatten them.</h2>
+          <p>
+            These personas define the buyer-state lens for the Foundation Series. The goal is not demographic
+            decoration. The goal is to preserve the real fear, tolerance, proof standard, and downstream implication
+            each persona brings into the system.
+          </p>
+        </div>
+
+        <div class="persona-grid">
+          <div class="persona-card">
+            <span class="strong-label">Burnt-Out Applicant</span>
+            <h3>Experienced, capable, and tired of wasting effort on low-signal roles and low-trust tools.</h3>
+            <div class="persona-stack">
+              <div class="persona-detail">
+                <span class="meta-label">Primary fear</span>
+                <p>More work with no better outcomes.</p>
+              </div>
+              <div class="persona-detail">
+                <span class="meta-label">What Job Filter must prove</span>
+              <p>The product reduces waste, improves role targeting, and compounds prior work into a usable search system instead of creating more admin.</p>
+              </div>
+              <div class="persona-detail">
+                <span class="meta-label">Implication for downstream work</span>
+                <p>Effort-to-value ratio, reusable leverage, and free-to-start clarity need to stay visible from entry through workflow use.</p>
+              </div>
+            </div>
+            <span class="status-chip verified card-badge">Verified fact</span>
+          </div>
+          <div class="persona-card">
+            <span class="strong-label">Sophisticated Skeptic</span>
+            <h3>High-agency operator with some manual system already in place and a low tolerance for black-box AI.</h3>
+            <div class="persona-stack">
+              <div class="persona-detail">
+                <span class="meta-label">Primary fear</span>
+                <p>Reputational damage, inflated claims, or hidden automation.</p>
+              </div>
+              <div class="persona-detail">
+                <span class="meta-label">What Job Filter must prove</span>
+                <p>The product is inspectable, reviewable, and grounded in user-approved truth.</p>
+              </div>
+              <div class="persona-detail">
+                <span class="meta-label">Implication for downstream work</span>
+                <p>Proof boundaries, visible reasoning, and the no-auto-apply stance must stay explicit instead of implied.</p>
+              </div>
+            </div>
+            <span class="status-chip verified card-badge">Verified fact</span>
+          </div>
+          <div class="persona-card">
+            <span class="strong-label">Lane Discovery Applicant</span>
+            <h3>Broad, nonlinear background with multiple adjacent role lanes and uncertainty about how to frame fit.</h3>
+            <div class="persona-stack">
+              <div class="persona-detail">
+                <span class="meta-label">Primary fear</span>
+                <p>Looking scattered, unfocused, or under-credentialed.</p>
+              </div>
+              <div class="persona-detail">
+                <span class="meta-label">What Job Filter must prove</span>
+                <p>The product clarifies lane options, extracts the right stories, and helps the user shape credible fit without forcing false specialization.</p>
+              </div>
+              <div class="persona-detail">
+                <span class="meta-label">Implication for downstream work</span>
+                <p>Guided storytelling, lane comparison, and fit explanation need to stay first-class instead of becoming edge-case helpers.</p>
+              </div>
+            </div>
+            <span class="status-chip verified card-badge">Verified fact</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-head">
+          <div class="eyebrow">Audience State and Market Psychology</div>
+          <h2>Preserve the emotional and cognitive load the market is carrying into the funnel.</h2>
+          <p>
+            This section records what is happening in the user’s head and what downstream work must do in response. It
+            matters because later copy or UI work will fail if it starts from a calmer or simpler buyer state than the
+            market actually has.
+          </p>
+        </div>
+
+        <div class="signal-grid">
+          <div class="signal-card">
+            <span class="strong-label">Platform fatigue</span>
+            <h3>“I have already tried too many tools that over-promise and under-explain.”</h3>
+            <p>Downstream work must use calmer language, visible boundaries, and low-drama trust surfaces.</p>
+            <span class="status-chip verified card-badge">Verified fact</span>
+          </div>
+          <div class="signal-card">
+            <span class="strong-label">Quantity versus quality tension</span>
+            <h3>“More applications are not helping if the roles are weak fits.”</h3>
+            <p>Lead with fewer, better-fit roles and stronger decision quality.</p>
+            <span class="status-chip verified card-badge">Verified fact</span>
+          </div>
+          <div class="signal-card">
+            <span class="strong-label">Tailoring and identity-fit anxiety</span>
+            <h3>“I can tailor forever and still feel like the story is still wrong for this role.”</h3>
+            <p>Connect targeting, guided storytelling, and review in one system.</p>
+            <span class="status-chip verified card-badge">Verified fact</span>
+          </div>
+          <div class="signal-card">
+            <span class="strong-label">Lane-discovery uncertainty</span>
+            <h3>“My background could fit several lanes, but I do not know which story to lead with.”</h3>
+            <p>Treat multiple role lanes as a first-class planning and learning need.</p>
+            <span class="status-chip verified card-badge">Verified fact</span>
+          </div>
+          <div class="signal-card">
+            <span class="strong-label">ATS and AI fear</span>
+            <h3>“If this sounds generic, inflated, or machine-made, it could hurt me.”</h3>
+            <p>Keep no-auto-apply, review-before-send, and inspectable reasoning explicit.</p>
+            <span class="status-chip verified card-badge">Verified fact</span>
+          </div>
+          <div class="signal-card">
+            <span class="strong-label">Pricing-entry caution</span>
+            <h3>“I do not want to commit money before I understand the workflow and the first useful output.”</h3>
+            <p>Make the <strong>Free tier</strong> and free-to-start logic legible early.</p>
+            <span class="status-chip verified card-badge">Verified fact</span>
+          </div>
+          <div class="signal-card">
+            <span class="strong-label">Trust in product entry</span>
+            <h3>“I will give you my email if I get a real utility, not just another newsletter.”</h3>
+            <p>Connect signup to a working utility or immediate workflow value.</p>
+            <span class="status-chip verified card-badge">Verified fact</span>
+          </div>
+          <div class="signal-card">
+            <span class="strong-label">Geo and market-context uncertainty</span>
+            <h3>“Does this account for my location, remote constraints, and the market I am actually in?”</h3>
+            <p>Downstream work should explain how geography and market context shape targeting and research.</p>
+            <span class="status-chip unproven card-badge">Not yet proven</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-head">
+          <div class="eyebrow">Category and Competitor Signal Map</div>
+          <h2>Use category evidence without turning this market-intelligence layer into named-comparison theater.</h2>
+          <p>
+            This artifact records what adjacent product clusters usually give the user, where they are strongest, and
+            where the category still leaves white space. It does not make public named-comparison claims.
+          </p>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Competitor cluster</th>
+                <th>What users typically get</th>
+                <th>Where the category is strongest</th>
+                <th>Where the category is weak</th>
+                <th>Evidence quality</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Manual stack of documents, prompts, spreadsheets, and notes</td>
+                <td>Maximum control, fragmented workflow, repeated rewriting</td>
+                <td>Control and custom judgment</td>
+                <td>Weak reuse, weak continuity, weak learning loop</td>
+                <td><span class="status-chip verified">Verified fact</span></td>
+              </tr>
+              <tr>
+                <td>Tracker-led workflow tools</td>
+                <td>Organization, saved jobs, some autofill, some AI assistance</td>
+                <td>Centralization and momentum tracking</td>
+                <td>Weak story extraction and weak role-quality guidance</td>
+                <td><span class="status-chip verified">Verified fact</span></td>
+              </tr>
+              <tr>
+                <td>Resume optimization tools</td>
+                <td>ATS scanning, keyword help, document diagnostics</td>
+                <td>Clear mechanism and tactical usefulness</td>
+                <td>Narrow document scope, weak search-system leverage</td>
+                <td><span class="status-chip verified">Verified fact</span></td>
+              </tr>
+              <tr>
+                <td>Automation-heavy search tools</td>
+                <td>Faster setup to more applications, autofill, agent or auto-apply rhetoric</td>
+                <td>Time savings and convenience framing</td>
+                <td>Trust, transparency, and fit control</td>
+                <td><span class="status-chip verified">Verified fact</span></td>
+              </tr>
+              <tr>
+                <td>Content and coaching brands</td>
+                <td>Advice, newsletters, downloads, courses, or coaching</td>
+                <td>Trust, education, and nurture</td>
+                <td>Weak product activation and weaker workflow compounding</td>
+                <td><span class="status-chip verified">Verified fact</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="cluster-grid" style="margin-top: 18px;">
+          <div class="cluster-card">
+            <span class="strong-label">Verified category messaging patterns</span>
+            <ul class="card-list">
+              <li>Spreadsheet replacement and centralization are common.</li>
+              <li>Time-savings claims are common.</li>
+              <li><strong>AI copilot</strong> and <strong>all in one</strong> are crowded category frames.</li>
+              <li>High-volume application promises are common in automation-heavy tools.</li>
+              <li>ATS optimization remains a strong resume-only wedge.</li>
+              <li>Privacy clarity and inspectable reasoning are less visible than they should be in the category.</li>
+            </ul>
+            <span class="status-chip verified card-badge">Verified fact</span>
+          </div>
+          <div class="cluster-card">
+            <span class="strong-label">What the category rarely gives the user</span>
+            <ul class="card-list">
+              <li><strong>Guided storytelling before asset formatting</strong> for broad experience.</li>
+              <li><strong>Visible review-before-send logic</strong> for skeptical applicants.</li>
+              <li><strong>Lane-aware search structure</strong> instead of one rigid title path.</li>
+              <li><strong>Quality-over-volume public posture</strong> instead of scale theater.</li>
+            </ul>
+            <span class="status-chip inferred card-badge">Inferred opportunity</span>
+          </div>
+          <div class="cluster-card">
+            <span class="strong-label">White-space signals</span>
+            <ul class="card-list">
+              <li>Explainable reasoning feels underused relative to automation rhetoric.</li>
+              <li>Trust-led, control-first positioning is underrepresented.</li>
+              <li>Sharper differentiation may come from better-fit targeting and story extraction rather than bigger adjectives.</li>
+            </ul>
+            <span class="status-chip inferred card-badge">Inferred opportunity</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-head">
+          <div class="eyebrow">Pricing, Entry, and Subscriber-Capture Signals</div>
+          <h2>Record what the category teaches about trust at the front door.</h2>
+          <p>
+            These signals matter because later website, pricing-entry, and lifecycle decisions are more likely to fail
+            on trust and boundary clarity than on feature breadth alone.
+          </p>
+        </div>
+
+        <div class="grid-3">
+          <div class="summary-card">
+            <span class="strong-label">Free-entry pattern</span>
+            <h3>Durable free entry is common in tracker-led and resume-led tools.</h3>
+            <p>Users expect to understand real utility before paying.</p>
+            <span class="status-chip verified card-badge">Verified fact</span>
+          </div>
+          <div class="summary-card">
+            <span class="strong-label">Automation pricing pattern</span>
+            <h3>Opaque pricing, weekly billing, paid trials, and credits appear more often in automation-heavy tools.</h3>
+            <p>These patterns create extra trust friction for skeptical users.</p>
+            <span class="status-chip verified card-badge">Verified fact</span>
+          </div>
+          <div class="summary-card">
+            <span class="strong-label">Demand-capture pattern</span>
+            <h3>Working utility usually beats generic newsletter capture.</h3>
+            <p>Demand capture should connect to product utility, not a detached content funnel.</p>
+            <span class="status-chip verified card-badge">Verified fact</span>
+          </div>
+        </div>
+
+        <div class="signal-grid" style="margin-top: 18px;">
+          <div class="signal-card">
+            <span class="strong-label">Credit-card-first trials</span>
+            <h3>Riskier for this audience.</h3>
+            <p>The audience is already skeptical and price-cautious at the start.</p>
+            <span class="status-chip verified card-badge">Verified fact</span>
+          </div>
+          <div class="signal-card">
+            <span class="strong-label">Lead-magnet role</span>
+            <h3>Useful only when it reinforces the product story.</h3>
+            <p>List growth should support the product path, not replace it.</p>
+            <span class="status-chip inferred card-badge">Inferred opportunity</span>
+          </div>
+          <div class="signal-card">
+            <span class="strong-label">Numeric pricing recs</span>
+            <h3>Research observations are not strategy.</h3>
+            <p>Later packets must not treat corpus pricing observations as approved monetization decisions.</p>
+            <span class="status-chip verified card-badge">Verified fact</span>
+          </div>
+          <div class="signal-card">
+            <span class="strong-label">Product-led capture</span>
+            <h3>The category usually wins demand by letting users do something real.</h3>
+            <p>That makes useful first-touch value more credible than email-first promise copy.</p>
+            <span class="status-chip verified card-badge">Verified fact</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-head">
+          <div class="eyebrow">JTBD</div>
+          <h2>Define the functional, emotional, and social work the product is really being hired to do.</h2>
+          <p>
+            This market-intelligence layer keeps the job definition broader than drafting. The real job is choosing
+            better roles, shaping a credible story, and sustaining a search without losing trust or coherence.
+          </p>
+        </div>
+
+        <div class="callout-card jtbd-core-card">
+          <span class="strong-label">Core job</span>
+          <p class="jtbd-core-text">
+            When an experienced applicant is trying to turn a broad career history into a focused job-search system,
+            they need a trustworthy way to choose the right roles, build the right lanes, search the right jobs, shape
+            the right story, and reuse that work across applications without losing credibility.
+          </p>
+        </div>
+
+        <div class="jtbd-grid" style="margin-top: 18px;">
+          <div class="jtbd-card">
+            <span class="strong-label">Functional jobs</span>
+            <ol>
+              <li><span class="number-chip">01</span><span>Decide whether a role is worth real effort.</span></li>
+              <li><span class="number-chip">02</span><span>Define the right lanes, role titles, and story expectations for each search path.</span></li>
+              <li><span class="number-chip">03</span><span>Search for jobs associated with those lanes, then gather company and market context that affects fit, positioning, and timing.</span></li>
+              <li><span class="number-chip">04</span><span>Extract, organize, and approve the most relevant stories before drafting.</span></li>
+              <li><span class="number-chip">05</span><span>Produce assets and outreach from approved context.</span></li>
+              <li><span class="number-chip">06</span><span>Review what was used, missing, or excluded before sending.</span></li>
+              <li><span class="number-chip">07</span><span>Track application progress and learn what works by lane, source, company profile, and asset version.</span></li>
+              <li><span class="number-chip">08</span><span>Preserve supporting context such as reason-for-leaving, role transitions, and adjacent-lane framing for later reuse.</span></li>
+            </ol>
+          </div>
+          <div class="jtbd-card">
+            <span class="strong-label">Emotional and social jobs</span>
+            <ol>
+              <li><span class="number-chip">01</span><span>Feel less scattered and less reactive in a noisy market.</span></li>
+              <li><span class="number-chip">02</span><span>Preserve professional credibility while using software assistance.</span></li>
+              <li><span class="number-chip">03</span><span>Avoid the shame of sending generic, inflated, or weak-fit applications.</span></li>
+              <li><span class="number-chip">04</span><span>Feel that setup work compounds instead of disappearing into one-off documents.</span></li>
+            </ol>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-head">
+          <div class="eyebrow">Objections, Trust Triggers, Buying Triggers, and Conversion Blockers</div>
+          <h2>Group the pressure points so downstream work knows what must be answered, surfaced, or defused.</h2>
+          <p>
+            This is where the artifact becomes especially practical for downstream work. It shows what the market will
+            challenge, what trust signals matter, what triggers movement, and what keeps the product from converting if
+            the story drifts.
+          </p>
+        </div>
+
+        <div class="cluster-grid">
+          <div class="cluster-card">
+            <span class="strong-label">Objections</span>
+            <ul class="card-list">
+              <li>“I can already do this with documents and ChatGPT.”<span class="table-subtext">Brand strategy must sharpen the vehicle difference. The shared product system and activation flows must show connected targeting, guided storytelling, and review logic.</span></li>
+              <li>“My experience is too messy for a product like this.”<span class="table-subtext">Activation and core app work must guide story extraction, lane framing, and context capture before asking for polished outputs.</span></li>
+              <li>“I do not want generic or inflated output attached to my name.”<span class="table-subtext">Brand strategy and the shared product system must elevate inspectable reasoning, review-before-send, and visible proof boundaries.</span></li>
+              <li>“I still do not know what is free and what I would pay for later.”<span class="table-subtext">The website and public funnel must make the <strong>Free tier</strong> and free-to-start logic explicit without turning pricing into the main story.</span></li>
+            </ul>
+            <span class="status-chip verified card-badge">Verified fact</span>
+          </div>
+          <div class="cluster-card">
+            <span class="strong-label">Trust triggers</span>
+            <ul class="card-list">
+              <li>Visible review-before-send logic</li>
+              <li>Explicit no-auto-apply stance</li>
+              <li>Concrete explanation of what <strong>Profile</strong> becomes</li>
+              <li>Guided storytelling before polished outputs</li>
+            </ul>
+            <span class="status-chip verified card-badge">Verified fact</span>
+          </div>
+          <div class="cluster-card">
+            <span class="strong-label">Buying triggers</span>
+            <ul class="card-list">
+              <li>Repeated wasted effort on weak-fit applications</li>
+              <li>Adjacent-lane search confusion</li>
+              <li>Frustration with fragmented workflow and weak learning loops</li>
+            </ul>
+            <span class="status-chip verified card-badge">Verified fact</span>
+          </div>
+        </div>
+
+        <div class="grid-2" style="margin-top: 18px;">
+          <div class="note-card">
+            <span class="strong-label">Conversion blockers</span>
+            <ul class="card-list">
+              <li>The product sounds like setup before it sounds like leverage.</li>
+              <li>The product looks like a profile or drafting tool instead of a system for targeting roles, creating lanes, finding jobs, and running the search.</li>
+              <li>The user cannot tell whether company, market, or geo context is accounted for.</li>
+            </ul>
+            <div class="meta-line">
+              The first two are <span class="status-chip verified">Verified fact</span> blockers. The third remains
+              <span class="status-chip unproven">Not yet proven</span>.
+            </div>
+          </div>
+          <div class="note-card">
+            <span class="strong-label">Downstream reading</span>
+            <p>
+              The objections and blockers here are not message prompts. They are operating constraints. Downstream work
+              should resolve them through product truth, interface evidence, and clear boundaries rather than louder
+              persuasion.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-head">
+          <div class="eyebrow">Proof and Trust Signals</div>
+          <h2>Make trust architecture durable enough that later teams cannot reduce it to reassurance copy.</h2>
+          <p>
+            These are the trust requirements that downstream work should preserve as visible system behavior, not just
+            promise language.
+          </p>
+        </div>
+
+        <div class="proof-grid">
+          <div class="proof-card">
+            <span class="strong-label">Entry trust</span>
+            <h3>Free-to-start clarity must be visible early.</h3>
+            <ul class="card-list">
+              <li>Skeptical users do not want pricing ambiguity before they understand the workflow.</li>
+              <li><strong>No current-state promise may imply auto-apply.</strong></li>
+            </ul>
+            <span class="status-chip verified card-badge">Verified fact</span>
+          </div>
+          <div class="proof-card">
+            <span class="strong-label">Workflow trust</span>
+            <h3>Review-before-send and inspectable reasoning are not optional reassurance.</h3>
+            <ul class="card-list">
+              <li>Users need to inspect what was used, missing, or excluded before trusting any output.</li>
+              <li>Guided storytelling must happen before asset formatting.</li>
+            </ul>
+            <span class="status-chip verified card-badge">Verified fact</span>
+          </div>
+          <div class="proof-card">
+            <span class="strong-label">System-arc trust</span>
+            <h3>Multiple lanes, research context, and learning loops matter later.</h3>
+            <ul class="card-list">
+              <li>Company and market research can inform fit decisions.</li>
+              <li>Tracking and later A/B asset testing are part of the system arc.</li>
+            </ul>
+            <span class="status-chip inferred card-badge">Inferred opportunity</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-head">
+          <div class="eyebrow">Funnel Benchmark Logic and Lane Implications</div>
+          <h2>Use benchmark context directionally, then preserve the schema that later tracking work should inherit.</h2>
+          <p>
+            This market-intelligence layer does not turn benchmark bands into promises. It records what can safely be
+            used later for user education, tracking logic, and lane-aware analytics design.
+          </p>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Benchmark signal</th>
+                <th>Why it matters for Job Filter</th>
+                <th>Evidence quality</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Application-to-interview conversion should be read as a lane-level range, not one universal number.</td>
+                <td>Different role families, channels, and markets behave differently.</td>
+                <td><span class="status-chip verified">Verified fact</span></td>
+              </tr>
+              <tr>
+                <td>Response timing can be benchmarked directionally.</td>
+                <td>Time-to-response helps users understand whether an application is still live or likely cold.</td>
+                <td><span class="status-chip verified">Verified fact</span></td>
+              </tr>
+              <tr>
+                <td>Referral and direct channels usually outperform low-signal board applications.</td>
+                <td>Later tracking and guidance should not treat all application sources as equal.</td>
+                <td><span class="status-chip verified">Verified fact</span></td>
+              </tr>
+              <tr>
+                <td>Mass non-customized applications generally perform worst.</td>
+                <td>This reinforces the no-auto-apply and quality-over-volume posture.</td>
+                <td><span class="status-chip verified">Verified fact</span></td>
+              </tr>
+              <tr>
+                <td>Later internal benchmarks should include lane, source, company profile, and asset-version comparisons.</td>
+                <td>This is how Job Filter becomes a learning system rather than a drafting tool.</td>
+                <td><span class="status-chip inferred">Inferred opportunity</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="grid-2" style="margin-top: 18px;">
+          <div class="note-card">
+            <span class="strong-label">What Job Filter can safely use later</span>
+            <ul class="card-list">
+              <li>External ranges can support user education if they stay tied to lane and source context.</li>
+              <li>Ghosting and time-to-response norms are useful for expectation-setting and follow-up logic.</li>
+              <li>Referrals and direct applications consistently outperform lower-signal board applications.</li>
+            </ul>
+          </div>
+          <div class="note-card">
+            <span class="strong-label">Suggested lane-level benchmark schema</span>
+            <ul class="card-list">
+              <li><strong>Job-seeker lane:</strong> role function, seniority, geography, industry target, work model.</li>
+              <li><strong>Application lane:</strong> channel, company size, job type, remote or hybrid status.</li>
+              <li><strong>Funnel stages:</strong> submitted, responded, screened, interviewed, final, offer, accepted, rejected, ghosted.</li>
+              <li><strong>Learning overlays:</strong> asset version, lane, company profile, reason-for-leaving context.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-head">
+          <div class="eyebrow">Strategic Implications for Downstream Artifacts</div>
+          <h2>Make the downstream reading explicit so brand, system, website, activation, and lifecycle work inherit the intelligence cleanly.</h2>
+          <p>
+            This section is the bridge from market read to downstream decisions. It should feel durable because it
+            tells every later artifact what this layer now locks.
+          </p>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Downstream artifact</th>
+                <th>What this artifact now locks</th>
+                <th>Evidence quality</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Brand Strategy</td>
+                <td>Lead with better-fit roles, guided storytelling, reusable <strong>Profile</strong>, and review-before-send logic. Do not lead with generic AI convenience or volume.</td>
+                <td><span class="status-chip verified">Verified fact</span></td>
+              </tr>
+              <tr>
+                <td>Shared Visual and Product System</td>
+                <td>Encode calm trust surfaces, visible rationale states, lane-aware structures, branded links, and explicit suggestion-versus-approved distinctions.</td>
+                <td><span class="status-chip verified">Verified fact</span></td>
+              </tr>
+              <tr>
+                <td>Website and Public Funnel</td>
+                <td>Explain <strong>Free tier</strong>, free-to-start clarity, <strong>Profile</strong> as the first durable asset, no-auto-apply boundaries, category trust gaps, and utility-led demand capture patterns.</td>
+                <td><span class="status-chip verified">Verified fact</span></td>
+              </tr>
+              <tr>
+                <td>Activation and Core App</td>
+                <td>Start with lane framing, guided storytelling, company and market context, and visible progress. Support multiple lanes, application tracking, reason-for-leaving capture, and later A/B asset testing.</td>
+                <td><span class="status-chip verified">Verified fact</span></td>
+              </tr>
+              <tr>
+                <td>Lifecycle Messaging and Email System</td>
+                <td>Build lifecycle messaging around trust, momentum, lane clarity, research-backed follow-up timing, and next-step guidance rather than hype or urgency.</td>
+                <td><span class="status-chip verified">Verified fact</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="section-note">
+          If a later artifact conflicts with the locked market read here, it should explain the translation explicitly
+          instead of silently flattening the user state.
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-head">
+          <div class="eyebrow">Binding Requirements for Downstream Work</div>
+          <h2>Turn the core intelligence into durable rules that later teams can carry without reinterpretation.</h2>
+          <p>
+            These requirements are now binding unless a later governance reset overrides them. They are intentionally
+            memorable because they are the guardrails later design and messaging work must preserve.
+          </p>
+        </div>
+
+        <div class="requirements-grid">
+          <div class="requirement-card">
+            <span class="number-chip">01</span>
+            <h3><strong>Free tier</strong> and free-to-start clarity are trust requirements.</h3>
+            <p>They are not just pricing details.</p>
+          </div>
+          <div class="requirement-card">
+            <span class="number-chip">02</span>
+            <h3>No current-state promise may imply or suggest auto-apply.</h3>
+            <p>The boundary must remain explicit.</p>
+          </div>
+          <div class="requirement-card">
+            <span class="number-chip">03</span>
+            <h3>Guided storytelling and guided story extraction are first-class product requirements.</h3>
+            <p>They are not polish layers.</p>
+          </div>
+          <div class="requirement-card">
+            <span class="number-chip">04</span>
+            <h3>Multiple role lanes must remain a first-class user need.</h3>
+            <p>Brand, website, and app flows should preserve that reality.</p>
+          </div>
+          <div class="requirement-card">
+            <span class="number-chip">05</span>
+            <h3>Company and market research should be treated as grounding inputs.</h3>
+            <p>Later targeting and storytelling work should not treat them as optional decoration.</p>
+          </div>
+          <div class="requirement-card">
+            <span class="number-chip">06</span>
+            <h3>Review-before-send and inspectable reasoning are trust architecture.</h3>
+            <p>They are not optional reassurance.</p>
+          </div>
+          <div class="requirement-card">
+            <span class="number-chip">07</span>
+            <h3>Application tracking and later A/B asset testing are real downstream product needs.</h3>
+            <p>The system arc extends beyond drafting.</p>
+          </div>
+          <div class="requirement-card">
+            <span class="number-chip">08</span>
+            <h3>Reason-for-leaving capture is a downstream product and data need.</h3>
+            <p>It can affect positioning, transitions, and storytelling accuracy later.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-head">
+          <div class="eyebrow">Not Yet Proven</div>
+          <h2>Keep the open questions visible so later work does not accidentally promote them into claims.</h2>
+          <p>
+            These questions matter, but the current program does not support stronger claims yet. They should stay as
+            validation questions for later packets, not current product truth.
+          </p>
+        </div>
+
+        <div class="unproven-grid">
+          <div class="unproven-card">
+            <h3>Geo-availability and location constraints</h3>
+            <p>How strongly do they influence willingness to start?</p>
+            <span class="status-chip unproven card-badge">Not yet proven</span>
+          </div>
+          <div class="unproven-card">
+            <h3>ATS language on public pages</h3>
+            <p>How much explicit ATS language helps versus hurts trust?</p>
+            <span class="status-chip unproven card-badge">Not yet proven</span>
+          </div>
+          <div class="unproven-card">
+            <h3>Exact free-tier boundary</h3>
+            <p>What specific boundary creates the cleanest conversion path?</p>
+            <span class="status-chip unproven card-badge">Not yet proven</span>
+          </div>
+          <div class="unproven-card">
+            <h3>Best lead-magnet pattern</h3>
+            <p>What exact lead-magnet and subscriber-capture pattern produces the best high-intent entry path?</p>
+            <span class="status-chip unproven card-badge">Not yet proven</span>
+          </div>
+          <div class="unproven-card">
+            <h3>Best first-touch mechanism</h3>
+            <p>Should the website and public funnel emphasize a working utility, worksheet path, or another first-touch mechanism most heavily?</p>
+            <span class="status-chip unproven card-badge">Not yet proven</span>
+          </div>
+          <div class="unproven-card">
+            <h3>Lifecycle sequence shape</h3>
+            <p>What exact lifecycle sequence best carries users from setup into sustained search activity?</p>
+            <span class="status-chip unproven card-badge">Not yet proven</span>
+          </div>
+        </div>
+
+        <div class="footer-note">
+          Treat every item in this section as a later validation question. None of them should be used as present-tense
+          product proof, website copy, or activation certainty until a later packet explicitly closes them.
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>04. Website System, Mobile</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --canvas: #f8f6f2;
+        --surface: #fff;
+        --ink: #1f2a24;
+        --muted: #5c675f;
+        --forest: #2f5d50;
+        --line: #d8ddd8;
+        --line-strong: #c9d0c9;
+        --soft: #f4f7f4;
+        --amber-soft: #f6eadb;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+        background:
+          radial-gradient(680px 260px at 85% -8%, rgba(47, 93, 80, 0.1), transparent 60%),
+          var(--canvas);
+        color: var(--ink);
+      }
+      .review { max-width: 980px; margin: 0 auto; padding: 24px 16px 52px; }
+      .intro {
+        border: 1px solid var(--line-strong);
+        border-radius: 16px;
+        background: #fff;
+        padding: 18px;
+        box-shadow: 0 12px 24px rgba(16, 28, 23, 0.08);
+      }
+      .overline {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-weight: 700;
+        color: var(--muted);
+      }
+      h1 {
+        margin: 8px 0 8px;
+        font-family: "Newsreader", Georgia, serif;
+        font-size: clamp(29px, 5vw, 40px);
+        line-height: 1.07;
+      }
+      .chips { display: flex; flex-wrap: wrap; gap: 7px; }
+      .chip {
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: #fff;
+        padding: 5px 9px;
+        font-size: 11px;
+        font-weight: 700;
+      }
+      .intro-copy {
+        margin: 0;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.55;
+      }
+      .header-grid {
+        margin-top: 16px;
+        display: grid;
+        gap: 10px;
+      }
+      .header-card {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.92);
+        padding: 12px;
+      }
+      .header-card h2 {
+        margin: 0 0 7px;
+        font-size: 11px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .header-card p,
+      .header-card li {
+        margin: 0;
+        font-size: 11px;
+        line-height: 1.5;
+      }
+      .header-card ul {
+        margin: 0;
+        padding-left: 16px;
+      }
+      .stack { margin-top: 18px; display: grid; gap: 14px; }
+      .row {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: #fff;
+        padding: 12px;
+      }
+      .row-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+      .id {
+        font-size: 11px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--muted);
+        font-weight: 700;
+      }
+      .name { font-size: 16px; font-weight: 700; }
+      .note { font-size: 12px; color: var(--muted); text-align: right; }
+      .phone {
+        margin: 0 auto;
+        border: 10px solid #1a231f;
+        border-radius: 34px;
+        background: #000;
+        padding: 6px;
+        box-shadow: 0 18px 36px rgba(14, 24, 20, 0.2);
+      }
+      .phone[data-size="375"] { width: 375px; }
+      .phone[data-size="360"] { width: 360px; }
+      .phone[data-size="390"] { width: 390px; }
+      .screen {
+        border-radius: 24px;
+        overflow: hidden;
+        background: #f9fbf9;
+      }
+      .top {
+        height: 56px;
+        border-bottom: 1px solid var(--line);
+        background: #fff;
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        gap: 10px;
+        padding: 0 12px;
+      }
+      .menu { width: 20px; display: grid; gap: 3px; }
+      .menu span { height: 2px; border-radius: 2px; background: #33433b; display: block; }
+      .title { font-size: 13px; font-weight: 700; }
+      .cta {
+        border: 1px solid var(--forest);
+        border-radius: 999px;
+        background: linear-gradient(180deg, #356856, #2d5849);
+        color: #fff;
+        padding: 6px 8px;
+        font-size: 10px;
+        font-weight: 700;
+      }
+      .body { min-height: 680px; padding: 12px; display: grid; gap: 10px; }
+      .hero {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: linear-gradient(160deg, #fff, #f4f8f5);
+        padding: 12px;
+      }
+      .hero h2 {
+        margin: 6px 0 7px;
+        font-family: "Newsreader", Georgia, serif;
+        font-size: 28px;
+        line-height: 1.05;
+      }
+      .hero p { margin: 0; color: var(--muted); font-size: 12px; }
+      .btns { margin-top: 10px; display: grid; gap: 8px; }
+      .btn {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: #fff;
+        text-align: center;
+        padding: 10px;
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .btn.primary {
+        border-color: var(--forest);
+        background: linear-gradient(180deg, #356856, #2c5648);
+        color: #fff;
+        box-shadow: 0 8px 16px rgba(36, 72, 61, 0.22);
+      }
+      .module {
+        border: 1px solid var(--line);
+        border-radius: 11px;
+        background: #fff;
+        padding: 10px;
+      }
+      .module .h {
+        font-size: 10px;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        font-weight: 700;
+        color: var(--muted);
+      }
+      .module .d { margin-top: 4px; font-size: 12px; }
+      .lines { margin-top: 6px; display: grid; gap: 5px; }
+      .line { height: 7px; border-radius: 999px; background: #e7ece7; }
+      .line.short { width: 62%; }
+      .mini {
+        margin-top: 6px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fbfdfb;
+        padding: 7px;
+      }
+      .mini .r {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 6px;
+        align-items: center;
+        margin-bottom: 5px;
+      }
+      .mini .r:last-child { margin-bottom: 0; }
+      .mini .k {
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--muted);
+        font-weight: 700;
+      }
+      .mini .v { font-size: 10px; font-weight: 700; }
+      .mini .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #3f6f5f;
+      }
+      .mini .pills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+      .mini .pill {
+        border: 1px solid #bfd0c2;
+        border-radius: 999px;
+        background: #eef6f1;
+        color: #2e5548;
+        padding: 2px 6px;
+        font-size: 9px;
+        font-weight: 700;
+      }
+      .evidence-meta {
+        display: grid;
+        gap: 3px;
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .evidence-meta b { color: var(--ink); }
+      .matrix {
+        border: 1px solid var(--line);
+        border-radius: 11px;
+        background: #fff;
+        padding: 8px;
+        font-size: 11px;
+      }
+      .matrix .r {
+        display: grid;
+        grid-template-columns: 0.7fr 1.3fr;
+        gap: 7px;
+        padding: 5px 0;
+        border-bottom: 1px dashed #d9e0d9;
+      }
+      .matrix .r:last-child { border-bottom: 0; }
+      .warn {
+        border: 1px solid #dfc7ad;
+        border-radius: 10px;
+        background: var(--amber-soft);
+        color: #7d4f20;
+        padding: 8px;
+        font-size: 11px;
+      }
+      @media (max-width: 460px) {
+        .phone[data-size="375"], .phone[data-size="360"], .phone[data-size="390"] { width: 100%; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="review">
+      <section class="intro">
+        <div class="overline">Job Filter Foundation Series · Document 04</div>
+        <h1>Website System, Mobile</h1>
+        <p class="intro-copy">
+          Mobile reference for the public page set. This document keeps the same CTA system, trust language, and page
+          logic as the desktop set while translating them into smaller, contained mobile compositions.
+        </p>
+        <div class="header-grid">
+          <article class="header-card">
+            <h2>Purpose</h2>
+            <p>Show how the public page set compresses to mobile without losing hierarchy, trust, or CTA clarity.</p>
+          </article>
+          <article class="header-card">
+            <h2>Scope In</h2>
+            <ul>
+              <li>Mobile nav and hero treatment</li>
+              <li>CTA continuity</li>
+              <li>Three viewport sizes</li>
+            </ul>
+          </article>
+          <article class="header-card">
+            <h2>Scope Out</h2>
+            <ul>
+              <li>New messaging systems</li>
+              <li>Production implementation</li>
+              <li>Net-new page types</li>
+            </ul>
+          </article>
+          <article class="header-card">
+            <h2>Locked Decisions</h2>
+            <p>Primary CTA stays <strong>`Build my job profile`</strong>. Exploratory CTA stays <strong>`See how it works`</strong>.</p>
+          </article>
+          <article class="header-card">
+            <h2>Pending Proof / Open Items</h2>
+            <p>Pricing remains architecture-only and proof sections remain evidence-led.</p>
+          </article>
+          <article class="header-card">
+            <h2>Review Checklist</h2>
+            <p>No legacy file-letter naming, no chip-led summary header, and no CTA drift from the foundation doc.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="stack">
+        <article class="row">
+          <div class="row-head"><div><div class="id">W1</div><div class="name">Home</div></div><div class="note">375x812</div></div>
+          <div class="phone" data-size="375"><div class="screen">
+            <div class="top"><div class="menu"><span></span><span></span><span></span></div><div class="title">Job Filter</div><button class="cta">Build my job profile</button></div>
+            <div class="body">
+              <div class="hero"><div class="overline">Home</div><h2>Better-fit roles. Less rewrite drag.</h2><p>Use one setup flow to drive feeds, draft quality, and confidence.</p><div class="btns"><div class="btn primary">Build my job profile</div><div class="btn">See how it works</div></div></div>
+              <div class="module"><div class="h">Product montage</div><div class="d">Profile setup · Role lanes · Why this draft</div><div class="mini"><div class="r"><div class="v">Step 4/6 complete</div><span class="dot"></span></div><div class="r"><div class="v">Top fit job score: 89</div><span class="dot"></span></div><div class="pills"><span class="pill">Used</span><span class="pill">Missing</span><span class="pill">Excluded</span></div></div></div>
+              <div class="module"><div class="h">Value tension</div><div class="d">“Keep application quality high without spending nights rewriting each submission.”</div></div>
+            </div>
+          </div></div>
+        </article>
+
+        <article class="row">
+          <div class="row-head"><div><div class="id">W2</div><div class="name">How It Works</div></div><div class="note">360x800</div></div>
+          <div class="phone" data-size="360"><div class="screen">
+            <div class="top"><div class="menu"><span></span><span></span><span></span></div><div class="title">How It Works</div><button class="cta">Build my job profile</button></div>
+            <div class="body">
+              <div class="hero"><div class="overline">Sequence</div><h2>From setup to apply in one path</h2><p>Timeline is explicit so each action has a clear next step.</p></div>
+              <div class="module"><div class="h">1. Setup</div><div class="d">Start Here through Targeting.</div></div>
+              <div class="module"><div class="h">2. Feeds</div><div class="d">Select from role-seeded lanes.</div></div>
+              <div class="module"><div class="h">3. Draft</div><div class="d">Generate and inspect Why this draft.</div></div>
+            </div>
+          </div></div>
+        </article>
+
+        <article class="row">
+          <div class="row-head"><div><div class="id">W3</div><div class="name">Product</div></div><div class="note">390x844</div></div>
+          <div class="phone" data-size="390"><div class="screen">
+            <div class="top"><div class="menu"><span></span><span></span><span></span></div><div class="title">Product</div><button class="cta">Build my job profile</button></div>
+            <div class="body">
+              <div class="hero"><div class="overline">Modules</div><h2>A control-oriented workspace, not a toy tool</h2><p>Profile, Jobs, Assets, Proof Library, and Settings stay connected.</p></div>
+              <div class="module"><div class="h">Profile workspace</div><div class="d">Step grammar + persistent preview relationship.</div><div class="mini"><div class="r"><div class="k">Current step</div><div class="v">Skills &amp; Tools</div></div><div class="r"><div class="k">Next</div><div class="v">Profile</div></div></div></div>
+              <div class="module"><div class="h">Jobs and feeds</div><div class="d">Feed-first with manual add fallback.</div></div>
+              <div class="module"><div class="h">Assets and trust</div><div class="d">Used, missing, excluded context rows before apply.</div><div class="mini"><div class="r"><div class="k">Used context</div><div class="v">4 rows</div></div><div class="r"><div class="k">Excluded</div><div class="v">1 unresolved</div></div></div></div>
+            </div>
+          </div></div>
+        </article>
+
+        <article class="row">
+          <div class="row-head"><div><div class="id">W4</div><div class="name">Proof</div></div><div class="note">375x812</div></div>
+          <div class="phone" data-size="375"><div class="screen">
+            <div class="top"><div class="menu"><span></span><span></span><span></span></div><div class="title">Proof</div><button class="cta">Build my job profile</button></div>
+            <div class="body">
+              <div class="hero"><div class="overline">Evidence</div><h2>Review evidence by source, date, and behavior</h2><p>Cards are structured so trust is inspectable.</p></div>
+              <div class="module"><div class="h">Evidence A</div><div class="evidence-meta"><span><b>Source:</b> UX session archive (attachment pending)</span><span><b>Date:</b> 2026-03-xx</span><span><b>Behavior:</b> setup-to-feeds continuity</span></div></div>
+              <div class="module"><div class="h">Evidence B</div><div class="evidence-meta"><span><b>Source:</b> draft audit logs</span><span><b>Date:</b> 2026-03-xx</span><span><b>Behavior:</b> Why this draft trust check</span></div></div>
+            </div>
+          </div></div>
+        </article>
+
+        <article class="row">
+          <div class="row-head"><div><div class="id">W5</div><div class="name">Pricing architecture</div></div><div class="note">360x800</div></div>
+          <div class="phone" data-size="360"><div class="screen">
+            <div class="top"><div class="menu"><span></span><span></span><span></span></div><div class="title">Pricing</div><button class="cta">Build my job profile</button></div>
+            <div class="body">
+              <div class="hero"><div class="overline">Plan architecture</div><h2>Choose by search mode</h2><p>No numeric pricing or credit counts in this lock pass.</p></div>
+              <div class="module"><div class="h">Free</div><div class="d">Start setup and baseline usage.</div><div class="btns"><div class="btn primary">Start free</div></div></div>
+              <div class="module"><div class="h">Seasonal Pass</div><div class="d">Concentrated search period.</div><div class="btns"><div class="btn primary">Choose Seasonal Pass</div></div></div>
+              <div class="module"><div class="h">Pro + credits</div><div class="d">Research Brief and advanced workflows.</div><div class="btns"><div class="btn primary">Explore Pro</div></div></div>
+            </div>
+          </div></div>
+        </article>
+
+        <article class="row">
+          <div class="row-head"><div><div class="id">W6</div><div class="name">FAQ</div></div><div class="note">390x844</div></div>
+          <div class="phone" data-size="390"><div class="screen">
+            <div class="top"><div class="menu"><span></span><span></span><span></span></div><div class="title">FAQ</div><button class="cta">Build my job profile</button></div>
+            <div class="body">
+              <div class="hero"><div class="overline">FAQ</div><h2>Answers that remove hesitation</h2><p>Grouped by objection type, not random list order.</p><div class="btns"><div class="btn primary">Build my job profile</div><div class="btn">See how it works</div></div></div>
+              <div class="matrix"><div class="r"><div><b>Setup</b></div><div>Six guided steps with visible progress.</div></div><div class="r"><div><b>Trust</b></div><div>Why this draft shows used/missing/excluded.</div></div><div class="r"><div><b>Control</b></div><div>Manual add remains available after feeds.</div></div></div>
+            </div>
+          </div></div>
+        </article>
+
+        <article class="row">
+          <div class="row-head"><div><div class="id">W7</div><div class="name">Auth handoff</div></div><div class="note">375x812</div></div>
+          <div class="phone" data-size="375"><div class="screen">
+            <div class="top"><div class="menu"><span></span><span></span><span></span></div><div class="title">Sign in</div><button class="cta">Build my job profile</button></div>
+            <div class="body">
+              <div class="hero"><div class="overline">Continue</div><h2>Sign in to continue</h2><p>Post-auth routing is deterministic by readiness and job state.</p><div class="btns"><div class="btn primary">Continue</div><div class="btn">Back</div></div></div>
+              <div class="module"><div class="h">Route outcomes</div><div class="d">Not ready -> setup · Ready/no jobs -> feeds · Ready/jobs -> assets.</div></div>
+              <div class="warn">Routing logic shown here is aligned with the v4 packet and remains unchanged in this craft pass.</div>
+            </div>
+          </div></div>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>

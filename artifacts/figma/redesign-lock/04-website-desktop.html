@@ -1,0 +1,1720 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>04. Website and Public Funnel, Desktop</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        color-scheme: dark;
+        --canvas: #05070a;
+        --canvas-depth: #091018;
+        --shell: rgba(14, 20, 28, 0.84);
+        --shell-strong: rgba(20, 28, 38, 0.92);
+        --shell-soft: rgba(12, 17, 24, 0.74);
+        --shell-muted: rgba(17, 24, 34, 0.68);
+        --shell-elevated: rgba(24, 32, 43, 0.9);
+        --shell-review: rgba(20, 31, 35, 0.95);
+        --shell-overlay: rgba(7, 11, 16, 0.82);
+        --line: rgba(223, 233, 244, 0.12);
+        --line-strong: rgba(223, 233, 244, 0.22);
+        --line-accent: rgba(121, 214, 180, 0.34);
+        --text: #f4f7fb;
+        --text-secondary: #c9d2dc;
+        --text-muted: #94a2b2;
+        --text-faint: #718094;
+        --accent: #79d6b4;
+        --accent-strong: #49bb91;
+        --accent-soft: rgba(121, 214, 180, 0.16);
+        --accent-soft-strong: rgba(121, 214, 180, 0.24);
+        --mineral: #8fb1d9;
+        --mineral-soft: rgba(143, 177, 217, 0.16);
+        --warning: #d4a66b;
+        --warning-soft: rgba(212, 166, 107, 0.18);
+        --danger: #cc8c97;
+        --danger-soft: rgba(204, 140, 151, 0.16);
+        --success-soft: rgba(96, 173, 136, 0.2);
+        --shadow-lg: 0 32px 90px rgba(0, 0, 0, 0.42);
+        --shadow-md: 0 18px 42px rgba(0, 0, 0, 0.3);
+        --shadow-sm: 0 12px 26px rgba(0, 0, 0, 0.22);
+        --radius-xl: 28px;
+        --radius-lg: 22px;
+        --radius-md: 16px;
+        --radius-sm: 12px;
+        --page-width: 1240px;
+        --site-width: 1120px;
+        --primary-gradient: linear-gradient(180deg, rgba(121, 214, 180, 0.96), rgba(84, 184, 148, 0.92));
+        --internal-gradient: linear-gradient(180deg, rgba(236, 241, 247, 0.94), rgba(214, 220, 228, 0.9));
+      }
+
+      * {
+        box-sizing: border-box;
+        min-width: 0;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        font-family: "Plus Jakarta Sans", sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(circle at top, rgba(121, 214, 180, 0.1), transparent 34%),
+          radial-gradient(circle at 80% 12%, rgba(143, 177, 217, 0.12), transparent 24%),
+          linear-gradient(180deg, #06090d 0%, #090f14 100%);
+      }
+
+      body {
+        position: relative;
+        padding: 28px 20px 48px;
+      }
+
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        opacity: 0.2;
+        background-image: radial-gradient(rgba(255, 255, 255, 0.06) 0.8px, transparent 0.8px);
+        background-size: 28px 28px;
+        mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.65), transparent 72%);
+      }
+
+      a {
+        color: var(--mineral);
+        text-decoration: none;
+      }
+
+      a:hover {
+        color: #b8d0ef;
+      }
+
+      button,
+      input {
+        font: inherit;
+      }
+
+      .page {
+        position: relative;
+        width: min(100%, var(--page-width));
+        margin: 0 auto;
+      }
+
+      .hero,
+      .composition {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-xl);
+        background: linear-gradient(180deg, rgba(20, 28, 38, 0.88), rgba(10, 15, 22, 0.82));
+        box-shadow: var(--shadow-lg);
+        backdrop-filter: blur(18px);
+      }
+
+      .hero {
+        padding: 28px 30px 30px;
+      }
+
+      .composition {
+        margin-top: 22px;
+        padding: 22px;
+      }
+
+      .hero::before,
+      .composition::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        border-radius: inherit;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 18%);
+      }
+
+      h1,
+      h2,
+      h3,
+      h4 {
+        margin: 0;
+      }
+
+      h1,
+      h2,
+      h3,
+      .screen-name,
+      .footer-brand {
+        font-family: "Newsreader", serif;
+      }
+
+      h1 {
+        max-width: 940px;
+        font-size: clamp(2.8rem, 4.2vw, 4.5rem);
+        line-height: 0.96;
+        letter-spacing: -0.04em;
+        font-weight: 600;
+      }
+
+      .summary {
+        max-width: 940px;
+        margin: 16px 0 0;
+        color: var(--text-secondary);
+        font-size: 17px;
+        line-height: 1.75;
+      }
+
+      .eyebrow,
+      .strong-label,
+      .screen-id,
+      .chrome-note,
+      .site-kicker,
+      .section-kicker,
+      .ui-label,
+      .footer-label,
+      .micro-label {
+        display: block;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .eyebrow {
+        color: var(--accent);
+        margin-bottom: 12px;
+      }
+
+      .strong-label,
+      .chrome-note,
+      .site-kicker,
+      .section-kicker,
+      .ui-label,
+      .footer-label,
+      .micro-label {
+        color: var(--text-muted);
+      }
+
+      .series-panel,
+      .panel,
+      .browser-shell,
+      .site-section,
+      .editorial-card,
+      .flow-card,
+      .step-card,
+      .proof-card,
+      .boundary-card,
+      .entry-card,
+      .entry-note,
+      .worksheet-strip,
+      .footer-shell,
+      .workspace-frame,
+      .profile-frame,
+      .mini-surface,
+      .lane-card,
+      .reason-row,
+      .rail-card,
+      .story-card,
+      .preview-card,
+      .worksheet-preview {
+        position: relative;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-lg);
+        background: linear-gradient(180deg, rgba(26, 34, 45, 0.88), rgba(16, 23, 32, 0.88));
+        box-shadow: var(--shadow-md);
+      }
+
+      .series-panel,
+      .panel,
+      .site-section,
+      .editorial-card,
+      .flow-card,
+      .step-card,
+      .proof-card,
+      .boundary-card,
+      .entry-card,
+      .entry-note,
+      .worksheet-strip,
+      .footer-shell,
+      .workspace-frame,
+      .profile-frame,
+      .mini-surface,
+      .lane-card,
+      .story-card,
+      .preview-card,
+      .worksheet-preview {
+        padding: 20px;
+      }
+
+      .panel,
+      .site-section,
+      .editorial-card,
+      .proof-card,
+      .boundary-card,
+      .entry-card,
+      .entry-note,
+      .workspace-frame,
+      .profile-frame,
+      .worksheet-strip,
+      .footer-shell {
+        background: linear-gradient(180deg, rgba(20, 31, 35, 0.95), rgba(14, 21, 27, 0.92));
+      }
+
+      .series-panel {
+        padding: 20px;
+      }
+
+      .series-grid,
+      .site-hero,
+      .hero-highlights,
+      .mechanism-layout,
+      .flow-steps,
+      .proof-layout,
+      .trust-grid,
+      .entry-layout,
+      .entry-notes,
+      .worksheet-layout,
+      .footer-grid,
+      .proof-stack,
+      .profile-layout,
+      .lane-list,
+      .story-list,
+      .preview-grid {
+        display: grid;
+        gap: 16px;
+      }
+
+      .series-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      .hero-intro {
+        margin-top: 30px;
+      }
+
+      .toc-card {
+        min-height: 136px;
+        padding: 18px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .toc-card.active {
+        border-color: var(--line-accent);
+        background: linear-gradient(180deg, rgba(121, 214, 180, 0.12), rgba(22, 30, 40, 0.88));
+        box-shadow: 0 18px 44px rgba(73, 187, 145, 0.14);
+      }
+
+      .toc-number,
+      .number-chip {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 34px;
+        height: 34px;
+        padding: 0 12px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.05);
+        color: var(--text-secondary);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .number-chip {
+        border-color: rgba(121, 214, 180, 0.22);
+        background: rgba(121, 214, 180, 0.12);
+        color: var(--accent);
+        font-weight: 800;
+      }
+
+      .toc-card h3,
+      .panel h3,
+      .site-section h3,
+      .editorial-card h3,
+      .flow-card h3,
+      .proof-card h3,
+      .boundary-card h3,
+      .entry-card h3,
+      .entry-note h3,
+      .worksheet-strip h3,
+      .preview-card h4,
+      .story-card h4,
+      .lane-card h4,
+      .profile-frame h4,
+      .workspace-frame h4 {
+        margin-top: 10px;
+        font-size: 19px;
+        line-height: 1.24;
+      }
+
+      .toc-card p,
+      .panel p,
+      .site-section p,
+      .editorial-card p,
+      .flow-card p,
+      .step-card p,
+      .proof-card p,
+      .boundary-card p,
+      .entry-card p,
+      .entry-note p,
+      .worksheet-strip p,
+      .footer-shell p,
+      .workspace-frame p,
+      .profile-frame p,
+      .lane-card p,
+      .story-card p,
+      .preview-card p,
+      li {
+        margin: 10px 0 0;
+        color: var(--text-secondary);
+        font-size: 14px;
+        line-height: 1.72;
+      }
+
+      .section-copy {
+        max-width: 640px;
+      }
+
+      .section-copy h2 {
+        margin-top: 10px;
+        font-size: clamp(2rem, 2.6vw, 3rem);
+        line-height: 1.06;
+        font-weight: 600;
+        letter-spacing: -0.03em;
+      }
+
+      .section-note {
+        margin-top: 10px;
+        color: var(--text-muted);
+        font-size: 13px;
+        line-height: 1.68;
+      }
+
+      .screen-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 16px;
+        margin-bottom: 16px;
+      }
+
+      .screen-id {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 36px;
+        height: 36px;
+        padding: 0 12px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.05);
+        color: var(--text-secondary);
+      }
+
+      .screen-name {
+        margin-top: 8px;
+        font-size: 30px;
+        font-weight: 600;
+        line-height: 1.04;
+        letter-spacing: -0.03em;
+      }
+
+      .screen-note {
+        max-width: 460px;
+        margin: 0;
+        color: var(--text-muted);
+        font-size: 13px;
+        line-height: 1.65;
+        text-align: right;
+      }
+
+      .browser-shell {
+        overflow: hidden;
+        padding: 0;
+      }
+
+      .chrome {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      .browser-dots {
+        display: flex;
+        gap: 6px;
+      }
+
+      .browser-dots span {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.16);
+      }
+
+      .url {
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.06);
+        padding: 8px 12px;
+        font-size: 12px;
+        color: var(--text-muted);
+      }
+
+      .site-shell {
+        background:
+          radial-gradient(circle at top left, rgba(121, 214, 180, 0.08), transparent 28%),
+          radial-gradient(circle at 82% 14%, rgba(143, 177, 217, 0.1), transparent 22%),
+          linear-gradient(180deg, rgba(7, 11, 16, 0.96), rgba(10, 14, 20, 0.98));
+      }
+
+      .site-header {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        display: grid;
+        grid-template-columns: auto 1fr auto auto;
+        align-items: center;
+        gap: 18px;
+        min-height: 78px;
+        padding: 0 32px;
+        border-bottom: 1px solid var(--line);
+        background: rgba(8, 13, 18, 0.88);
+        backdrop-filter: blur(18px);
+      }
+
+      .site-brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 14px;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+        color: var(--text);
+      }
+
+      .brand-mark {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 34px;
+        border-radius: 12px;
+        border: 1px solid rgba(121, 214, 180, 0.24);
+        background: rgba(121, 214, 180, 0.12);
+        color: var(--accent);
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .nav-links {
+        display: flex;
+        justify-content: center;
+        gap: 20px;
+        color: var(--text-muted);
+        font-size: 14px;
+      }
+
+      .nav-links a {
+        color: inherit;
+      }
+
+      .nav-links a:hover,
+      .nav-links .active {
+        color: var(--text);
+        font-weight: 700;
+      }
+
+      .site-page {
+        width: min(100%, var(--site-width));
+        margin: 0 auto;
+        padding: 32px 0 28px;
+      }
+
+      .site-hero {
+        grid-template-columns: 1.02fr 0.98fr;
+        align-items: stretch;
+      }
+
+      .hero-main,
+      .hero-visual {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 30px;
+        background: linear-gradient(180deg, rgba(17, 24, 33, 0.94), rgba(11, 17, 24, 0.9));
+        box-shadow: var(--shadow-md);
+      }
+
+      .hero-main {
+        padding: 34px;
+      }
+
+      .hero-visual {
+        padding: 20px;
+      }
+
+      .site-kicker {
+        margin-bottom: 12px;
+      }
+
+      .hero-main h2 {
+        max-width: 640px;
+        font-size: clamp(3rem, 4.6vw, 5rem);
+        line-height: 0.95;
+        letter-spacing: -0.05em;
+        font-weight: 600;
+      }
+
+      .hero-support {
+        max-width: 620px;
+        margin-top: 18px;
+        color: var(--text-secondary);
+        font-size: 18px;
+        line-height: 1.72;
+      }
+
+      .cta-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 22px;
+      }
+
+      .btn {
+        appearance: none;
+        border: 1px solid transparent;
+        border-radius: 999px;
+        padding: 12px 18px;
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.01em;
+        cursor: pointer;
+        font-family: inherit;
+        transition:
+          transform 160ms ease,
+          box-shadow 160ms ease,
+          border-color 160ms ease,
+          background-color 160ms ease,
+          color 160ms ease;
+      }
+
+      .btn:hover {
+        transform: translateY(-1px);
+      }
+
+      .btn:active {
+        transform: translateY(1px);
+        box-shadow: none;
+      }
+
+      .btn:focus-visible {
+        outline: 2px solid rgba(143, 177, 217, 0.65);
+        outline-offset: 3px;
+      }
+
+      .btn.primary {
+        background: var(--primary-gradient);
+        color: #052018;
+        border-color: rgba(121, 214, 180, 0.44);
+        box-shadow: 0 12px 28px rgba(73, 187, 145, 0.24);
+      }
+
+      .btn.secondary {
+        background: rgba(143, 177, 217, 0.08);
+        color: #d8e6f6;
+        border-color: rgba(143, 177, 217, 0.24);
+      }
+
+      .btn.internal {
+        background: var(--internal-gradient);
+        color: #23303c;
+        border-color: rgba(237, 242, 248, 0.6);
+        box-shadow: 0 10px 22px rgba(0, 0, 0, 0.12);
+      }
+
+      .ghost-btn {
+        appearance: none;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 12px 18px;
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--text-secondary);
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .worksheet-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 14px;
+        color: var(--mineral);
+        font-size: 14px;
+        font-weight: 700;
+      }
+
+      .worksheet-link::after {
+        content: "->";
+        font-size: 12px;
+      }
+
+      .pill-row,
+      .signal-row,
+      .tag-row,
+      .footer-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .pill,
+      .signal-pill,
+      .proof-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--text-secondary);
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .proof-pill {
+        border-color: rgba(121, 214, 180, 0.22);
+        background: rgba(121, 214, 180, 0.12);
+        color: var(--accent);
+      }
+
+      .signal-row {
+        margin-top: 18px;
+      }
+
+      .hero-highlights {
+        margin-top: 26px;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .mini-surface {
+        padding: 14px;
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      .mini-surface h3 {
+        font-size: 16px;
+        margin-top: 8px;
+      }
+
+      .workspace-frame {
+        height: 100%;
+      }
+
+      .workspace-top {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 8px;
+        margin-top: 12px;
+      }
+
+      .rail-card {
+        padding: 10px 12px;
+        border-radius: 14px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--text-muted);
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .rail-card.active {
+        border-color: rgba(121, 214, 180, 0.24);
+        background: rgba(121, 214, 180, 0.12);
+        color: var(--accent);
+      }
+
+      .workspace-layout {
+        display: grid;
+        grid-template-columns: 0.92fr 1.08fr;
+        gap: 12px;
+        margin-top: 12px;
+      }
+
+      .lane-list {
+        grid-template-columns: 1fr;
+      }
+
+      .lane-card {
+        padding: 14px;
+        border-radius: 16px;
+      }
+
+      .lane-card.active {
+        border-color: rgba(121, 214, 180, 0.24);
+        background: rgba(121, 214, 180, 0.1);
+      }
+
+      .lane-title {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+      }
+
+      .lane-badge {
+        color: var(--accent);
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .preview-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .preview-card {
+        border-radius: 18px;
+      }
+
+      .preview-card .micro-label {
+        margin-bottom: 6px;
+      }
+
+      .preview-line {
+        height: 9px;
+        border-radius: 999px;
+        margin-top: 8px;
+        background: rgba(255, 255, 255, 0.08);
+      }
+
+      .preview-line.short {
+        width: 64%;
+      }
+
+      .preview-line.medium {
+        width: 82%;
+      }
+
+      .reason-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 12px;
+        align-items: center;
+        padding: 14px;
+        border-radius: 16px;
+      }
+
+      .reason-row strong {
+        display: block;
+        font-size: 13px;
+      }
+
+      .reason-row span {
+        font-size: 12px;
+        color: var(--text-muted);
+      }
+
+      .state {
+        padding: 5px 9px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .state.used {
+        background: var(--success-soft);
+        color: #9be0bd;
+      }
+
+      .state.missing {
+        background: var(--warning-soft);
+        color: #f2d2ab;
+      }
+
+      .state.excluded {
+        background: var(--danger-soft);
+        color: #f3c6ce;
+      }
+
+      .site-section {
+        margin-top: 18px;
+      }
+
+      .mechanism-layout {
+        grid-template-columns: 0.9fr 1.1fr;
+        align-items: start;
+        margin-top: 20px;
+      }
+
+      .editorial-card {
+        padding: 24px;
+      }
+
+      .editorial-card ul,
+      .entry-card ul,
+      .footer-shell ul {
+        margin: 14px 0 0;
+        padding-left: 18px;
+      }
+
+      .flow-card {
+        padding: 22px;
+      }
+
+      .flow-steps {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        margin-top: 16px;
+      }
+
+      .step-card {
+        padding: 18px;
+        border-radius: 18px;
+      }
+
+      .step-head {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .step-card h4 {
+        margin: 0;
+        font-size: 16px;
+      }
+
+      .step-tail {
+        margin-top: 14px;
+        padding-top: 14px;
+        border-top: 1px solid var(--line);
+        color: var(--text-muted);
+        font-size: 12px;
+      }
+
+      .proof-layout {
+        grid-template-columns: 1.04fr 0.96fr;
+        align-items: start;
+        margin-top: 20px;
+      }
+
+      .profile-frame {
+        padding: 18px;
+      }
+
+      .profile-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding-bottom: 14px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .profile-title {
+        font-size: 24px;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+      }
+
+      .profile-layout {
+        grid-template-columns: 0.82fr 1.18fr;
+        margin-top: 16px;
+      }
+
+      .story-list {
+        grid-template-columns: 1fr;
+      }
+
+      .story-card {
+        padding: 16px;
+        border-radius: 16px;
+      }
+
+      .story-card p {
+        margin-top: 8px;
+      }
+
+      .proof-stack {
+        grid-template-columns: 1fr;
+      }
+
+      .proof-card strong,
+      .boundary-card strong,
+      .entry-note strong,
+      .footer-shell strong {
+        color: var(--text);
+      }
+
+      .trust-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        margin-top: 20px;
+      }
+
+      .boundary-card {
+        padding: 20px;
+      }
+
+      .boundary-list {
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid var(--line);
+      }
+
+      .boundary-list div + div {
+        margin-top: 10px;
+      }
+
+      .entry-layout {
+        grid-template-columns: 0.92fr 1.08fr;
+        align-items: start;
+        margin-top: 20px;
+      }
+
+      .entry-card {
+        padding: 24px;
+      }
+
+      .entry-card .cta-row {
+        margin-top: 18px;
+      }
+
+      .entry-notes {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .entry-note {
+        padding: 18px;
+      }
+
+      .entry-note h3 {
+        font-size: 17px;
+      }
+
+      .worksheet-strip {
+        margin-top: 18px;
+      }
+
+      .worksheet-layout {
+        grid-template-columns: 1.02fr 0.98fr;
+        align-items: center;
+      }
+
+      .worksheet-preview {
+        padding: 18px;
+      }
+
+      .worksheet-field {
+        padding: 12px 14px;
+        margin-top: 10px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--text-muted);
+        font-size: 13px;
+      }
+
+      .footer-shell {
+        margin-top: 18px;
+        padding: 28px;
+      }
+
+      .footer-grid {
+        grid-template-columns: 1.15fr 0.85fr 0.85fr;
+      }
+
+      .footer-brand {
+        font-size: 30px;
+        font-weight: 600;
+        line-height: 1.02;
+        letter-spacing: -0.03em;
+      }
+
+      .footer-links {
+        margin-top: 14px;
+      }
+
+      .footer-links a {
+        color: var(--text-secondary);
+        font-size: 14px;
+      }
+
+      .footer-links a:hover {
+        color: var(--text);
+      }
+
+      .footer-column {
+        border-left: 1px solid var(--line);
+        padding-left: 18px;
+      }
+
+      .footer-column .footer-links {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+      }
+
+      .footer-bottom {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        align-items: center;
+        margin-top: 22px;
+        padding-top: 18px;
+        border-top: 1px solid var(--line);
+        color: var(--text-muted);
+        font-size: 13px;
+      }
+
+      @media (max-width: 1180px) {
+        .series-grid,
+        .hero-highlights,
+        .flow-steps,
+        .trust-grid,
+        .footer-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .site-hero,
+        .mechanism-layout,
+        .proof-layout,
+        .entry-layout,
+        .worksheet-layout,
+        .profile-layout {
+          grid-template-columns: 1fr;
+        }
+
+        .entry-notes {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 840px) {
+        body {
+          padding: 18px 14px 36px;
+        }
+
+        .hero,
+        .composition {
+          padding: 18px;
+        }
+
+        .series-grid,
+        .hero-highlights,
+        .flow-steps,
+        .trust-grid,
+        .footer-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .screen-head,
+        .footer-bottom {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .screen-note {
+          text-align: left;
+        }
+
+        .site-header {
+          grid-template-columns: 1fr;
+          padding: 18px;
+          gap: 14px;
+        }
+
+        .nav-links {
+          justify-content: flex-start;
+        }
+
+        .site-page {
+          padding: 22px 14px 18px;
+        }
+
+        .hero-main,
+        .hero-visual {
+          padding: 22px;
+        }
+
+        .footer-column {
+          border-left: 0;
+          padding-left: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section class="hero">
+        <span class="eyebrow">Foundation Series</span>
+        <div class="series-panel">
+          <div class="series-grid">
+            <article class="toc-card">
+              <span class="toc-number">01</span>
+              <h3>Market Intelligence</h3>
+              <p>Canonical market tension, trust reality, and buyer-state inputs.</p>
+            </article>
+            <article class="toc-card">
+              <span class="toc-number">02</span>
+              <h3>Brand Strategy</h3>
+              <p>Locked message, CTA ladder, trust language, and objection handling.</p>
+            </article>
+            <article class="toc-card">
+              <span class="toc-number">03</span>
+              <h3>Product System</h3>
+              <p>Premium shell, CTA system, rationale grammar, and shared interaction rules.</p>
+            </article>
+            <article class="toc-card active">
+              <span class="toc-number">04</span>
+              <h3>Website and Public Funnel</h3>
+              <p>Desktop comp cluster, Home page only, built as a real public landing page.</p>
+            </article>
+          </div>
+        </div>
+        <div class="hero-intro">
+          <h1>04. Website and Public Funnel, Desktop</h1>
+          <p class="summary">
+            The artifact below is one desktop Home-page composition. The Foundation Series shell stays at the artifact
+            level. Inside the browser frame, the page is built to read like a real SaaS landing page, not a reference
+            board, screen inventory, or page-role summary.
+          </p>
+        </div>
+      </section>
+
+      <section class="composition">
+        <div class="screen-head">
+          <div>
+            <div class="screen-id">01</div>
+            <div class="screen-name">Home</div>
+          </div>
+          <p class="screen-note">
+            Public header, strong hero, mechanism, interface proof, trust boundaries, free-tier entry clarity,
+            worksheet-secondary path, and real footer quality in one browser-viewable desktop page.
+          </p>
+        </div>
+
+        <div class="browser-shell">
+          <div class="chrome">
+            <div class="browser-dots"><span></span><span></span><span></span></div>
+            <div class="url">jobfilter.com</div>
+            <div class="chrome-note">Desktop Home</div>
+          </div>
+
+          <div class="site-shell">
+            <header class="site-header">
+              <a class="site-brand" href="#home">
+                <span class="brand-mark">JF</span>
+                <span>Job Filter</span>
+              </a>
+              <nav class="nav-links" aria-label="Primary">
+                <a href="#mechanism">How It Works</a>
+                <a href="#entry">Pricing</a>
+              </nav>
+              <button class="ghost-btn" type="button">Sign in</button>
+              <button class="btn primary" type="button">Build my job profile</button>
+            </header>
+
+            <div class="site-page" id="home">
+              <section class="site-hero">
+                <div class="hero-main">
+                  <span class="site-kicker">Truth-first job-search workspace</span>
+                  <h2>Target fewer roles that you can credibly win.</h2>
+                  <p class="hero-support">
+                    Build one reusable Profile, shape the right story from broad experience, and inspect what was used,
+                    missing, or excluded before anything carries forward. Start free, understand the workflow, then
+                    decide whether deeper leverage is worth paying for later.
+                  </p>
+
+                  <div class="cta-row">
+                    <button class="btn primary" type="button">Build my job profile</button>
+                    <button class="btn secondary" type="button">See how it works</button>
+                  </div>
+
+                  <a class="worksheet-link" href="#worksheet">Get the worksheet</a>
+
+                  <div class="signal-row">
+                    <span class="proof-pill">Free tier</span>
+                    <span class="proof-pill">No auto-apply</span>
+                    <span class="proof-pill">Review before send</span>
+                    <span class="proof-pill">Inspectable reasoning</span>
+                  </div>
+
+                  <div class="hero-highlights">
+                    <div class="mini-surface">
+                      <span class="micro-label">Why it feels different</span>
+                      <h3>One obvious next step</h3>
+                      <p>Build Profile first. Everything else becomes clearer after that point.</p>
+                    </div>
+                    <div class="mini-surface">
+                      <span class="micro-label">What it protects</span>
+                      <h3>Your credibility</h3>
+                      <p>Unsupported claims stay visible and removable instead of being baked into the draft.</p>
+                    </div>
+                    <div class="mini-surface">
+                      <span class="micro-label">Who it helps</span>
+                      <h3>Multiple role lanes</h3>
+                      <p>Broad backgrounds stay workable without pretending you fit only one rigid title path.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="hero-visual">
+                  <div class="workspace-frame">
+                    <span class="ui-label">Interface proof</span>
+                    <h3>Profile makes the workflow visible before it asks for trust.</h3>
+
+                    <div class="workspace-top">
+                      <div class="rail-card active">Role lanes</div>
+                      <div class="rail-card">Story inputs</div>
+                      <div class="rail-card">Review</div>
+                      <div class="rail-card">Assets</div>
+                    </div>
+
+                    <div class="workspace-layout">
+                      <div class="lane-list">
+                        <div class="lane-card active">
+                          <div class="lane-title">
+                            <h4>Product marketing</h4>
+                            <span class="lane-badge">Current lane</span>
+                          </div>
+                          <p>Strong fit for messaging strategy, launches, and customer-story translation.</p>
+                        </div>
+                        <div class="lane-card">
+                          <div class="lane-title">
+                            <h4>Customer education</h4>
+                            <span class="lane-badge">Adjacent</span>
+                          </div>
+                          <p>Same experience can support enablement, docs, and lifecycle teaching work.</p>
+                        </div>
+                        <div class="lane-card">
+                          <div class="lane-title">
+                            <h4>Content strategy</h4>
+                            <span class="lane-badge">Keep warm</span>
+                          </div>
+                          <p>Shows how one profile can support multiple credible directions without losing focus.</p>
+                        </div>
+                      </div>
+
+                      <div class="preview-grid">
+                        <div class="preview-card">
+                          <span class="micro-label">Reusable Profile</span>
+                          <h4>Approved truth stays connected to the lane you chose.</h4>
+                          <div class="preview-line medium"></div>
+                          <div class="preview-line short"></div>
+                          <div class="preview-line"></div>
+                          <div class="pill-row" style="margin-top: 12px;">
+                            <span class="pill">Go-to-market launches</span>
+                            <span class="pill">Cross-functional leadership</span>
+                            <span class="pill">Customer education</span>
+                          </div>
+                        </div>
+
+                        <div class="preview-card">
+                          <span class="micro-label">Reasoning review</span>
+                          <div class="reason-row">
+                            <div>
+                              <strong>Leadership signal surfaced</strong>
+                              <span>Relevant to the selected lane and supported by prior work.</span>
+                            </div>
+                            <span class="state used">Used</span>
+                          </div>
+                          <div class="reason-row">
+                            <div>
+                              <strong>Quantified outcome still needed</strong>
+                              <span>Prompt the user to tighten credibility before the draft carries forward.</span>
+                            </div>
+                            <span class="state missing">Missing</span>
+                          </div>
+                          <div class="reason-row">
+                            <div>
+                              <strong>Inflated AI phrasing removed</strong>
+                              <span>Keeps the final application closer to approved truth.</span>
+                            </div>
+                            <span class="state excluded">Excluded</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="site-section" id="mechanism">
+                <div class="section-copy">
+                  <span class="section-kicker">Mechanism</span>
+                  <h2>One operating loop from role choice to final review.</h2>
+                  <p>
+                    Job Filter is not another pile of prompts, docs, and guesswork. The workflow stays in one place:
+                    choose the lane, build the Profile, inspect the reasoning, then move only when the story feels
+                    defensible. That is the simplification hook. It removes needless decisions without hiding the work.
+                  </p>
+                </div>
+
+                <div class="mechanism-layout">
+                  <div class="editorial-card">
+                    <span class="strong-label">What changes</span>
+                    <h3>The cost of disconnected tools is hidden until the story breaks.</h3>
+                    <p>
+                      Fragmented job-search stacks make it easy to lose the role logic, overstate experience, or send a
+                      draft that sounds generic. Job Filter keeps the inputs, lane decisions, and review path connected
+                      so the next application starts from clearer truth instead of fresh chaos.
+                    </p>
+                    <ul>
+                      <li>Role lanes stay visible instead of disappearing into one generic resume.</li>
+                      <li>Guided storytelling happens before asset formatting, not after.</li>
+                      <li>Review-before-send is part of the workflow, not a reassuring footnote.</li>
+                    </ul>
+                  </div>
+
+                  <div class="flow-card">
+                    <span class="strong-label">Three-step loop</span>
+                    <h3>Make the page feel concrete before it asks for belief.</h3>
+
+                    <div class="flow-steps">
+                      <div class="step-card">
+                        <div class="step-head">
+                          <span class="number-chip">01</span>
+                          <h4>Choose the lane</h4>
+                        </div>
+                        <p>Focus on roles you can defend, not roles you can spray at volume.</p>
+                        <div class="step-tail">Lane-aware targeting keeps broad experience coherent.</div>
+                      </div>
+
+                      <div class="step-card">
+                        <div class="step-head">
+                          <span class="number-chip">02</span>
+                          <h4>Shape the Profile</h4>
+                        </div>
+                        <p>Turn scattered work history into reusable truth that supports each application.</p>
+                        <div class="step-tail">Story extraction happens before formatting.</div>
+                      </div>
+
+                      <div class="step-card">
+                        <div class="step-head">
+                          <span class="number-chip">03</span>
+                          <h4>Inspect before you move</h4>
+                        </div>
+                        <p>See what was used, missing, or excluded before you accept anything as final.</p>
+                        <div class="step-tail">Human judgment stays visible all the way through.</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="site-section">
+                <div class="section-copy">
+                  <span class="section-kicker">Interface proof</span>
+                  <h2>Profile is the reusable asset, not a setup tax.</h2>
+                  <p>
+                    The product proof on Home should answer the skeptical question directly: what am I actually
+                    building here? The answer is a reusable Profile that keeps story inputs, role lanes, and review
+                    logic connected well enough to reuse across the search.
+                  </p>
+                </div>
+
+                <div class="proof-layout">
+                  <div class="profile-frame">
+                    <div class="profile-top">
+                      <div>
+                        <span class="ui-label">Profile preview</span>
+                        <div class="profile-title">Profile</div>
+                      </div>
+                      <div class="pill-row">
+                        <span class="pill">Product marketing</span>
+                        <span class="pill">Customer education</span>
+                      </div>
+                    </div>
+
+                    <div class="profile-layout">
+                      <div class="lane-list">
+                        <div class="lane-card active">
+                          <span class="micro-label">Role focus</span>
+                          <h4>Target fewer roles you can credibly win.</h4>
+                          <p>Keep the role list tighter and the story stronger.</p>
+                        </div>
+                        <div class="lane-card">
+                          <span class="micro-label">Story input</span>
+                          <h4>Launch leadership</h4>
+                          <p>Translate cross-functional launches into lane-specific proof, not generic buzzwords.</p>
+                        </div>
+                        <div class="lane-card">
+                          <span class="micro-label">Boundary</span>
+                          <h4>No unsupported claims</h4>
+                          <p>Anything unclear stays visible for review instead of being auto-polished away.</p>
+                        </div>
+                      </div>
+
+                      <div class="story-list">
+                        <div class="story-card">
+                          <span class="micro-label">Reusable truth block</span>
+                          <h4>Messaging and launch narrative</h4>
+                          <p>
+                            Built positioning systems, campaign launches, and customer-facing education across
+                            cross-functional teams. Strong story, but still needs quantified outcome support for the
+                            current lane.
+                          </p>
+                        </div>
+                        <div class="story-card">
+                          <span class="micro-label">Why this is trustworthy</span>
+                          <h4>Visible reasoning stays next to the story.</h4>
+                          <div class="reason-row">
+                            <div>
+                              <strong>Go-to-market leadership aligned</strong>
+                              <span>Supports the selected lane and the current role family.</span>
+                            </div>
+                            <span class="state used">Used</span>
+                          </div>
+                          <div class="reason-row">
+                            <div>
+                              <strong>Exact metric still needed</strong>
+                              <span>The system surfaces the gap instead of inventing a stronger claim.</span>
+                            </div>
+                            <span class="state missing">Missing</span>
+                          </div>
+                          <div class="reason-row">
+                            <div>
+                              <strong>Black-box automation phrasing rejected</strong>
+                              <span>Current-state copy stays closer to deliberate, reviewable work.</span>
+                            </div>
+                            <span class="state excluded">Excluded</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="proof-stack">
+                    <div class="proof-card">
+                      <span class="strong-label">Reusable leverage</span>
+                      <h3>Profile compounds the work you already did.</h3>
+                      <p>
+                        Setup only earns its keep when it becomes reusable. This page shows Profile as the place where
+                        approved truth gathers enough structure to support resume work, outreach, and later application
+                        decisions without starting from zero every time.
+                      </p>
+                    </div>
+                    <div class="proof-card">
+                      <span class="strong-label">Visible review</span>
+                      <h3>Reasoning is part of the surface, not hidden product trivia.</h3>
+                      <p>
+                        Used, missing, and excluded states are not garnish. They are the trust layer that lets serious
+                        applicants review the draft and decide whether it is safe to carry forward.
+                      </p>
+                    </div>
+                    <div class="proof-card">
+                      <span class="strong-label">Multiple lanes</span>
+                      <h3>Broad backgrounds stay coherent without pretending they are simple.</h3>
+                      <p>
+                        The site does not force one rigid story. It shows how the same Profile can support adjacent
+                        role lanes while keeping the selected lane explicit.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="site-section">
+                <div class="section-copy">
+                  <span class="section-kicker">Trust and boundaries</span>
+                  <h2>Nothing sends itself. Nothing hides its reasoning.</h2>
+                  <p>
+                    The market has enough black-box convenience already. Home should make the boundary clear: Job
+                    Filter helps you prepare and review, but the judgment stays visible and the final decision stays
+                    with the user. That is how the page handles the skeptical objection without using hype.
+                  </p>
+                </div>
+
+                <div class="trust-grid">
+                  <div class="boundary-card">
+                    <span class="strong-label">No auto-apply</span>
+                    <h3>The product does not take the send step away from you.</h3>
+                    <div class="boundary-list">
+                      <div><strong>What happens instead:</strong> you review the draft and decide what moves.</div>
+                      <div><strong>Why it matters:</strong> credibility is part of the product value, not friction.</div>
+                    </div>
+                  </div>
+
+                  <div class="boundary-card">
+                    <span class="strong-label">Review before send</span>
+                    <h3>Suggestions stay visible until you approve them.</h3>
+                    <div class="boundary-list">
+                      <div><strong>What you see:</strong> lane choice, story blocks, and unresolved gaps.</div>
+                      <div><strong>What it prevents:</strong> generic AI copy crossing the line into your final output.</div>
+                    </div>
+                  </div>
+
+                  <div class="boundary-card">
+                    <span class="strong-label">Inspectable reasoning</span>
+                    <h3>Used, missing, and excluded keep the workflow honest.</h3>
+                    <div class="boundary-list">
+                      <div><strong>Used:</strong> the evidence that earns its place in the story.</div>
+                      <div><strong>Missing:</strong> the proof still needed before the draft feels credible.</div>
+                      <div><strong>Excluded:</strong> the claims that should stay out.</div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="site-section" id="entry">
+                <div class="section-copy">
+                  <span class="section-kicker">Free-to-start clarity</span>
+                  <h2>Start inside the actual workflow, not a vague trial.</h2>
+                  <p>
+                    Home needs to answer the pricing objection without turning into the pricing page. The promise here
+                    is simple: you can start in the Free tier, understand how Profile works, and decide later whether
+                    deeper leverage is worth paying for. Desire comes from the mechanism first, not from urgency.
+                  </p>
+                </div>
+
+                <div class="entry-layout">
+                  <div class="entry-card">
+                    <span class="strong-label">Free tier</span>
+                    <h3>See the workflow before you make a bigger decision.</h3>
+                    <p>
+                      Start with a real Profile build. Understand the lane logic, inspect the reasoning, and decide
+                      whether the deeper leverage makes sense for your search later.
+                    </p>
+                    <ul>
+                      <li>Build the first Profile instead of reading abstract pricing copy.</li>
+                      <li>See how role lanes, story extraction, and review fit together.</li>
+                      <li>Keep the later upgrade decision tied to leverage, not pressure.</li>
+                    </ul>
+                    <div class="cta-row">
+                      <button class="btn primary" type="button">Build my job profile</button>
+                      <button class="btn secondary" type="button">See how it works</button>
+                    </div>
+                  </div>
+
+                  <div class="entry-notes">
+                    <div class="entry-note">
+                      <span class="strong-label">What the free step is for</span>
+                      <h3>Clarity before commitment</h3>
+                      <p>
+                        The first step proves the mechanism and lets the visitor judge whether the system feels useful,
+                        serious, and safe enough to keep going.
+                      </p>
+                    </div>
+                    <div class="entry-note">
+                      <span class="strong-label">What it is not</span>
+                      <h3>No fake scarcity, no hidden gate</h3>
+                      <p>
+                        There is no countdown, no invented seat pressure, and no demand theater doing the work that
+                        product desire should be doing.
+                      </p>
+                    </div>
+                    <div class="entry-note">
+                      <span class="strong-label">Why someone would pay later</span>
+                      <h3>Deeper leverage, not more noise</h3>
+                      <p>
+                        The value of a paid path is stronger reuse, tighter execution, and richer workflow leverage, not
+                        bulk application volume or black-box automation.
+                      </p>
+                    </div>
+                    <div class="entry-note">
+                      <span class="strong-label">Where pricing detail lives</span>
+                      <h3>Pricing gets the full comparison page</h3>
+                      <p>
+                        Home keeps the entry promise concrete, then lets the pricing page carry the real tier structure
+                        and deeper plan comparison later in the funnel.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="worksheet-strip" id="worksheet">
+                <div class="worksheet-layout">
+                  <div>
+                    <span class="strong-label">Secondary path</span>
+                    <h3>Want a warmer first step? Start with the Job Profile Worksheet.</h3>
+                    <p>
+                      The worksheet previews the same method for visitors who want a lower-commitment path before they
+                      create an account. It stays secondary to the main product flow and points back toward Profile
+                      instead of replacing it.
+                    </p>
+                    <div class="cta-row">
+                      <button class="btn secondary" type="button">Get the worksheet</button>
+                    </div>
+                  </div>
+
+                  <div class="worksheet-preview">
+                    <span class="micro-label">Worksheet preview</span>
+                    <h4>Warm capture, same logic</h4>
+                    <div class="worksheet-field">Email address</div>
+                    <div class="worksheet-field">Which role lane are you exploring first?</div>
+                    <div class="worksheet-field">What part of your story feels hardest to explain right now?</div>
+                    <div class="pill-row" style="margin-top: 12px;">
+                      <span class="pill">Method preview</span>
+                      <span class="pill">Secondary path only</span>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <footer class="footer-shell">
+                <div class="footer-grid">
+                  <div>
+                    <span class="footer-label">Job Filter</span>
+                    <div class="footer-brand">A calmer way to run a serious search.</div>
+                    <p>
+                      Profile-led job-search workflow for applicants who would rather make better-fit decisions than
+                      send more generic applications.
+                    </p>
+                    <div class="footer-links">
+                      <a href="#home">Home</a>
+                      <a href="#mechanism">How It Works</a>
+                      <a href="#entry">Pricing</a>
+                      <a href="#">Sign in</a>
+                    </div>
+                  </div>
+
+                  <div class="footer-column">
+                    <span class="footer-label">Trust anchors</span>
+                    <div class="footer-links">
+                      <a href="#">Free tier</a>
+                      <a href="#">Review before send</a>
+                      <a href="#">Inspectable reasoning</a>
+                      <a href="#">No auto-apply</a>
+                    </div>
+                  </div>
+
+                  <div class="footer-column">
+                    <span class="footer-label">Utilities</span>
+                    <div class="footer-links">
+                      <a href="#">Privacy</a>
+                      <a href="#">Terms</a>
+                      <a href="#worksheet">Job Profile Worksheet</a>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="footer-bottom">
+                  <span>Start free, understand the workflow, then decide whether deeper leverage is worth it.</span>
+                  <button class="btn primary" type="button">Build my job profile</button>
+                </div>
+              </footer>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

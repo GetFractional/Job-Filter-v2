@@ -72,6 +72,7 @@ export type ActivityOutcome =
   | 'Other';
 
 export type AssetType =
+  | 'Resume'
   | 'Growth Memo'
   | 'Cover Letter'
   | 'Outreach Email'
@@ -298,6 +299,60 @@ export interface MustHaveSummary {
   hasBlockers: boolean;
 }
 
+export interface OperatorLane {
+  id: string;
+  title: string;
+  fitReasons: string[];
+  sourceRoleTitles: string[];
+}
+
+export type OperatorStoryMetricMode = 'plain' | 'softened' | 'exact';
+
+export interface OperatorStory {
+  id: string;
+  title: string;
+  company: string;
+  role: string;
+  laneIds: string[];
+  sourceRoleId: string;
+  sourceCompanyId: string;
+  challenge: string;
+  actions: string[];
+  outcome: string;
+  safeOutcome: string;
+  metricMode: OperatorStoryMetricMode;
+  approved: boolean;
+  hasNumericOutcome: boolean;
+  proofNotes: string[];
+}
+
+export interface OperatorTargetJob {
+  title: string;
+  company: string;
+  url: string;
+  location: string;
+  jobDescription: string;
+}
+
+export interface OperatorAssetBrief {
+  selectedLaneId: string | null;
+  approvedStoryIds: string[];
+  softenedStoryIds: string[];
+  excludedStoryIds: string[];
+  targetJob: OperatorTargetJob;
+  generatedJobId?: string;
+  resumeAssetId?: string;
+  coverLetterAssetId?: string;
+  generatedAt?: string;
+}
+
+export interface OperatorCoreState {
+  lanes: OperatorLane[];
+  selectedLaneId: string | null;
+  stories: OperatorStory[];
+  assetBrief: OperatorAssetBrief;
+}
+
 export type ProfileWorkspaceMode = 'setup' | 'edit' | 'complete';
 
 export type ProfileWorkspaceSectionId =
@@ -313,6 +368,14 @@ export interface Profile {
   name: string;
   firstName?: string;
   lastName?: string;
+  headline?: string;
+  email?: string;
+  phoneCountryCode?: string;
+  phoneNational?: string;
+  location?: string;
+  linkedIn?: string;
+  website?: string;
+  portfolio?: string;
   targetRoles: string[];
   skills?: string[];
   tools?: string[];
@@ -329,6 +392,7 @@ export interface Profile {
   hardFilters: HardFilters;
   scoringPolicy?: ScoringPolicy;
   digitalResume?: ImportDraft;
+  operatorCore?: OperatorCoreState;
   updatedAt: string;
 }
 

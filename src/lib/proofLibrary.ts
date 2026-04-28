@@ -22,6 +22,7 @@ const STATUS_MAP: Record<string, ProofStatus> = {
 };
 
 const PROOF_REFERENCE_COUNT_BY_ASSET: Record<AssetType, number> = {
+  Resume: 4,
   'Outreach Email': 2,
   'LinkedIn Connect': 1,
   'Cover Letter': 3,

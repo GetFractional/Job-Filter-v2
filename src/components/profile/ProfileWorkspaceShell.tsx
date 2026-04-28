@@ -3,8 +3,26 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 import type { ClaimsImportExtractionDiagnostics } from '../../lib/claimsImportPipeline';
 import { extractClaimsImportTextWithMetrics, validateClaimsImportFile } from '../../lib/claimsImportPipeline';
 import { buildBestImportDraftFromText, isLikelySuspiciousCompanyName } from '../../lib/importDraftBuilder';
+import {
+  applyStoryApproval,
+  applyStoryMetricMode,
+  buildCoverLetterAssetContent,
+  buildOperatorCoreState,
+  buildResumeAssetContent,
+  canGenerateOperatorAssets,
+  updateTargetJob,
+} from '../../lib/operatorCore';
 import { inferProfilePrefillSuggestion } from '../../lib/profileInference';
-import type { ImportDraft, ProfileWorkspaceMode, ProfileWorkspaceSectionId } from '../../types';
+import { useStore } from '../../store/useStore';
+import type {
+  Asset,
+  ImportDraft,
+  ImportDraftItem,
+  ImportDraftRole,
+  OperatorCoreState,
+  ProfileWorkspaceMode,
+  ProfileWorkspaceSectionId,
+} from '../../types';
 import {
   ProfilePreviewPane,
   type ExperienceTimelineCompanyPreview,
@@ -25,6 +43,9 @@ import {
   type ExtractionBuildStage,
 } from './steps/ProfileExperienceImportStep';
 import { ProfileIntroStep, type StartHerePrefillState } from './steps/ProfileIntroStep';
+import { ProfileLaneSelectionStep } from './steps/ProfileLaneSelectionStep';
+import { ProfileStoryReviewStep } from './steps/ProfileStoryReviewStep';
+import { ProfileAssetGenerationStep } from './steps/ProfileAssetGenerationStep';
 import { DEFAULT_PHONE_COUNTRY_CODE, extractPhonePrefillFromText } from './steps/profilePhone';
 
 interface ProfileWorkspaceShellProps {
@@ -61,6 +82,8 @@ interface PersistedWorkspaceDraft {
   resumeUploadInitiated: boolean;
   detailsSaved: boolean;
   experienceConfirmed: boolean;
+  laneConfirmed: boolean;
+  storiesConfirmed: boolean;
   identity: ProfileIdentityDraft;
   selectedFileName: string | null;
   selectedFileMeta: string | null;
@@ -71,6 +94,10 @@ interface PersistedWorkspaceDraft {
   revealedGroupCount: number;
   prefillState: StartHerePrefillState;
   prefillMessage: string | null;
+  operatorCore: OperatorCoreState | null;
+  generatedResumeContent: string;
+  generatedCoverLetterContent: string;
+  generationError: string | null;
 }
 
 const WORKSPACE_DRAFT_VERSION = 5;
@@ -111,21 +138,21 @@ const STEP_DEFINITIONS: Array<{
   },
   {
     id: 'skills',
-    label: 'Skills & Tools',
-    description: 'Skills and tools',
-    supportsInPacket: false,
+    label: 'Role Lane',
+    description: 'Lane selection',
+    supportsInPacket: true,
   },
   {
     id: 'extras',
-    label: 'Extras',
-    description: 'Summary and credentials',
-    supportsInPacket: false,
+    label: 'Story Review',
+    description: 'Proof controls',
+    supportsInPacket: true,
   },
   {
     id: 'preferences',
-    label: 'Preferences',
-    description: 'Targeting settings',
-    supportsInPacket: false,
+    label: 'Target Job',
+    description: 'Resume and cover letter',
+    supportsInPacket: true,
   },
 ];
 
@@ -231,6 +258,8 @@ function readWorkspaceDraft(draftKey: string): PersistedWorkspaceDraft | null {
       resumeUploadInitiated: Boolean(parsed.resumeUploadInitiated),
       detailsSaved: Boolean(parsed.detailsSaved),
       experienceConfirmed: Boolean(parsed.experienceConfirmed),
+      laneConfirmed: Boolean(parsed.laneConfirmed),
+      storiesConfirmed: Boolean(parsed.storiesConfirmed),
       identity: {
         firstName: parsedIdentity.firstName ?? '',
         lastName: parsedIdentity.lastName ?? '',
@@ -252,6 +281,10 @@ function readWorkspaceDraft(draftKey: string): PersistedWorkspaceDraft | null {
       revealedGroupCount: Math.max(0, Number(parsed.revealedGroupCount ?? 0)),
       prefillState: parsed.prefillState ?? 'idle',
       prefillMessage: parsed.prefillMessage ?? null,
+      operatorCore: (parsed.operatorCore as OperatorCoreState | null) ?? null,
+      generatedResumeContent: parsed.generatedResumeContent ?? '',
+      generatedCoverLetterContent: parsed.generatedCoverLetterContent ?? '',
+      generationError: parsed.generationError ?? null,
     };
   } catch {
     return null;
@@ -604,37 +637,134 @@ function applyPrefillIdentity(
   };
 }
 
+function createDraftItem(type: ImportDraftItem['type'], text: string): ImportDraftItem {
+  return {
+    id: crypto.randomUUID(),
+    type,
+    text,
+    confidence: 1,
+    status: 'active',
+    sourceRefs: [],
+    metric: type === 'outcome' && METRIC_LINE_RE.test(text) ? text.match(METRIC_LINE_RE)?.[0] : undefined,
+  };
+}
+
+function toDigitalResumeDraft(timelineCompanies: ExperienceTimelineCompanyDraft[]): ImportDraft {
+  return {
+    companies: timelineCompanies.map((company) => ({
+      id: company.id,
+      name: company.company,
+      confidence: company.needsReview ? 0.75 : 1,
+      status: company.needsReview ? 'needs_review' : 'active',
+      sourceRefs: [],
+      roles: company.roles.map<ImportDraftRole>((role) => ({
+        id: role.id,
+        title: role.title,
+        startDate: role.startDate,
+        endDate: role.currentRole ? '' : role.endDate,
+        currentRole: role.currentRole,
+        confidence: 1,
+        status: 'active',
+        sourceRefs: [],
+        highlights: role.responsibilities.map((line) => createDraftItem('highlight', line)),
+        outcomes: role.results.map((line) => createDraftItem('outcome', line)),
+        tools: [],
+        skills: [],
+      })),
+    })),
+  };
+}
+
+function findAssetContentById(assets: Asset[], assetId?: string): string {
+  if (!assetId) return '';
+  return assets.find((asset) => asset.id === assetId)?.content ?? '';
+}
+
+function hasTargetJobInput(operatorCore: OperatorCoreState | null): boolean {
+  const targetJob = operatorCore?.assetBrief.targetJob;
+  if (!targetJob) return false;
+
+  return Boolean(
+    targetJob.title.trim()
+      || targetJob.company.trim()
+      || targetJob.url.trim()
+      || targetJob.location.trim()
+      || targetJob.jobDescription.trim(),
+  );
+}
+
 function defaultPersistedDraft(
   initialIdentity: ProfileIdentityDraft,
+  timelineCompanies: ExperienceTimelineCompanyDraft[] = [],
+  operatorCore: OperatorCoreState | null = null,
 ): PersistedWorkspaceDraft {
+  const activeStep: ProfileWorkspaceSectionId = operatorCore?.assetBrief.resumeAssetId
+    ? 'preferences'
+    : operatorCore?.assetBrief.approvedStoryIds.length || hasTargetJobInput(operatorCore)
+      ? 'preferences'
+      : operatorCore?.stories.length
+        ? 'extras'
+      : operatorCore?.selectedLaneId
+        ? 'skills'
+        : timelineCompanies.length > 0
+          ? 'experience'
+          : 'start_here';
+
   return {
     version: WORKSPACE_DRAFT_VERSION,
-    activeStep: 'start_here',
-    selectedPath: null,
-    resumeUploadInitiated: false,
-    detailsSaved: false,
-    experienceConfirmed: false,
+    activeStep,
+    selectedPath: timelineCompanies.length > 0 ? 'manual' : null,
+    resumeUploadInitiated: timelineCompanies.length > 0,
+    detailsSaved: Boolean(initialIdentity.firstName && initialIdentity.lastName && initialIdentity.email),
+    experienceConfirmed: timelineCompanies.length > 0,
+    laneConfirmed: Boolean(operatorCore?.selectedLaneId),
+    storiesConfirmed: Boolean(operatorCore?.assetBrief.approvedStoryIds.length),
     identity: initialIdentity,
     selectedFileName: null,
     selectedFileMeta: null,
     extractionStage: 'idle',
     extractionStarted: false,
     importError: null,
-    timelineCompanies: [],
+    timelineCompanies,
     revealedGroupCount: 0,
     prefillState: 'idle',
     prefillMessage: null,
+    operatorCore,
+    generatedResumeContent: '',
+    generatedCoverLetterContent: '',
+    generationError: null,
   };
 }
 
 export function ProfileWorkspaceShell({ mode, initialIdentity, forceFreshSetup = false }: ProfileWorkspaceShellProps) {
+  const profile = useStore((state) => state.profile);
+  const assets = useStore((state) => state.assets);
+  const addJob = useStore((state) => state.addJob);
+  const updateJob = useStore((state) => state.updateJob);
+  const addAsset = useStore((state) => state.addAsset);
+  const updateAsset = useStore((state) => state.updateAsset);
+  const updateProfile = useStore((state) => state.updateProfile);
+
   const draftKey = useMemo(() => getWorkspaceDraftKey(mode), [mode]);
   const shouldBypassRestoredDraft = mode === 'setup' && forceFreshSetup;
   const restoredDraft = useMemo(
     () => (shouldBypassRestoredDraft ? null : readWorkspaceDraft(draftKey)),
     [draftKey, shouldBypassRestoredDraft],
   );
-  const fallbackDraft = useMemo(() => defaultPersistedDraft(initialIdentity), [initialIdentity]);
+  const storedTimelineCompanies = useMemo(
+    () => (shouldBypassRestoredDraft
+      ? []
+      : (profile?.digitalResume ? toTimelineCompanies(profile.digitalResume) : [])),
+    [profile?.digitalResume, shouldBypassRestoredDraft],
+  );
+  const storedOperatorCore = useMemo(
+    () => (shouldBypassRestoredDraft ? null : (profile?.operatorCore ?? null)),
+    [profile?.operatorCore, shouldBypassRestoredDraft],
+  );
+  const fallbackDraft = useMemo(
+    () => defaultPersistedDraft(initialIdentity, storedTimelineCompanies, storedOperatorCore),
+    [initialIdentity, storedOperatorCore, storedTimelineCompanies],
+  );
   const initialDraft = restoredDraft ?? fallbackDraft;
 
   const [activeStep, setActiveStep] = useState<ProfileWorkspaceSectionId>(initialDraft.activeStep);
@@ -642,6 +772,8 @@ export function ProfileWorkspaceShell({ mode, initialIdentity, forceFreshSetup =
   const [resumeUploadInitiated, setResumeUploadInitiated] = useState(initialDraft.resumeUploadInitiated);
   const [detailsSaved, setDetailsSaved] = useState(initialDraft.detailsSaved);
   const [experienceConfirmed, setExperienceConfirmed] = useState(initialDraft.experienceConfirmed);
+  const [laneConfirmed, setLaneConfirmed] = useState(initialDraft.laneConfirmed);
+  const [storiesConfirmed, setStoriesConfirmed] = useState(initialDraft.storiesConfirmed);
   const [identity, setIdentity] = useState<ProfileIdentityDraft>(initialDraft.identity);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(initialDraft.selectedFileName);
   const [selectedFileMeta, setSelectedFileMeta] = useState<string | null>(initialDraft.selectedFileMeta);
@@ -652,6 +784,11 @@ export function ProfileWorkspaceShell({ mode, initialIdentity, forceFreshSetup =
   const [revealedGroupCount, setRevealedGroupCount] = useState(initialDraft.revealedGroupCount);
   const [prefillState, setPrefillState] = useState<StartHerePrefillState>(initialDraft.prefillState);
   const [prefillMessage, setPrefillMessage] = useState<string | null>(initialDraft.prefillMessage);
+  const [operatorCore, setOperatorCore] = useState<OperatorCoreState | null>(initialDraft.operatorCore);
+  const [generatedResumeContent, setGeneratedResumeContent] = useState(initialDraft.generatedResumeContent);
+  const [generatedCoverLetterContent, setGeneratedCoverLetterContent] = useState(initialDraft.generatedCoverLetterContent);
+  const [generationError, setGenerationError] = useState<string | null>(initialDraft.generationError);
+  const [isGeneratingAssets, setIsGeneratingAssets] = useState(false);
   const [stepPathCollapsed, setStepPathCollapsed] = useState(false);
 
   const extractionRunIdRef = useRef(0);
@@ -659,6 +796,11 @@ export function ProfileWorkspaceShell({ mode, initialIdentity, forceFreshSetup =
   const mountedRef = useRef(true);
   const resumeCacheRef = useRef<ResumeComputationCache | null>(null);
   const workspaceRootRef = useRef<HTMLDivElement | null>(null);
+
+  const selectedLane = useMemo(
+    () => operatorCore?.lanes.find((lane) => lane.id === operatorCore.selectedLaneId) ?? null,
+    [operatorCore],
+  );
 
   useEffect(() => {
     mountedRef.current = true;
@@ -674,39 +816,101 @@ export function ProfileWorkspaceShell({ mode, initialIdentity, forceFreshSetup =
     removeWorkspaceDraft(draftKey);
   }, [draftKey, shouldBypassRestoredDraft]);
 
+  useEffect(() => {
+    if (!generatedResumeContent && operatorCore?.assetBrief.resumeAssetId) {
+      setGeneratedResumeContent(findAssetContentById(assets, operatorCore.assetBrief.resumeAssetId));
+    }
+    if (!generatedCoverLetterContent && operatorCore?.assetBrief.coverLetterAssetId) {
+      setGeneratedCoverLetterContent(findAssetContentById(assets, operatorCore.assetBrief.coverLetterAssetId));
+    }
+  }, [
+    assets,
+    generatedCoverLetterContent,
+    generatedResumeContent,
+    operatorCore?.assetBrief.coverLetterAssetId,
+    operatorCore?.assetBrief.resumeAssetId,
+  ]);
+
   const detailsRequiredFieldsValid = useMemo(
     () => canConfirmProfileDetails(identity),
     [identity],
   );
+
+  const approvedStoryCount = operatorCore?.stories.filter((story) => story.approved).length ?? 0;
+  const assetsReady = Boolean(operatorCore?.assetBrief.resumeAssetId && operatorCore?.assetBrief.coverLetterAssetId);
+
+  const persistCanonicalProfile = async (nextOperatorCore: OperatorCoreState | null = operatorCore) => {
+    if (typeof indexedDB === 'undefined') return;
+    await updateProfile({
+      firstName: identity.firstName.trim(),
+      lastName: identity.lastName.trim(),
+      name: `${identity.firstName} ${identity.lastName}`.trim(),
+      headline: identity.headline.trim(),
+      email: identity.email.trim(),
+      phoneCountryCode: identity.phoneCountryCode,
+      phoneNational: identity.phoneNational.trim(),
+      location: identity.location.trim(),
+      linkedIn: identity.linkedIn.trim(),
+      website: identity.website.trim(),
+      portfolio: identity.portfolio.trim(),
+      targetRoles: nextOperatorCore?.lanes.map((lane) => lane.title) ?? (identity.headline.trim() ? [identity.headline.trim()] : []),
+      digitalResume: timelineCompanies.length > 0 ? toDigitalResumeDraft(timelineCompanies) : profile?.digitalResume,
+      operatorCore: nextOperatorCore ?? profile?.operatorCore,
+    });
+  };
+
+  const resetOperatorProgress = () => {
+    setLaneConfirmed(false);
+    setStoriesConfirmed(false);
+    setOperatorCore(null);
+    setGeneratedResumeContent('');
+    setGeneratedCoverLetterContent('');
+    setGenerationError(null);
+  };
+
+  const rebuildOperatorState = (previous: OperatorCoreState | null = operatorCore) => {
+    const previousLaneTitles = previous?.lanes.map((lane) => lane.title) ?? [];
+    return buildOperatorCoreState({
+      headline: identity.headline,
+      targetRoles: previousLaneTitles.length > 0 ? previousLaneTitles : (profile?.targetRoles ?? []),
+      timelineCompanies,
+      previous,
+    });
+  };
 
   const completionByStep = useMemo<Record<ProfileWorkspaceSectionId, boolean>>(
     () => ({
       start_here: selectedPath === 'manual' || (selectedPath === 'resume' && resumeUploadInitiated),
       details: detailsSaved && detailsRequiredFieldsValid,
       experience: experienceConfirmed,
-      skills: false,
-      extras: false,
-      preferences: false,
+      skills: laneConfirmed && Boolean(operatorCore?.selectedLaneId),
+      extras: storiesConfirmed && approvedStoryCount > 0,
+      preferences: assetsReady,
     }),
     [
+      approvedStoryCount,
       detailsRequiredFieldsValid,
       detailsSaved,
       experienceConfirmed,
+      laneConfirmed,
+      operatorCore?.selectedLaneId,
       resumeUploadInitiated,
       selectedPath,
+      storiesConfirmed,
+      assetsReady,
     ],
   );
 
   const stepAvailability = useMemo<Record<ProfileWorkspaceSectionId, boolean>>(
     () => ({
       start_here: true,
-      details: completionByStep.start_here || completionByStep.details || completionByStep.experience || activeStep === 'details',
-      experience: completionByStep.details || completionByStep.experience || activeStep === 'experience',
-      skills: false,
-      extras: false,
-      preferences: false,
+      details: completionByStep.start_here || activeStep === 'details' || STEP_ORDER.slice(2).some((stepId) => completionByStep[stepId]),
+      experience: completionByStep.details || activeStep === 'experience' || STEP_ORDER.slice(3).some((stepId) => completionByStep[stepId]),
+      skills: completionByStep.experience || activeStep === 'skills' || STEP_ORDER.slice(4).some((stepId) => completionByStep[stepId]),
+      extras: completionByStep.skills || activeStep === 'extras' || completionByStep.preferences,
+      preferences: completionByStep.extras || completionByStep.preferences || activeStep === 'preferences',
     }),
-    [activeStep, completionByStep.details, completionByStep.experience, completionByStep.start_here],
+    [activeStep, completionByStep],
   );
 
   const firstIncompleteAvailableStep = useMemo(
@@ -749,10 +953,13 @@ export function ProfileWorkspaceShell({ mode, initialIdentity, forceFreshSetup =
     () => selectedPath !== null
       || detailsSaved
       || experienceConfirmed
+      || laneConfirmed
+      || storiesConfirmed
       || extractionStarted
       || timelineCompanies.length > 0
-      || Boolean(selectedFileName),
-    [detailsSaved, experienceConfirmed, extractionStarted, selectedFileName, selectedPath, timelineCompanies.length],
+      || Boolean(selectedFileName)
+      || Boolean(operatorCore),
+    [detailsSaved, experienceConfirmed, extractionStarted, laneConfirmed, operatorCore, selectedFileName, selectedPath, storiesConfirmed, timelineCompanies.length],
   );
 
   const persistableDraft = useMemo<PersistedWorkspaceDraft>(
@@ -763,6 +970,8 @@ export function ProfileWorkspaceShell({ mode, initialIdentity, forceFreshSetup =
       resumeUploadInitiated,
       detailsSaved,
       experienceConfirmed,
+      laneConfirmed,
+      storiesConfirmed,
       identity,
       selectedFileName,
       selectedFileMeta,
@@ -773,6 +982,10 @@ export function ProfileWorkspaceShell({ mode, initialIdentity, forceFreshSetup =
       revealedGroupCount,
       prefillState: prefillState === 'prefilling' ? 'idle' : prefillState,
       prefillMessage,
+      operatorCore,
+      generatedResumeContent,
+      generatedCoverLetterContent,
+      generationError,
     }),
     [
       activeStep,
@@ -780,8 +993,13 @@ export function ProfileWorkspaceShell({ mode, initialIdentity, forceFreshSetup =
       experienceConfirmed,
       extractionStage,
       extractionStarted,
+      generatedCoverLetterContent,
+      generatedResumeContent,
+      generationError,
       identity,
       importError,
+      laneConfirmed,
+      operatorCore,
       prefillMessage,
       prefillState,
       resumeUploadInitiated,
@@ -789,6 +1007,7 @@ export function ProfileWorkspaceShell({ mode, initialIdentity, forceFreshSetup =
       selectedFileMeta,
       selectedFileName,
       selectedPath,
+      storiesConfirmed,
       timelineCompanies,
     ],
   );
@@ -818,6 +1037,7 @@ export function ProfileWorkspaceShell({ mode, initialIdentity, forceFreshSetup =
     setTimelineCompanies([]);
     setExperienceConfirmed(false);
     setRevealedGroupCount(0);
+    resetOperatorProgress();
   };
 
   const applyIdentity = (nextIdentity: ProfileIdentityDraft) => {
@@ -872,6 +1092,7 @@ export function ProfileWorkspaceShell({ mode, initialIdentity, forceFreshSetup =
     setTimelineCompanies([]);
     setExperienceConfirmed(false);
     setRevealedGroupCount(0);
+    resetOperatorProgress();
     setPrefillState('prefilling');
     setPrefillMessage('Uploading and extracting your resume now. We will prefill details where possible.');
     setExtractionStage('extracting_text');
@@ -962,6 +1183,8 @@ export function ProfileWorkspaceShell({ mode, initialIdentity, forceFreshSetup =
     setResumeUploadInitiated(reset.resumeUploadInitiated);
     setDetailsSaved(reset.detailsSaved);
     setExperienceConfirmed(reset.experienceConfirmed);
+    setLaneConfirmed(reset.laneConfirmed);
+    setStoriesConfirmed(reset.storiesConfirmed);
     setIdentity(reset.identity);
     setSelectedFileName(reset.selectedFileName);
     setSelectedFileMeta(reset.selectedFileMeta);
@@ -972,13 +1195,204 @@ export function ProfileWorkspaceShell({ mode, initialIdentity, forceFreshSetup =
     setRevealedGroupCount(reset.revealedGroupCount);
     setPrefillState(reset.prefillState);
     setPrefillMessage(reset.prefillMessage);
+    setOperatorCore(reset.operatorCore);
+    setGeneratedResumeContent(reset.generatedResumeContent);
+    setGeneratedCoverLetterContent(reset.generatedCoverLetterContent);
+    setGenerationError(reset.generationError);
   };
 
   const applyTimelineCompanies = (nextCompanies: ExperienceTimelineCompanyDraft[]) => {
     setTimelineCompanies(nextCompanies);
     setExperienceConfirmed(false);
+    resetOperatorProgress();
     if (extractionStage === 'ready') {
       setRevealedGroupCount(nextCompanies.length);
+    }
+  };
+
+  const finalizeOperatorCore = (nextOperatorCore: OperatorCoreState, invalidateGenerated = false): OperatorCoreState => {
+    const approvedStoryIds = nextOperatorCore.stories.filter((story) => story.approved).map((story) => story.id);
+    const softenedStoryIds = nextOperatorCore.stories
+      .filter((story) => story.approved && story.metricMode === 'softened')
+      .map((story) => story.id);
+    const excludedStoryIds = nextOperatorCore.stories.filter((story) => !story.approved).map((story) => story.id);
+
+    if (invalidateGenerated) {
+      setGeneratedResumeContent('');
+      setGeneratedCoverLetterContent('');
+    }
+
+    return {
+      ...nextOperatorCore,
+      assetBrief: {
+        ...nextOperatorCore.assetBrief,
+        selectedLaneId: nextOperatorCore.selectedLaneId,
+        approvedStoryIds,
+        softenedStoryIds,
+        excludedStoryIds,
+        generatedJobId: invalidateGenerated ? undefined : nextOperatorCore.assetBrief.generatedJobId,
+        resumeAssetId: invalidateGenerated ? undefined : nextOperatorCore.assetBrief.resumeAssetId,
+        coverLetterAssetId: invalidateGenerated ? undefined : nextOperatorCore.assetBrief.coverLetterAssetId,
+        generatedAt: invalidateGenerated ? undefined : nextOperatorCore.assetBrief.generatedAt,
+      },
+    };
+  };
+
+  const handleGenerateAssets = async () => {
+    if (!operatorCore || !selectedLane) {
+      setGenerationError('Choose a lane before generating assets.');
+      return;
+    }
+
+    const selectedStories = operatorCore.stories.filter((story) => story.approved && story.laneIds.includes(selectedLane.id));
+    const storiesForGeneration = selectedStories.length > 0
+      ? selectedStories
+      : operatorCore.stories.filter((story) => story.approved);
+    const validation = canGenerateOperatorAssets(operatorCore.assetBrief.targetJob, storiesForGeneration, selectedLane.id);
+    if (!validation.valid) {
+      setGenerationError(`Missing required context: ${validation.missing.join(', ')}.`);
+      return;
+    }
+
+    setGenerationError(null);
+    setIsGeneratingAssets(true);
+
+    try {
+      const profileSnapshot = {
+        ...profile,
+        id: profile?.id ?? 'default',
+        name: `${identity.firstName} ${identity.lastName}`.trim(),
+        firstName: identity.firstName,
+        lastName: identity.lastName,
+        headline: identity.headline,
+        email: identity.email,
+        phoneCountryCode: identity.phoneCountryCode,
+        phoneNational: identity.phoneNational,
+        location: identity.location,
+        linkedIn: identity.linkedIn,
+        website: identity.website,
+        portfolio: identity.portfolio,
+        targetRoles: operatorCore.lanes.map((lane) => lane.title),
+        skills: profile?.skills ?? [],
+        tools: profile?.tools ?? [],
+        compFloor: profile?.compFloor ?? 0,
+        compTarget: profile?.compTarget ?? 0,
+        requiredBenefits: profile?.requiredBenefits ?? [],
+        preferredBenefits: profile?.preferredBenefits ?? [],
+        locationPreference: profile?.locationPreference ?? '',
+        disqualifiers: profile?.disqualifiers ?? [],
+        locationPreferences: profile?.locationPreferences ?? [],
+        willingToRelocate: profile?.willingToRelocate ?? false,
+        requiredBenefitIds: profile?.requiredBenefitIds ?? [],
+        preferredBenefitIds: profile?.preferredBenefitIds ?? [],
+        hardFilters: profile?.hardFilters ?? {
+          requiresVisaSponsorship: false,
+          minBaseSalary: 0,
+          maxOnsiteDaysPerWeek: 7,
+          maxTravelPercent: 100,
+          employmentTypes: [],
+        },
+        scoringPolicy: profile?.scoringPolicy,
+        digitalResume: timelineCompanies.length > 0 ? toDigitalResumeDraft(timelineCompanies) : profile?.digitalResume,
+        operatorCore,
+        updatedAt: new Date().toISOString(),
+      };
+
+      let jobId = operatorCore.assetBrief.generatedJobId;
+      if (jobId) {
+        await updateJob(jobId, {
+          title: operatorCore.assetBrief.targetJob.title.trim(),
+          company: operatorCore.assetBrief.targetJob.company.trim(),
+          url: operatorCore.assetBrief.targetJob.url.trim() || undefined,
+          location: operatorCore.assetBrief.targetJob.location.trim() || undefined,
+          locationType: /remote/i.test(operatorCore.assetBrief.targetJob.location) ? 'Remote' : 'Unknown',
+          jobDescription: operatorCore.assetBrief.targetJob.jobDescription.trim(),
+        });
+      } else {
+        const job = await addJob({
+          title: operatorCore.assetBrief.targetJob.title.trim(),
+          company: operatorCore.assetBrief.targetJob.company.trim(),
+          url: operatorCore.assetBrief.targetJob.url.trim() || undefined,
+          location: operatorCore.assetBrief.targetJob.location.trim() || undefined,
+          locationType: /remote/i.test(operatorCore.assetBrief.targetJob.location) ? 'Remote' : 'Unknown',
+          jobDescription: operatorCore.assetBrief.targetJob.jobDescription.trim(),
+          source: 'operator-core',
+        });
+        jobId = job.id;
+      }
+
+      const resumeContent = buildResumeAssetContent({
+        profile: profileSnapshot,
+        lane: selectedLane,
+        targetJob: operatorCore.assetBrief.targetJob,
+        stories: storiesForGeneration,
+      });
+      const coverLetterContent = buildCoverLetterAssetContent({
+        profile: profileSnapshot,
+        lane: selectedLane,
+        targetJob: operatorCore.assetBrief.targetJob,
+        stories: storiesForGeneration,
+      });
+
+      let resumeAssetId = operatorCore.assetBrief.resumeAssetId;
+      if (resumeAssetId) {
+        await updateAsset(resumeAssetId, {
+          content: resumeContent,
+          jobId,
+          proofIdsUsed: storiesForGeneration.map((story) => story.id),
+          unresolvedProofIds: [],
+        });
+      } else {
+        const resumeAsset = await addAsset({
+          jobId,
+          type: 'Resume',
+          content: resumeContent,
+          proofIdsUsed: storiesForGeneration.map((story) => story.id),
+          unresolvedProofIds: [],
+          modelUsed: 'operator-core',
+          modelTier: 'tier-0-free',
+        });
+        resumeAssetId = resumeAsset.id;
+      }
+
+      let coverLetterAssetId = operatorCore.assetBrief.coverLetterAssetId;
+      if (coverLetterAssetId) {
+        await updateAsset(coverLetterAssetId, {
+          content: coverLetterContent,
+          jobId,
+          proofIdsUsed: storiesForGeneration.map((story) => story.id),
+          unresolvedProofIds: [],
+        });
+      } else {
+        const coverLetterAsset = await addAsset({
+          jobId,
+          type: 'Cover Letter',
+          content: coverLetterContent,
+          proofIdsUsed: storiesForGeneration.map((story) => story.id),
+          unresolvedProofIds: [],
+          modelUsed: 'operator-core',
+          modelTier: 'tier-0-free',
+        });
+        coverLetterAssetId = coverLetterAsset.id;
+      }
+
+      setGeneratedResumeContent(resumeContent);
+      setGeneratedCoverLetterContent(coverLetterContent);
+
+      const nextOperatorCore = finalizeOperatorCore({
+        ...operatorCore,
+        assetBrief: {
+          ...operatorCore.assetBrief,
+          generatedJobId: jobId,
+          resumeAssetId,
+          coverLetterAssetId,
+          generatedAt: new Date().toISOString(),
+        },
+      });
+      setOperatorCore(nextOperatorCore);
+      await persistCanonicalProfile(nextOperatorCore);
+    } finally {
+      setIsGeneratingAssets(false);
     }
   };
 
@@ -1006,6 +1420,7 @@ export function ProfileWorkspaceShell({ mode, initialIdentity, forceFreshSetup =
             setTimelineCompanies([]);
             setExperienceConfirmed(false);
             setRevealedGroupCount(0);
+            resetOperatorProgress();
             setPrefillState('idle');
             setPrefillMessage('Manual path selected. You can continue setup without importing a resume.');
             setActiveStep('details');
@@ -1026,6 +1441,7 @@ export function ProfileWorkspaceShell({ mode, initialIdentity, forceFreshSetup =
           onContinue={() => {
             if (!detailsRequiredFieldsValid) return;
             setDetailsSaved(true);
+            void persistCanonicalProfile();
             setActiveStep('experience');
             scrollWorkspaceToTop();
           }}
@@ -1045,7 +1461,13 @@ export function ProfileWorkspaceShell({ mode, initialIdentity, forceFreshSetup =
           experienceConfirmed={experienceConfirmed}
           onTimelineChange={applyTimelineCompanies}
           onConfirmTimeline={() => {
+            const nextOperatorCore = finalizeOperatorCore(rebuildOperatorState(), true);
             setExperienceConfirmed(true);
+            setLaneConfirmed(false);
+            setStoriesConfirmed(false);
+            setOperatorCore(nextOperatorCore);
+            void persistCanonicalProfile(nextOperatorCore);
+            setActiveStep('skills');
             scrollWorkspaceToTop();
           }}
           onBack={() => setActiveStep('details')}
@@ -1054,13 +1476,114 @@ export function ProfileWorkspaceShell({ mode, initialIdentity, forceFreshSetup =
       );
     }
 
+    if (activeStep === 'skills') {
+      return (
+        <ProfileLaneSelectionStep
+          lanes={operatorCore?.lanes ?? []}
+          selectedLaneId={operatorCore?.selectedLaneId ?? null}
+          onSelectLane={(laneId) => {
+            if (!operatorCore) return;
+            const nextOperatorCore = finalizeOperatorCore({
+              ...operatorCore,
+              selectedLaneId: laneId,
+              assetBrief: {
+                ...operatorCore.assetBrief,
+                selectedLaneId: laneId,
+              },
+            }, true);
+            setOperatorCore(nextOperatorCore);
+            setLaneConfirmed(false);
+            setStoriesConfirmed(false);
+            setGenerationError(null);
+          }}
+          onBack={() => setActiveStep('experience')}
+          onContinue={() => {
+            if (!operatorCore?.selectedLaneId) return;
+            const nextOperatorCore = finalizeOperatorCore(operatorCore);
+            setOperatorCore(nextOperatorCore);
+            setLaneConfirmed(true);
+            void persistCanonicalProfile(nextOperatorCore);
+            setActiveStep('extras');
+            scrollWorkspaceToTop();
+          }}
+        />
+      );
+    }
+
+    if (activeStep === 'extras') {
+      return (
+        <ProfileStoryReviewStep
+          selectedLane={selectedLane}
+          stories={operatorCore?.stories ?? []}
+          onApprovedChange={(storyId, approved) => {
+            if (!operatorCore) return;
+            const nextStories = applyStoryApproval(operatorCore.stories, storyId, approved);
+            const nextOperatorCore = finalizeOperatorCore({
+              ...operatorCore,
+              stories: nextStories,
+            }, true);
+            setOperatorCore(nextOperatorCore);
+            setStoriesConfirmed(false);
+            setGenerationError(null);
+          }}
+          onMetricModeChange={(storyId, metricMode) => {
+            if (!operatorCore) return;
+            const nextStories = applyStoryMetricMode(operatorCore.stories, storyId, metricMode);
+            const nextOperatorCore = finalizeOperatorCore({
+              ...operatorCore,
+              stories: nextStories,
+            }, true);
+            setOperatorCore(nextOperatorCore);
+            setStoriesConfirmed(false);
+            setGenerationError(null);
+          }}
+          onBack={() => setActiveStep('skills')}
+          onContinue={() => {
+            if (!operatorCore) return;
+            const nextOperatorCore = finalizeOperatorCore(operatorCore);
+            setOperatorCore(nextOperatorCore);
+            setStoriesConfirmed(true);
+            void persistCanonicalProfile(nextOperatorCore);
+            setActiveStep('preferences');
+            scrollWorkspaceToTop();
+          }}
+        />
+      );
+    }
+
     return (
-      <section className="workspace-panel p-6 sm:p-7">
-        <h1 className="text-3xl font-semibold text-[var(--text-primary)]">Coming next</h1>
-        <p className="mt-2 text-sm text-[var(--text-secondary)]">
-          This section is in the next packet. Your current progress stays saved in this workspace flow.
-        </p>
-      </section>
+      <ProfileAssetGenerationStep
+        selectedLane={selectedLane}
+        stories={operatorCore?.stories ?? []}
+        targetJob={operatorCore?.assetBrief.targetJob ?? {
+          title: '',
+          company: '',
+          url: '',
+          location: '',
+          jobDescription: '',
+        }}
+        generationError={generationError}
+        isGenerating={isGeneratingAssets}
+        generatedResumeContent={generatedResumeContent}
+        generatedCoverLetterContent={generatedCoverLetterContent}
+        generatedJobId={operatorCore?.assetBrief.generatedJobId}
+        onTargetJobChange={(updates) => {
+          if (!operatorCore) return;
+          const nextOperatorCore = finalizeOperatorCore({
+            ...operatorCore,
+            assetBrief: {
+              ...operatorCore.assetBrief,
+              targetJob: updateTargetJob(operatorCore.assetBrief.targetJob, updates),
+            },
+          }, true);
+          setOperatorCore(nextOperatorCore);
+          setGenerationError(null);
+        }}
+        onBack={() => setActiveStep('extras')}
+        onGenerate={() => {
+          void handleGenerateAssets();
+        }}
+      />
     );
   };
 

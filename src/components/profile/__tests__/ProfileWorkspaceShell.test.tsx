@@ -344,7 +344,7 @@ describe('ProfileWorkspaceShell', () => {
 
     expect(screen.getAllByText(/% complete/i)).toHaveLength(1);
     expect(document.getElementById('profile-step-list')?.className).toContain('lg:grid-cols-6');
-    expect(screen.getByText('Skills & Tools')).toBeTruthy();
+    expect(screen.getByText('Role Lane')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Collapse step path' })).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Collapse step path' }));

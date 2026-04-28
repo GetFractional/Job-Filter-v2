@@ -1,0 +1,3691 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>03. Shared Visual and Product System</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        color-scheme: dark;
+        --canvas: #05070a;
+        --canvas-depth: #091018;
+        --shell: rgba(14, 20, 28, 0.84);
+        --shell-strong: rgba(20, 28, 38, 0.92);
+        --shell-soft: rgba(12, 17, 24, 0.74);
+        --shell-muted: rgba(17, 24, 34, 0.68);
+        --shell-elevated: rgba(24, 32, 43, 0.9);
+        --shell-review: rgba(20, 31, 35, 0.95);
+        --shell-overlay: rgba(7, 11, 16, 0.82);
+        --line: rgba(223, 233, 244, 0.12);
+        --line-strong: rgba(223, 233, 244, 0.22);
+        --line-accent: rgba(121, 214, 180, 0.34);
+        --text: #f4f7fb;
+        --text-secondary: #c9d2dc;
+        --text-muted: #94a2b2;
+        --text-faint: #718094;
+        --accent: #79d6b4;
+        --accent-strong: #49bb91;
+        --accent-soft: rgba(121, 214, 180, 0.16);
+        --accent-soft-strong: rgba(121, 214, 180, 0.24);
+        --mineral: #8fb1d9;
+        --mineral-soft: rgba(143, 177, 217, 0.16);
+        --warning: #d4a66b;
+        --warning-soft: rgba(212, 166, 107, 0.18);
+        --danger: #cc8c97;
+        --danger-soft: rgba(204, 140, 151, 0.16);
+        --success-soft: rgba(96, 173, 136, 0.2);
+        --offline-soft: rgba(118, 132, 152, 0.2);
+        --shadow-lg: 0 32px 90px rgba(0, 0, 0, 0.42);
+        --shadow-md: 0 18px 42px rgba(0, 0, 0, 0.3);
+        --shadow-sm: 0 12px 26px rgba(0, 0, 0, 0.22);
+        --focus-ring: 0 0 0 3px rgba(143, 177, 217, 0.18);
+        --radius-xl: 28px;
+        --radius-lg: 22px;
+        --radius-md: 16px;
+        --radius-sm: 12px;
+        --page-width: 1180px;
+        --primary-gradient: linear-gradient(180deg, rgba(121, 214, 180, 0.96), rgba(84, 184, 148, 0.92));
+        --internal-gradient: linear-gradient(180deg, rgba(236, 241, 247, 0.94), rgba(214, 220, 228, 0.9));
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        font-family: "Plus Jakarta Sans", sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(circle at top, rgba(121, 214, 180, 0.1), transparent 34%),
+          radial-gradient(circle at 80% 12%, rgba(143, 177, 217, 0.12), transparent 24%),
+          linear-gradient(180deg, #06090d 0%, #090f14 100%);
+      }
+
+      body {
+        position: relative;
+        padding: 28px 20px 48px;
+      }
+
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        opacity: 0.2;
+        background-image: radial-gradient(rgba(255, 255, 255, 0.06) 0.8px, transparent 0.8px);
+        background-size: 28px 28px;
+        mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.65), transparent 72%);
+      }
+
+      a {
+        color: var(--mineral);
+        text-decoration-color: rgba(143, 177, 217, 0.55);
+        text-underline-offset: 3px;
+      }
+
+      a:hover {
+        color: #b8d0ef;
+      }
+
+      button,
+      input {
+        font: inherit;
+      }
+
+      .page {
+        position: relative;
+        width: min(100%, var(--page-width));
+        margin: 0 auto;
+      }
+
+      .hero,
+      .section {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-xl);
+        background: linear-gradient(180deg, rgba(20, 28, 38, 0.88), rgba(10, 15, 22, 0.82));
+        box-shadow: var(--shadow-lg);
+        backdrop-filter: blur(18px);
+      }
+
+      .hero {
+        padding: 28px 30px 30px;
+      }
+
+      .section {
+        padding: 28px;
+        margin-top: 22px;
+      }
+
+      .hero::before,
+      .section::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        border-radius: inherit;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 18%);
+      }
+
+      h1,
+      h2,
+      h3,
+      h4 {
+        margin: 0;
+      }
+
+      h1,
+      h2 {
+        font-family: "Newsreader", serif;
+        font-weight: 600;
+      }
+
+      h1 {
+        max-width: 920px;
+        margin-top: 0;
+        font-size: clamp(2.8rem, 4.2vw, 4.5rem);
+        line-height: 0.96;
+        letter-spacing: -0.04em;
+      }
+
+      .summary {
+        max-width: 920px;
+        margin: 16px 0 0;
+        color: var(--text-secondary);
+        font-size: 17px;
+        line-height: 1.75;
+      }
+
+      .eyebrow,
+      .strong-label {
+        display: block;
+        color: var(--accent);
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .eyebrow {
+        margin-bottom: 12px;
+      }
+
+      .section-head {
+        max-width: 900px;
+        margin-bottom: 20px;
+      }
+
+      .section-head h2 {
+        font-size: clamp(2rem, 2.6vw, 3rem);
+        line-height: 1.06;
+      }
+
+      .section-head p,
+      .summary-card p,
+      .panel-card p,
+      .spec-card p,
+      .foundation-card p,
+      .interaction-card p,
+      .assembly-card p,
+      .index-card p,
+      .toc-card p,
+      .purpose-card p {
+        margin: 10px 0 0;
+        color: var(--text-secondary);
+        font-size: 14px;
+        line-height: 1.72;
+      }
+
+      .section-note {
+        margin-top: 10px;
+        color: var(--text-muted);
+        font-size: 13px;
+        line-height: 1.65;
+      }
+
+      .series-panel,
+      .purpose-card,
+      .foundation-card,
+      .spec-card,
+      .interaction-card,
+      .assembly-card,
+      .index-card,
+      .panel-card {
+        position: relative;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-lg);
+        background: linear-gradient(180deg, rgba(26, 34, 45, 0.88), rgba(16, 23, 32, 0.88));
+        box-shadow: var(--shadow-md);
+      }
+
+      .series-panel {
+        padding: 20px;
+      }
+
+      .hero-intro {
+        margin-top: 30px;
+      }
+
+      .series-grid,
+      .grid-2,
+      .grid-3,
+      .grid-4,
+      .token-grid,
+      .builder-grid,
+      .utility-grid,
+      .surface-grid,
+      .guardrail-grid,
+      .metric-grid {
+        display: grid;
+        gap: 16px;
+      }
+
+      .series-grid,
+      .grid-3 {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .grid-2,
+      .utility-grid,
+      .surface-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .grid-4,
+      .token-grid,
+      .builder-grid,
+      .guardrail-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      .metric-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .toc-card {
+        min-height: 134px;
+        padding: 18px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .toc-card.active {
+        border-color: var(--line-accent);
+        background: linear-gradient(180deg, rgba(121, 214, 180, 0.12), rgba(22, 30, 40, 0.88));
+        box-shadow: 0 18px 44px rgba(73, 187, 145, 0.14);
+      }
+
+      .toc-number {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 34px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.05);
+        color: var(--text-secondary);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .number-chip {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 34px;
+        height: 34px;
+        padding: 0 12px;
+        border-radius: 999px;
+        border: 1px solid rgba(121, 214, 180, 0.22);
+        background: rgba(121, 214, 180, 0.12);
+        color: var(--accent);
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .toc-card h3 {
+        margin-top: 12px;
+        font-size: 16px;
+        font-weight: 700;
+        line-height: 1.3;
+      }
+
+      .purpose-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+        margin-top: 24px;
+      }
+
+      .purpose-card {
+        padding: 18px 20px;
+      }
+
+      .foundation-card,
+      .spec-card,
+      .interaction-card,
+      .assembly-card,
+      .index-card,
+      .panel-card {
+        padding: 20px;
+      }
+
+      .type-stage {
+        display: grid;
+        gap: 12px;
+        margin-top: 14px;
+      }
+
+      .type-sample-display {
+        font-family: "Newsreader", serif;
+        font-size: clamp(2rem, 3vw, 3.3rem);
+        line-height: 0.98;
+        letter-spacing: -0.04em;
+      }
+
+      .type-sample-section {
+        font-family: "Newsreader", serif;
+        font-size: 30px;
+        line-height: 1.12;
+      }
+
+      .type-sample-surface {
+        font-size: 24px;
+        font-weight: 700;
+        line-height: 1.25;
+      }
+
+      .type-sample-body {
+        font-size: 17px;
+        line-height: 1.7;
+        color: var(--text-secondary);
+      }
+
+      .type-sample-meta {
+        color: var(--text-muted);
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .type-token {
+        display: grid;
+        gap: 8px;
+        padding: 14px 0;
+        border-top: 1px solid var(--line);
+      }
+
+      .type-token:first-of-type {
+        border-top: 0;
+        padding-top: 0;
+      }
+
+      .type-token strong {
+        font-size: 14px;
+      }
+
+      .type-token span {
+        color: var(--text-secondary);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+
+      .token-card {
+        min-height: 252px;
+        display: grid;
+        grid-template-rows: auto auto 1fr;
+        gap: 12px;
+        padding: 16px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .token-top {
+        display: grid;
+        gap: 6px;
+      }
+
+      .token-name {
+        font-size: 14px;
+        font-weight: 700;
+      }
+
+      .token-value {
+        color: var(--text-secondary);
+        font-size: 12px;
+        line-height: 1.55;
+      }
+
+      .mini-label,
+      .anatomy-tag,
+      .state-chip,
+      .workspace-pill,
+      .step-pill,
+      .nav-item,
+      .tab-pill,
+      .viewport-chip {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        color: var(--text-secondary);
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .token-swatch {
+        height: 68px;
+        border-radius: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      }
+
+      .token-body {
+        display: grid;
+        align-content: start;
+        gap: 10px;
+      }
+
+      .token-block {
+        display: grid;
+        gap: 6px;
+      }
+
+      .token-block strong {
+        color: var(--text-muted);
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .token-block span {
+        color: var(--text-secondary);
+        font-size: 12px;
+        line-height: 1.55;
+      }
+
+      .surface-example {
+        min-height: 246px;
+        display: grid;
+        gap: 14px;
+        padding: 20px;
+        border-radius: 22px;
+        border: 1px solid var(--line);
+      }
+
+      .surface-example strong {
+        font-size: 15px;
+      }
+
+      .surface-main {
+        background: linear-gradient(180deg, rgba(15, 22, 31, 0.82), rgba(9, 14, 20, 0.8));
+        border-color: rgba(223, 233, 244, 0.15);
+        box-shadow: var(--shadow-lg);
+      }
+
+      .surface-working {
+        background: linear-gradient(180deg, rgba(28, 37, 49, 0.9), rgba(16, 24, 34, 0.88));
+        border-color: rgba(223, 233, 244, 0.18);
+        box-shadow: var(--shadow-md);
+      }
+
+      .surface-review {
+        background: linear-gradient(180deg, rgba(25, 40, 42, 0.92), rgba(12, 22, 25, 0.92));
+        border-color: rgba(121, 214, 180, 0.28);
+        box-shadow: 0 18px 42px rgba(30, 83, 68, 0.18);
+      }
+
+      .surface-specs {
+        display: grid;
+        gap: 8px;
+        margin-top: auto;
+        padding-top: 12px;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .surface-specs span {
+        color: var(--text-secondary);
+        font-size: 12px;
+      }
+
+      .finish-list {
+        display: grid;
+        gap: 12px;
+      }
+
+      .finish-row {
+        padding: 14px;
+        border-radius: 16px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .finish-row strong {
+        display: block;
+        font-size: 14px;
+      }
+
+      .finish-row span {
+        display: block;
+        margin-top: 6px;
+        color: var(--text-secondary);
+        font-size: 12px;
+        line-height: 1.6;
+      }
+
+      .spacing-ladder {
+        display: grid;
+        gap: 12px;
+      }
+
+      .spacing-row {
+        display: grid;
+        grid-template-columns: 80px minmax(140px, 180px) 1fr;
+        align-items: center;
+        gap: 18px;
+      }
+
+      .spacing-visual {
+        display: flex;
+        justify-content: center;
+        padding: 0 18px;
+      }
+
+      .spacing-bar {
+        height: 10px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, rgba(121, 214, 180, 0.92), rgba(121, 214, 180, 0.42));
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      }
+
+      .visual-spec-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 18px;
+      }
+
+      .visual-spec-card {
+        padding: 14px;
+        border-radius: 16px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .visual-spec-card strong {
+        display: block;
+        font-size: 13px;
+      }
+
+      .visual-spec-card span {
+        display: block;
+        margin-top: 8px;
+        color: var(--text-secondary);
+        font-size: 12px;
+        line-height: 1.55;
+      }
+
+      .radius-demo,
+      .border-demo,
+      .shadow-demo {
+        margin-top: 12px;
+        min-height: 70px;
+        border-radius: 18px;
+      }
+
+      .radius-demo {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .radius-demo::before,
+      .radius-demo::after {
+        content: "";
+        position: absolute;
+        border: 1px dashed rgba(143, 177, 217, 0.34);
+      }
+
+      .radius-demo::before {
+        inset: 12px;
+        border-radius: 12px;
+      }
+
+      .radius-demo::after {
+        inset: 22px;
+        border-radius: 28px;
+        border-color: rgba(121, 214, 180, 0.36);
+      }
+
+      .border-demo {
+        border: 1px solid rgba(223, 233, 244, 0.12);
+        background: linear-gradient(180deg, rgba(24, 32, 43, 0.88), rgba(15, 22, 31, 0.88));
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      }
+
+      .border-demo::before,
+      .shadow-demo::before {
+        content: "";
+        display: block;
+        width: calc(100% - 28px);
+        height: calc(100% - 24px);
+        margin: 12px 14px;
+        border-radius: 14px;
+        border: 1px solid rgba(223, 233, 244, 0.22);
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .shadow-demo {
+        border: 1px solid rgba(223, 233, 244, 0.08);
+        background: rgba(9, 14, 20, 0.72);
+        box-shadow: var(--shadow-md);
+      }
+
+      .spec-card {
+        padding: 22px;
+      }
+
+      .specimen-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: end;
+        gap: 18px;
+        margin-bottom: 14px;
+      }
+
+      .specimen-head h3 {
+        font-size: 20px;
+        font-weight: 700;
+      }
+
+      .spec-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 12px;
+      }
+
+      .reference-layer {
+        margin-top: 14px;
+      }
+
+      .reference-label {
+        display: block;
+        margin-bottom: 10px;
+        color: var(--text-faint);
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .browser-shell,
+      .tablet-shell,
+      .phone-shell {
+        position: relative;
+        overflow: hidden;
+        border-radius: 26px;
+        border: 1px solid var(--line-strong);
+        background: linear-gradient(180deg, rgba(14, 19, 26, 0.98), rgba(11, 15, 21, 0.96));
+        box-shadow: var(--shadow-md);
+      }
+
+      .browser-shell {
+        padding: 18px;
+      }
+
+      .tablet-shell {
+        width: min(100%, 820px);
+        margin: 0 auto;
+        padding: 18px;
+      }
+
+      .phone-shell {
+        width: min(100%, 360px);
+        margin: 0 auto;
+        padding: 16px;
+      }
+
+      .shell-topbar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding-bottom: 16px;
+      }
+
+      .browser-dots {
+        display: flex;
+        gap: 6px;
+      }
+
+      .browser-dots span {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.15);
+      }
+
+      .shell-url {
+        flex: 1;
+        min-width: 0;
+        padding: 9px 12px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--text-muted);
+        font-size: 12px;
+      }
+
+      .nav-bar,
+      .workspace-rail,
+      .tabs-row,
+      .nav-row,
+      .state-row,
+      .cta-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .nav-bar {
+        margin-top: 4px;
+      }
+
+      .workspace-pill.active,
+      .step-pill.active,
+      .nav-item.active,
+      .tab-pill.active {
+        background: var(--accent-soft);
+        border-color: var(--line-accent);
+        color: #e6fff6;
+      }
+
+      .nav-item.focus,
+      .tab-pill.focus,
+      .step-pill.focus {
+        outline: 2px solid rgba(143, 177, 217, 0.52);
+        outline-offset: 2px;
+      }
+
+      .nav-item.disabled,
+      .tab-pill.disabled {
+        opacity: 0.45;
+      }
+
+      .workspace-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1.14fr) minmax(320px, 0.86fr);
+        gap: 18px;
+        margin-top: 16px;
+      }
+
+      .editor-stack,
+      .preview-stack {
+        display: grid;
+        gap: 14px;
+      }
+
+      .module-card,
+      .preview-card,
+      .doc-panel,
+      .feedback-card,
+      .lane-card,
+      .tracking-row,
+      .research-panel,
+      .palette-card,
+      .email-card,
+      .utility-panel,
+      .state-tile,
+      .overlay-stage,
+      .empty-state,
+      .feedback-tile,
+      .accordion-card,
+      .nav-surface {
+        border: 1px solid var(--line);
+        border-radius: var(--radius-md);
+        background: linear-gradient(180deg, rgba(29, 38, 50, 0.88), rgba(18, 25, 34, 0.88));
+        box-shadow: var(--shadow-sm);
+      }
+
+      .module-card,
+      .preview-card,
+      .doc-panel,
+      .feedback-card,
+      .lane-card,
+      .research-panel,
+      .palette-card,
+      .email-card,
+      .utility-panel,
+      .state-tile,
+      .feedback-tile,
+      .accordion-card,
+      .nav-surface {
+        padding: 16px;
+      }
+
+      .preview-card {
+        background: linear-gradient(180deg, rgba(18, 27, 39, 0.92), rgba(11, 18, 27, 0.92));
+      }
+
+      .module-card h4,
+      .preview-card h4,
+      .feedback-card h4,
+      .lane-card h4,
+      .research-panel h4,
+      .utility-panel h4,
+      .accordion-card h4,
+      .email-card h4,
+      .nav-surface h4 {
+        font-size: 16px;
+        font-weight: 700;
+      }
+
+      .field-list,
+      .draft-list,
+      .metric-list,
+      .rule-list {
+        display: grid;
+        gap: 10px;
+        margin-top: 12px;
+      }
+
+      .field-row,
+      .draft-row,
+      .metric-row,
+      .rule-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 14px;
+        align-items: start;
+        padding: 10px 12px;
+        border-radius: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .field-row strong,
+      .draft-row strong,
+      .metric-row strong,
+      .rule-row strong {
+        font-size: 13px;
+      }
+
+      .field-row span,
+      .draft-row span,
+      .metric-row span,
+      .rule-row span {
+        color: var(--text-secondary);
+        font-size: 13px;
+        line-height: 1.55;
+        text-align: right;
+      }
+
+      .doc-panel {
+        background: linear-gradient(180deg, rgba(240, 244, 249, 0.98), rgba(228, 235, 243, 0.94));
+        color: #1d2430;
+      }
+
+      .doc-kicker {
+        color: #5a6473;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .doc-title {
+        margin-top: 12px;
+        font-size: 20px;
+        font-weight: 700;
+      }
+
+      .doc-lines {
+        display: grid;
+        gap: 8px;
+        margin-top: 14px;
+      }
+
+      .doc-line {
+        height: 9px;
+        border-radius: 999px;
+        background: rgba(41, 54, 68, 0.14);
+      }
+
+      .doc-line.short {
+        width: 42%;
+      }
+
+      .doc-line.medium {
+        width: 74%;
+      }
+
+      .doc-line.long {
+        width: 92%;
+      }
+
+      .state-chip {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 6px 10px;
+      }
+
+      .state-chip.used {
+        background: var(--success-soft);
+        color: #c9f1de;
+        border-color: rgba(121, 214, 180, 0.2);
+      }
+
+      .state-chip.missing {
+        background: var(--warning-soft);
+        color: #f2d2ab;
+        border-color: rgba(212, 166, 107, 0.24);
+      }
+
+      .state-chip.excluded {
+        background: var(--danger-soft);
+        color: #f3c6ce;
+        border-color: rgba(204, 140, 151, 0.24);
+      }
+
+      .state-chip.info {
+        background: var(--mineral-soft);
+        color: #c9def8;
+        border-color: rgba(143, 177, 217, 0.22);
+      }
+
+      .btn {
+        appearance: none;
+        border: 1px solid transparent;
+        border-radius: 999px;
+        padding: 12px 18px;
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.01em;
+        cursor: pointer;
+        transition:
+          transform 160ms ease,
+          box-shadow 160ms ease,
+          border-color 160ms ease,
+          background-color 160ms ease,
+          color 160ms ease;
+      }
+
+      .btn:hover {
+        transform: translateY(-1px);
+      }
+
+      .btn:active,
+      .btn.pressed {
+        transform: translateY(1px);
+        box-shadow: none;
+      }
+
+      .btn:focus-visible {
+        outline: 2px solid rgba(143, 177, 217, 0.65);
+        outline-offset: 3px;
+      }
+
+      .btn.primary {
+        background: var(--primary-gradient);
+        color: #052018;
+        border-color: rgba(121, 214, 180, 0.44);
+        box-shadow: 0 12px 28px rgba(73, 187, 145, 0.24);
+      }
+
+      .btn.secondary {
+        background: rgba(143, 177, 217, 0.08);
+        color: #d8e6f6;
+        border-color: rgba(143, 177, 217, 0.24);
+      }
+
+      .btn.internal {
+        background: var(--internal-gradient);
+        color: #23303c;
+        border-color: rgba(237, 242, 248, 0.6);
+        box-shadow: 0 10px 22px rgba(0, 0, 0, 0.12);
+      }
+
+      .btn.disabled,
+      .btn:disabled {
+        background: rgba(255, 255, 255, 0.06);
+        border-color: rgba(255, 255, 255, 0.06);
+        color: rgba(244, 247, 251, 0.46);
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+      }
+
+      .button-family {
+        display: grid;
+        gap: 12px;
+      }
+
+      .state-strip {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 10px;
+      }
+
+      .button-state {
+        min-width: 180px;
+        padding: 10px;
+        border-radius: 14px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .button-state-label {
+        margin-bottom: 10px;
+        color: var(--text-muted);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .button-specs {
+        display: grid;
+        gap: 6px;
+        margin-top: 12px;
+        color: var(--text-muted);
+        font-size: 12px;
+      }
+
+      .link-stack {
+        display: grid;
+        gap: 10px;
+        margin-top: 12px;
+      }
+
+      .provenance-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: #cbe1ff;
+      }
+
+      .field-matrix {
+        display: grid;
+        gap: 12px;
+        margin-top: 14px;
+      }
+
+      .field-tile {
+        padding: 14px;
+        border-radius: 16px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .field-tile label {
+        display: block;
+        margin-bottom: 8px;
+        color: var(--text-secondary);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .field-shell {
+        padding: 14px 15px;
+        border-radius: 14px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.03);
+        color: var(--text);
+        line-height: 1.5;
+      }
+
+      .field-shell.focus {
+        border-color: rgba(143, 177, 217, 0.42);
+        box-shadow: var(--focus-ring);
+      }
+
+      .field-shell.approved {
+        border-color: rgba(121, 214, 180, 0.3);
+        background: rgba(121, 214, 180, 0.09);
+      }
+
+      .field-shell.suggested {
+        border-style: dashed;
+        border-color: rgba(143, 177, 217, 0.3);
+        background: rgba(143, 177, 217, 0.08);
+      }
+
+      .field-shell.missing {
+        border-color: rgba(212, 166, 107, 0.3);
+        background: rgba(212, 166, 107, 0.08);
+      }
+
+      .field-shell.excluded {
+        border-color: rgba(204, 140, 151, 0.28);
+        background: rgba(204, 140, 151, 0.07);
+      }
+
+      .field-shell.error {
+        border-color: rgba(191, 90, 105, 0.34);
+        background: rgba(191, 90, 105, 0.09);
+      }
+
+      .field-shell.disabled {
+        opacity: 0.5;
+      }
+
+      .helper-copy {
+        margin-top: 8px;
+        color: var(--text-muted);
+        font-size: 12px;
+        line-height: 1.6;
+      }
+
+      .entry-group {
+        display: grid;
+        gap: 10px;
+        margin-top: 12px;
+      }
+
+      .entry-block {
+        padding: 12px 14px;
+        border-radius: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .entry-block strong {
+        display: block;
+        font-size: 13px;
+      }
+
+      .entry-block span {
+        display: block;
+        margin-top: 6px;
+        color: var(--text-secondary);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+
+      .builder-record {
+        display: grid;
+        gap: 12px;
+        margin-top: 14px;
+      }
+
+      .builder-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: start;
+      }
+
+      .builder-row {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 10px;
+        align-items: start;
+        padding: 16px;
+        border-radius: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .builder-row strong {
+        display: block;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+      }
+
+      .builder-row span {
+        display: block;
+        color: var(--text-secondary);
+        font-size: 13px;
+        line-height: 1.65;
+      }
+
+      .builder-list {
+        display: grid;
+        gap: 8px;
+      }
+
+      .builder-list-item {
+        padding: 10px 12px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        background: rgba(255, 255, 255, 0.03);
+        color: var(--text-secondary);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+
+      .builder-chip-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .builder-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 7px 11px;
+        border-radius: 999px;
+        border: 1px solid rgba(143, 177, 217, 0.18);
+        background: rgba(143, 177, 217, 0.08);
+        color: var(--text);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .builder-note {
+        padding: 12px 14px;
+        border-radius: 14px;
+        border: 1px solid rgba(212, 166, 107, 0.22);
+        background: rgba(212, 166, 107, 0.1);
+        color: var(--text-secondary);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+
+      .banner-grid {
+        display: grid;
+        gap: 12px;
+        margin-top: 14px;
+      }
+
+      .banner {
+        padding: 14px 15px;
+        border-radius: 16px;
+        border: 1px solid var(--line);
+      }
+
+      .banner strong {
+        display: block;
+        font-size: 13px;
+      }
+
+      .banner.info {
+        background: var(--mineral-soft);
+        border-color: rgba(143, 177, 217, 0.2);
+      }
+
+      .banner.success {
+        background: var(--success-soft);
+        border-color: rgba(121, 214, 180, 0.2);
+      }
+
+      .banner.caution {
+        background: var(--warning-soft);
+        border-color: rgba(212, 166, 107, 0.2);
+      }
+
+      .banner.review {
+        background: rgba(255, 255, 255, 0.05);
+      }
+
+      .banner.blocked {
+        background: var(--danger-soft);
+        border-color: rgba(204, 140, 151, 0.2);
+      }
+
+      .accordion-card {
+        margin-top: 14px;
+      }
+
+      .accordion-toggle {
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        padding: 0;
+        border: 0;
+        background: none;
+        color: var(--text);
+        cursor: pointer;
+      }
+
+      .accordion-icon {
+        width: 32px;
+        height: 32px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        color: var(--text-secondary);
+        font-size: 16px;
+        transition: transform 180ms ease, background-color 180ms ease;
+      }
+
+      .accordion-panel {
+        max-height: 0;
+        overflow: hidden;
+        opacity: 0;
+        transition: max-height 220ms ease, opacity 180ms ease, margin-top 180ms ease;
+      }
+
+      .accordion-card.open .accordion-panel {
+        max-height: 220px;
+        opacity: 1;
+        margin-top: 14px;
+      }
+
+      .accordion-card.open .accordion-icon {
+        transform: rotate(180deg);
+        background: var(--accent-soft);
+      }
+
+      .behavior-demo {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        align-items: stretch;
+        gap: 16px;
+      }
+
+      .interaction-card > p + .behavior-demo,
+      .interaction-card > .overlay-stage {
+        margin-top: 14px;
+      }
+
+      .behavior-demo .accordion-card {
+        margin-top: 0;
+      }
+
+      .accordion-card,
+      .progress-demo {
+        height: 100%;
+      }
+
+      .progress-demo {
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 16px;
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .progress-shell {
+        display: flex;
+        justify-content: space-between;
+        gap: 14px;
+        align-items: center;
+      }
+
+      .progress-copy {
+        max-width: 380px;
+      }
+
+      .progress-copy strong {
+        display: block;
+        font-size: 15px;
+      }
+
+      .step-track {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 14px;
+      }
+
+      .step-pill {
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      .progress-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      .overlay-stage {
+        overflow: hidden;
+        padding: 24px;
+        display: grid;
+        gap: 18px;
+        border-radius: 22px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.02);
+      }
+
+      .overlay-base {
+        padding: 20px;
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.035);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+      }
+
+      .overlay-base-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 12px;
+      }
+
+      .overlay-layer {
+        display: grid;
+        grid-template-columns: 1.05fr 0.95fr;
+        gap: 16px;
+      }
+
+      .overlay-panel {
+        min-height: 0;
+        padding: 20px;
+        border: 1px solid var(--line-strong);
+        border-radius: 18px;
+        background: linear-gradient(180deg, rgba(34, 43, 56, 0.96), rgba(18, 26, 35, 0.94));
+        display: grid;
+        align-content: start;
+        gap: 12px;
+      }
+
+      .feedback-stack {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 14px;
+      }
+
+      .feedback-tile.success {
+        background: var(--success-soft);
+      }
+
+      .feedback-tile.caution {
+        background: var(--warning-soft);
+      }
+
+      .feedback-tile.info {
+        background: var(--mineral-soft);
+      }
+
+      .feedback-grid {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        margin-top: 14px;
+      }
+
+      .feedback-tile {
+        display: grid;
+        gap: 6px;
+        padding: 18px;
+        border-radius: 18px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .empty-state {
+        min-height: 136px;
+        display: grid;
+        align-content: start;
+        gap: 8px;
+        padding: 18px;
+        border-radius: 18px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .empty-state.loading .skeleton {
+        height: 9px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.1));
+        background-size: 200% 100%;
+        animation: shimmer 1.6s linear infinite;
+      }
+
+      @keyframes shimmer {
+        from {
+          background-position: 100% 0;
+        }
+
+        to {
+          background-position: -100% 0;
+        }
+      }
+
+      .lane-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+        margin-top: 14px;
+      }
+
+      .lane-view-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 16px;
+        margin-top: 14px;
+      }
+
+      .lane-principles {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 14px;
+      }
+
+      .lane-principle-card {
+        padding: 16px;
+        border-radius: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .lane-principle-card strong {
+        display: block;
+        font-size: 14px;
+      }
+
+      .lane-principle-card p {
+        margin-top: 8px;
+      }
+
+      .lane-board-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-top: 14px;
+      }
+
+      .lane-board-actions .section-note {
+        margin: 0;
+      }
+
+      .lane-swimlane-board {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+        margin-top: 14px;
+        align-items: stretch;
+      }
+
+      .lane-swimlane {
+        display: grid;
+        grid-template-rows: auto 1fr;
+        gap: 14px;
+        padding: 18px;
+        border-radius: 18px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .lane-swimlane.selected {
+        border-color: var(--line-accent);
+        background: rgba(121, 214, 180, 0.08);
+      }
+
+      .lane-swimlane-head {
+        display: grid;
+        gap: 12px;
+      }
+
+      .lane-head-top {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        align-items: start;
+      }
+
+      .lane-head-copy h4 {
+        margin-top: 8px;
+        font-size: 16px;
+        font-weight: 700;
+      }
+
+      .lane-role-titles {
+        margin-top: 6px;
+        color: var(--text-secondary);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+
+      .lane-proof-card {
+        padding: 12px 14px;
+        border-radius: 14px;
+        border: 1px solid rgba(143, 177, 217, 0.18);
+        background: rgba(143, 177, 217, 0.08);
+      }
+
+      .lane-proof-card strong {
+        display: block;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+      }
+
+      .lane-proof-card span {
+        display: block;
+        margin-top: 8px;
+        color: var(--text);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+
+      .lane-job-list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .lane-job-card {
+        display: grid;
+        gap: 10px;
+        padding: 14px;
+        border-radius: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        background: rgba(9, 14, 20, 0.52);
+      }
+
+      .lane-job-card strong {
+        display: block;
+        font-size: 14px;
+      }
+
+      .lane-job-card p {
+        margin: 0;
+        color: var(--text-secondary);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+
+      .lane-job-meta {
+        display: grid;
+        gap: 8px;
+      }
+
+      .lane-job-footer {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .lane-add-panel {
+        display: grid;
+        place-items: center;
+        min-height: 100%;
+        padding: 18px;
+        text-align: center;
+        border-radius: 16px;
+        border: 1px dashed rgba(143, 177, 217, 0.34);
+        background: rgba(143, 177, 217, 0.05);
+      }
+
+      .lane-add-panel strong {
+        display: block;
+        font-size: 15px;
+      }
+
+      .lane-add-panel span {
+        display: block;
+        margin-top: 8px;
+        color: var(--text-secondary);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+
+      .lane-view-card,
+      .lane-sheet-card {
+        padding: 18px;
+        border-radius: 18px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .lane-board {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+        margin-top: 14px;
+        align-items: stretch;
+      }
+
+      .lane-object {
+        display: grid;
+        align-content: start;
+        gap: 12px;
+        height: 100%;
+        padding: 18px;
+        border-radius: 16px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .lane-object.selected {
+        border-color: var(--line-accent);
+        background: rgba(121, 214, 180, 0.08);
+      }
+
+      .lane-object-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        align-items: start;
+      }
+
+      .lane-rank {
+        color: var(--text-muted);
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .lane-object h4 {
+        margin-top: 8px;
+        font-size: 16px;
+        font-weight: 700;
+      }
+
+      .lane-object p {
+        color: var(--text-secondary);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+
+      .lane-metric-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .lane-metric {
+        padding: 10px;
+        border-radius: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .lane-metric strong {
+        display: block;
+        color: var(--text-muted);
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .lane-metric span {
+        display: block;
+        margin-top: 6px;
+        color: var(--text);
+        font-size: 13px;
+        line-height: 1.4;
+      }
+
+      .lane-object-footer {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+        margin-top: auto;
+      }
+
+      .lane-add-card {
+        display: grid;
+        place-items: center;
+        min-height: 100%;
+        padding: 18px;
+        text-align: center;
+        border-radius: 16px;
+        border: 1px dashed rgba(143, 177, 217, 0.34);
+        background: rgba(143, 177, 217, 0.05);
+      }
+
+      .lane-add-card strong {
+        display: block;
+        font-size: 15px;
+      }
+
+      .lane-add-card span {
+        display: block;
+        margin-top: 8px;
+        color: var(--text-secondary);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+
+      .lane-card.selected {
+        border-color: var(--line-accent);
+        background: rgba(121, 214, 180, 0.08);
+      }
+
+      .lane-badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 12px;
+      }
+
+      .compare-table,
+      .index-table,
+      .handoff-table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 760px;
+      }
+
+      .compare-wrap,
+      .table-wrap {
+        overflow: auto;
+        margin-top: 14px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .lane-sheet-actions {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+        margin-top: 14px;
+      }
+
+      .lane-sheet-actions .section-note {
+        margin: 0;
+      }
+
+      .table-subtext {
+        display: block;
+        margin-top: 6px;
+        color: var(--text-secondary);
+        font-size: 12px;
+        line-height: 1.5;
+      }
+
+      .compare-table th,
+      .compare-table td,
+      .index-table th,
+      .index-table td,
+      .handoff-table th,
+      .handoff-table td {
+        padding: 14px 16px;
+        text-align: left;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        vertical-align: top;
+        font-size: 13px;
+        line-height: 1.6;
+      }
+
+      .compare-table th,
+      .index-table th,
+      .handoff-table th {
+        color: var(--text);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .compare-table tr:last-child td,
+      .index-table tr:last-child td,
+      .handoff-table tr:last-child td {
+        border-bottom: 0;
+      }
+
+      .tracking-list {
+        display: grid;
+        gap: 12px;
+        margin-top: 14px;
+      }
+
+      .tracking-row {
+        padding: 14px 16px;
+      }
+
+      .tracking-row strong {
+        display: block;
+        font-size: 14px;
+      }
+
+      .tracking-row span {
+        display: block;
+        margin-top: 6px;
+        color: var(--text-secondary);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+
+      .research-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 14px;
+      }
+
+      .palette-input {
+        margin-top: 12px;
+        padding: 12px 14px;
+        border-radius: 14px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--text-secondary);
+      }
+
+      .palette-results,
+      .notification-list,
+      .settings-group {
+        display: grid;
+        gap: 10px;
+        margin-top: 12px;
+      }
+
+      .palette-result,
+      .notification-item,
+      .settings-item {
+        padding: 12px 14px;
+        border-radius: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .palette-result strong,
+      .notification-item strong,
+      .settings-item strong {
+        display: block;
+        font-size: 13px;
+      }
+
+      .palette-result span,
+      .notification-item span,
+      .settings-item span {
+        display: block;
+        margin-top: 6px;
+        color: var(--text-secondary);
+        font-size: 12px;
+        line-height: 1.6;
+      }
+
+      .email-card {
+        display: grid;
+        gap: 12px;
+      }
+
+      .email-header,
+      .email-footer {
+        display: flex;
+        justify-content: space-between;
+        gap: 14px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+
+      .email-block {
+        padding: 14px;
+        border-radius: 16px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .index-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+        margin-top: 16px;
+        align-items: stretch;
+      }
+
+      .horizon-card {
+        padding: 18px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .horizon-card h3 {
+        font-size: 18px;
+        font-weight: 700;
+      }
+
+      .horizon-list {
+        display: grid;
+        gap: 12px;
+        margin-top: 14px;
+      }
+
+      .horizon-row {
+        padding: 12px 0;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .horizon-row:first-child {
+        border-top: 0;
+        padding-top: 0;
+      }
+
+      .horizon-row strong {
+        display: block;
+        font-size: 14px;
+      }
+
+      .horizon-row span {
+        display: block;
+        margin-top: 6px;
+        color: var(--text-secondary);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+
+      @media (max-width: 1120px) {
+        .series-grid,
+        .grid-3,
+        .grid-4,
+        .token-grid,
+        .builder-grid,
+        .guardrail-grid,
+        .metric-grid,
+        .grid-2,
+        .utility-grid,
+        .surface-grid,
+        .index-grid,
+        .lane-view-grid,
+        .visual-spec-grid,
+        .behavior-demo,
+        .feedback-stack,
+        .overlay-base-grid,
+        .research-grid,
+        .lane-principles,
+        .lane-swimlane-board {
+          grid-template-columns: 1fr;
+        }
+
+        .workspace-layout,
+        .overlay-layer {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 860px) {
+        body {
+          padding-inline: 14px;
+        }
+
+        .hero,
+        .section {
+          padding: 22px;
+          border-radius: 24px;
+        }
+
+        .spacing-row {
+          grid-template-columns: 1fr;
+          gap: 8px;
+        }
+
+        .specimen-head,
+        .progress-shell {
+          display: grid;
+          gap: 12px;
+        }
+
+        .feedback-grid,
+        .lane-grid,
+        .lane-board {
+          grid-template-columns: 1fr;
+        }
+
+        .builder-row {
+          grid-template-columns: 1fr;
+          gap: 8px;
+        }
+      }
+
+      @media (max-width: 560px) {
+        .hero {
+          padding: 20px;
+        }
+
+        .section {
+          padding: 18px;
+        }
+
+        h1 {
+          font-size: 2.45rem;
+        }
+
+        .summary {
+          font-size: 15px;
+          line-height: 1.7;
+        }
+
+        .browser-shell,
+        .tablet-shell,
+        .phone-shell {
+          border-radius: 22px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section class="hero">
+        <div class="eyebrow">Foundation Series</div>
+        <div class="series-panel">
+          <div class="series-grid">
+            <div class="toc-card">
+              <span class="toc-number">01</span>
+              <h3>Market Intelligence</h3>
+              <p>Category tensions, trust triggers, pricing friction, and lane-level workflow needs.</p>
+            </div>
+            <div class="toc-card">
+              <span class="toc-number">02</span>
+              <h3>Brand Strategy</h3>
+              <p>Category framing, CTA ladder, message hierarchy, and trust-safe language.</p>
+            </div>
+            <div class="toc-card active">
+              <span class="toc-number">03</span>
+              <h3>Shared Visual and Product System</h3>
+              <p>Reusable foundations, states, component anatomy, and product assemblies for later chapters.</p>
+            </div>
+            <div class="toc-card">
+              <span class="toc-number">04</span>
+              <h3>Website and Public Funnel</h3>
+              <p>Public-site IA, page roles, proof placement, worksheet entry, and auth handoff.</p>
+            </div>
+            <div class="toc-card">
+              <span class="toc-number">05</span>
+              <h3>Activation and Core App</h3>
+              <p>Route-level app composition, setup flows, tracking, and lane-driven workspaces.</p>
+            </div>
+            <div class="toc-card">
+              <span class="toc-number">06</span>
+              <h3>Lifecycle Messaging and Email</h3>
+              <p>Status language, reusable email components, and trust-safe follow-up patterns.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="hero-intro">
+          <h1>03. Shared Visual and Product System</h1>
+          <p class="summary">
+            Define the visual hierarchy, interaction grammar, trust-state behavior, and reusable assemblies that later
+            Job Filter website, app, and lifecycle work must inherit.
+          </p>
+        </div>
+
+        <div class="purpose-grid">
+          <div class="purpose-card">
+            <div class="eyebrow">Shared system scope</div>
+            <p>
+              This chapter defines tokens, states, component anatomy, surface hierarchy, responsive behavior, and
+              reusable product assemblies. It does not own public-page IA or route-level layouts.
+            </p>
+          </div>
+          <div class="purpose-card">
+            <div class="eyebrow">Persistent product rules</div>
+            <p>
+              Preserve <strong>Build my job profile</strong>, <strong>See how it works</strong>,
+              <strong>Continue setup</strong>, <strong>Profile</strong>, no auto-apply, review-before-send,
+              inspectable reasoning, guided storytelling, and multiple role lanes.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-head">
+          <div class="eyebrow">Foundations</div>
+          <h2>Set the hierarchy, finish, and containment precisely enough that later comps can be replicated instead of interpreted.</h2>
+          <p>
+            Use this section when defining tokens, surfaces, typography, button finishes, and device behavior. Every
+            specimen here should be reproducible from the values shown.
+          </p>
+        </div>
+
+        <div class="grid-2">
+          <div class="foundation-card">
+            <span class="strong-label">Typography</span>
+            <div class="type-stage">
+              <div class="type-sample-display">Target fewer roles that you can credibly win</div>
+              <div class="type-sample-section">Shared surfaces should feel composed before they feel animated.</div>
+              <div class="type-sample-surface">Profile workspace</div>
+              <div class="type-sample-body">
+                Main reading surfaces stay calm, readable, and grounded. Long-form surfaces should not shrink below the
+                point where trust starts to feel compressed.
+              </div>
+              <div class="type-sample-meta">Used · Missing · Excluded</div>
+            </div>
+          </div>
+
+          <div class="foundation-card">
+            <span class="strong-label">Type tokens</span>
+            <div class="type-token">
+              <strong>Display</strong>
+              <span>Newsreader 600, 52 / 54. Use for rare editorial anchors.</span>
+            </div>
+            <div class="type-token">
+              <strong>Section</strong>
+              <span>Newsreader 600, 36 / 40. Use for major section framing.</span>
+            </div>
+            <div class="type-token">
+              <strong>Surface title</strong>
+              <span>Plus Jakarta Sans 700, 24 / 30. Use for shells, panels, drawers, and modals.</span>
+            </div>
+            <div class="type-token">
+              <strong>Body</strong>
+              <span>Plus Jakarta Sans 500, 15 / 24. Main product body. 17 / 28 for dense trust-reading surfaces.</span>
+            </div>
+            <div class="type-token">
+              <strong>Meta</strong>
+              <span>Plus Jakarta Sans 700, 11 / 16. Use for labels, eyebrows, chips, and compact states.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="token-grid" style="margin-top: 16px;">
+          <div class="token-card">
+            <div class="token-top">
+              <span class="token-name">Canvas</span>
+              <span class="token-value">#05070a</span>
+            </div>
+            <div class="token-swatch" style="background: #05070a;"></div>
+            <div class="token-body">
+              <div class="token-block">
+                <strong>Use cases</strong>
+                <span>Base page field behind all primary shells and deep-section backgrounds.</span>
+              </div>
+              <div class="token-block">
+                <strong>Specs</strong>
+                <span>Border pair: `rgba(223, 233, 244, 0.12)`</span>
+                <span>Shadow pair: `0 32px 90px rgba(0, 0, 0, 0.42)`</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="token-card">
+            <div class="token-top">
+              <span class="token-name">Main glass</span>
+              <span class="token-value">rgba(14, 20, 28, 0.84)</span>
+            </div>
+            <div class="token-swatch" style="background: rgba(14, 20, 28, 0.84);"></div>
+            <div class="token-body">
+              <div class="token-block">
+                <strong>Use cases</strong>
+                <span>Chapter shells, workspace shells, and broad contained sections.</span>
+              </div>
+              <div class="token-block">
+                <strong>Specs</strong>
+                <span>Border: `rgba(223, 233, 244, 0.12)`</span>
+                <span>Focus ring: `0 0 0 3px rgba(143, 177, 217, 0.18)`</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="token-card">
+            <div class="token-top">
+              <span class="token-name">Elevated glass</span>
+              <span class="token-value">rgba(24, 32, 43, 0.9)</span>
+            </div>
+            <div class="token-swatch" style="background: rgba(24, 32, 43, 0.9);"></div>
+            <div class="token-body">
+              <div class="token-block">
+                <strong>Use cases</strong>
+                <span>Working cards, drawers, detail panels, and active support modules.</span>
+              </div>
+              <div class="token-block">
+                <strong>Specs</strong>
+                <span>Border: `rgba(223, 233, 244, 0.22)`</span>
+                <span>Shadow: `0 18px 42px rgba(0, 0, 0, 0.3)`</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="token-card">
+            <div class="token-top">
+              <span class="token-name">Review glass</span>
+              <span class="token-value">rgba(20, 31, 35, 0.95)</span>
+            </div>
+            <div class="token-swatch" style="background: rgba(20, 31, 35, 0.95);"></div>
+            <div class="token-body">
+              <div class="token-block">
+                <strong>Use cases</strong>
+                <span>Rationale, approval, proof-review, and next-step decision surfaces.</span>
+              </div>
+              <div class="token-block">
+                <strong>Specs</strong>
+                <span>Border: `rgba(121, 214, 180, 0.34)`</span>
+                <span>Shadow: `0 18px 42px rgba(30, 83, 68, 0.18)`</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="token-card">
+            <div class="token-top">
+              <span class="token-name">Accent mint</span>
+              <span class="token-value">#79d6b4</span>
+            </div>
+            <div class="token-swatch" style="background: #79d6b4;"></div>
+            <div class="token-body">
+              <div class="token-block">
+                <strong>Use cases</strong>
+                <span>Public primary actions, selected states, and grounded emphasis.</span>
+              </div>
+              <div class="token-block">
+                <strong>Specs</strong>
+                <span>Gradient: `rgba(121, 214, 180, 0.96)` to `rgba(84, 184, 148, 0.92)`</span>
+                <span>Border: `rgba(121, 214, 180, 0.44)`</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="token-card">
+            <div class="token-top">
+              <span class="token-name">Mineral link</span>
+              <span class="token-value">#8fb1d9</span>
+            </div>
+            <div class="token-swatch" style="background: #8fb1d9;"></div>
+            <div class="token-body">
+              <div class="token-block">
+                <strong>Use cases</strong>
+                <span>Links, provenance, research references, and quiet informational emphasis.</span>
+              </div>
+              <div class="token-block">
+                <strong>Specs</strong>
+                <span>Underline: `rgba(143, 177, 217, 0.55)`</span>
+                <span>Focus ring: `0 0 0 3px rgba(143, 177, 217, 0.18)`</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="token-card">
+            <div class="token-top">
+              <span class="token-name">Used</span>
+              <span class="token-value">rgba(96, 173, 136, 0.2)</span>
+            </div>
+            <div class="token-swatch" style="background: rgba(96, 173, 136, 0.2);"></div>
+            <div class="token-body">
+              <div class="token-block">
+                <strong>Use cases</strong>
+                <span>Grounded positive states, approved-use markers, and safe reuse signals.</span>
+              </div>
+              <div class="token-block">
+                <strong>Specs</strong>
+                <span>Chip border: `rgba(121, 214, 180, 0.2)`</span>
+                <span>Text pair: mint-tinted high-contrast text</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="token-card">
+            <div class="token-top">
+              <span class="token-name">Missing</span>
+              <span class="token-value">rgba(212, 166, 107, 0.18)</span>
+            </div>
+            <div class="token-swatch" style="background: rgba(212, 166, 107, 0.18);"></div>
+            <div class="token-body">
+              <div class="token-block">
+                <strong>Use cases</strong>
+                <span>Proof gaps, incomplete entries, and cautionary review states.</span>
+              </div>
+              <div class="token-block">
+                <strong>Specs</strong>
+                <span>Border pair: `rgba(212, 166, 107, 0.24)`</span>
+                <span>Use with explicit next-step copy, not vague warnings</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="token-card">
+            <div class="token-top">
+              <span class="token-name">Excluded</span>
+              <span class="token-value">rgba(204, 140, 151, 0.16)</span>
+            </div>
+            <div class="token-swatch" style="background: rgba(204, 140, 151, 0.16);"></div>
+            <div class="token-body">
+              <div class="token-block">
+                <strong>Use cases</strong>
+                <span>Held-out content, unsupported claims, and intentional exclusions.</span>
+              </div>
+              <div class="token-block">
+                <strong>Specs</strong>
+                <span>Border pair: `rgba(204, 140, 151, 0.24)`</span>
+                <span>Keep recoverable through rationale instead of hiding it</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-2" style="margin-top: 16px;">
+          <div class="foundation-card">
+            <span class="strong-label">Surface hierarchy</span>
+            <div class="surface-grid" style="margin-top: 14px;">
+              <div class="surface-example surface-main">
+                <strong>Main shell</strong>
+                <p>Whole-workspace containment, chapter containers, and large shells.</p>
+                <div class="surface-specs">
+                  <span>Fill: `rgba(14, 20, 28, 0.84)`</span>
+                  <span>Border: `line-subtle`</span>
+                  <span>Shadow: `shadow-lg`</span>
+                </div>
+              </div>
+              <div class="surface-example surface-working">
+                <strong>Working card</strong>
+                <p>Current editor, live task detail, secondary drawers, and supporting cards.</p>
+                <div class="surface-specs">
+                  <span>Fill: `rgba(24, 32, 43, 0.9)`</span>
+                  <span>Border: `line-strong`</span>
+                  <span>Shadow: `shadow-md`</span>
+                </div>
+              </div>
+              <div class="surface-example surface-review">
+                <strong>Review surface</strong>
+                <p>Rationale, approval, grounded proof, and next-step review states.</p>
+                <div class="surface-specs">
+                  <span>Fill: `rgba(20, 31, 35, 0.95)`</span>
+                  <span>Border: `rgba(121, 214, 180, 0.34)`</span>
+                  <span>Focus: `focus-ring` plus accent border</span>
+                </div>
+              </div>
+              <div class="foundation-card" style="padding: 18px; min-height: 246px;">
+                <span class="strong-label">Button finish</span>
+                <div class="finish-list" style="margin-top: 14px;">
+                  <div class="finish-row">
+                    <strong>Public primary</strong>
+                    <span>Gradient: `rgba(121, 214, 180, 0.96)` to `rgba(84, 184, 148, 0.92)`</span>
+                    <span>Border: `rgba(121, 214, 180, 0.44)`</span>
+                    <span>Focus: mineral ring</span>
+                  </div>
+                  <div class="finish-row">
+                    <strong>Internal primary</strong>
+                    <span>Gradient: `rgba(236, 241, 247, 0.94)` to `rgba(214, 220, 228, 0.9)`</span>
+                    <span>Border: `rgba(237, 242, 248, 0.6)`</span>
+                    <span>Shadow: soft neutral `shadow-sm`</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="foundation-card">
+            <span class="strong-label">Spacing, border, and shadow rhythm</span>
+            <div class="spacing-ladder" style="margin-top: 14px;">
+              <div class="spacing-row">
+                <span class="mini-label">8</span>
+                <div class="spacing-visual"><span class="spacing-bar" style="width: 28px;"></span></div>
+                <span>chips and compact status rows</span>
+              </div>
+              <div class="spacing-row">
+                <span class="mini-label">16</span>
+                <div class="spacing-visual"><span class="spacing-bar" style="width: 58px;"></span></div>
+                <span>default module padding and row rhythm</span>
+              </div>
+              <div class="spacing-row">
+                <span class="mini-label">24</span>
+                <div class="spacing-visual"><span class="spacing-bar" style="width: 88px;"></span></div>
+                <span>section rhythm inside a shell</span>
+              </div>
+              <div class="spacing-row">
+                <span class="mini-label">32</span>
+                <div class="spacing-visual"><span class="spacing-bar" style="width: 116px;"></span></div>
+                <span>major grouping change</span>
+              </div>
+              <div class="spacing-row">
+                <span class="mini-label">48</span>
+                <div class="spacing-visual"><span class="spacing-bar" style="width: 156px;"></span></div>
+                <span>macro separation between work zones</span>
+              </div>
+            </div>
+            <div class="visual-spec-grid">
+              <div class="visual-spec-card">
+                <strong>Radii</strong>
+                <span>Primary shell `28px`, major card `22px`, field `16px`, compact control `12px`.</span>
+                <div class="radius-demo"></div>
+              </div>
+              <div class="visual-spec-card">
+                <strong>Borders</strong>
+                <span>Default `rgba(223, 233, 244, 0.12)`, active `rgba(223, 233, 244, 0.22)`, review `rgba(121, 214, 180, 0.34)`.</span>
+                <div class="border-demo"></div>
+              </div>
+              <div class="visual-spec-card">
+                <strong>Shadows</strong>
+                <span>Use `shadow-lg` for shells, `shadow-md` for working cards, and `shadow-sm` for compact modules.</span>
+                <div class="shadow-demo"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="spec-card" style="margin-top: 16px;">
+          <div class="specimen-head">
+            <div>
+              <div class="eyebrow">Responsive reference</div>
+              <h3>Reference common desktop, tablet, and mobile viewport classes with realistic content and consistent alignment.</h3>
+              <div class="section-note">These target widths map to common viewport and device classes. The same system should adapt across them without changing its core hierarchy.</div>
+            </div>
+          </div>
+
+          <div class="spec-meta">
+            <span class="viewport-chip">Desktop 1440 to 1280</span>
+            <span class="viewport-chip">Tablet 834</span>
+            <span class="viewport-chip">Mobile 390</span>
+          </div>
+
+          <div class="browser-shell" style="margin-top: 16px;">
+            <div class="shell-topbar">
+              <div class="browser-dots"><span></span><span></span><span></span></div>
+              <div class="shell-url">jobfilter.app/profile/setup</div>
+            </div>
+            <div class="reference-layer">
+              <span class="reference-label">Global navigation row</span>
+              <div class="nav-bar">
+                <span class="nav-item active">Profile</span>
+                <span class="nav-item">Targets</span>
+                <span class="nav-item">Tracking</span>
+                <span class="nav-item">Research</span>
+                <span class="nav-item">Settings</span>
+              </div>
+            </div>
+            <div class="reference-layer">
+              <span class="reference-label">Shared horizontal step rail</span>
+              <div class="workspace-rail">
+                <span class="workspace-pill">Intro</span>
+                <span class="workspace-pill">Details</span>
+                <span class="workspace-pill active">Experience</span>
+                <span class="workspace-pill">Skills</span>
+                <span class="workspace-pill">Extras</span>
+                <span class="workspace-pill">Preferences</span>
+              </div>
+            </div>
+            <div class="workspace-layout">
+              <div class="editor-stack">
+                <div class="module-card">
+                  <div class="eyebrow">Desktop reference</div>
+                  <h4 style="margin-top: 8px;">Use the same editor-plus-preview language carried by the Profile workspace reference below</h4>
+                  <div class="field-list">
+                    <div class="field-row"><strong>Current step</strong><span>Confirm outcomes for Adobe role</span></div>
+                    <div class="field-row"><strong>Current lane</strong><span>Product Marketing, ranked first with Resume V2 selected</span></div>
+                    <div class="field-row"><strong>Current structure</strong><span>Responsibilities and results stay as separate repeatable rows inside the editor.</span></div>
+                    <div class="field-row"><strong>Next review</strong><span>Add one quantified adoption number before final approval.</span></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="preview-stack">
+                <div class="doc-panel">
+                  <div class="doc-kicker">Persistent preview</div>
+                  <div class="doc-title">Resume draft</div>
+                  <div class="doc-lines">
+                    <div class="doc-line long"></div>
+                    <div class="doc-line medium"></div>
+                    <div class="doc-line long"></div>
+                    <div class="doc-line medium"></div>
+                    <div class="doc-line short"></div>
+                  </div>
+                </div>
+                <div class="preview-card">
+                  <div class="eyebrow">Why this draft</div>
+                  <div class="draft-list">
+                    <div class="draft-row"><strong>Launch ownership surfaced</strong><span><span class="state-chip used">Used</span></span></div>
+                    <div class="draft-row"><strong>Adoption metric still needed</strong><span><span class="state-chip missing">Missing</span></span></div>
+                    <div class="draft-row"><strong>Generic AI claim removed</strong><span><span class="state-chip excluded">Excluded</span></span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="tablet-shell" style="margin-top: 18px;">
+            <div class="shell-topbar">
+              <div class="shell-url">Profile · 834 width</div>
+            </div>
+            <div class="reference-layer">
+              <span class="reference-label">Reduced global navigation</span>
+              <div class="nav-bar">
+                <span class="nav-item active">Profile</span>
+                <span class="nav-item">Tracking</span>
+                <span class="nav-item">Research</span>
+              </div>
+            </div>
+            <div class="reference-layer">
+              <span class="reference-label">Scoped task tabs</span>
+              <div class="tabs-row">
+                <span class="tab-pill active">Experience</span>
+                <span class="tab-pill">Preview</span>
+                <span class="tab-pill">Rationale</span>
+              </div>
+            </div>
+            <div class="workspace-layout" style="grid-template-columns: 1fr;">
+              <div class="module-card">
+                <div class="eyebrow">Tablet reference</div>
+                <h4 style="margin-top: 8px;">Keep the current task first, then place preview directly below</h4>
+                <div class="field-list">
+                  <div class="field-row"><strong>Current step</strong><span>Confirm outcomes for Adobe role</span></div>
+                  <div class="field-row"><strong>Current lane</strong><span>Product Marketing, ranked first of two active lanes</span></div>
+                  <div class="field-row"><strong>Next action</strong><span><strong>Continue setup</strong> after one metric and one missing proof note are resolved.</span></div>
+                </div>
+              </div>
+              <div class="doc-panel">
+                <div class="doc-kicker">Recoverable preview</div>
+                <div class="doc-lines">
+                  <div class="doc-line long"></div>
+                  <div class="doc-line medium"></div>
+                  <div class="doc-line short"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="phone-shell" style="margin-top: 18px;">
+            <div class="shell-topbar">
+              <div class="shell-url">Profile · 390 width</div>
+            </div>
+            <div class="reference-layer">
+              <span class="reference-label">Essential navigation</span>
+              <div class="nav-bar">
+                <span class="nav-item active">Profile</span>
+                <span class="nav-item">Tracking</span>
+              </div>
+            </div>
+            <div class="reference-layer">
+              <span class="reference-label">Single-task tabs</span>
+              <div class="tabs-row">
+                <span class="tab-pill active">Story step</span>
+                <span class="tab-pill">Preview</span>
+              </div>
+            </div>
+            <div class="editor-stack" style="margin-top: 14px;">
+              <div class="module-card">
+                <div class="eyebrow">Mobile reference</div>
+                <h4 style="margin-top: 8px;">One task, one next step, one recoverable review path</h4>
+                <div class="field-list">
+                  <div class="field-row"><strong>Prompt</strong><span>What changed because of your work on the launch?</span></div>
+                  <div class="field-row"><strong>Current answer</strong><span>Owned launch story, field brief, and launch-readiness review.</span></div>
+                  <div class="field-row"><strong>Next</strong><span>Confirm one metric before moving forward.</span></div>
+                </div>
+              </div>
+              <div class="preview-card">
+                <div class="eyebrow">Review snapshot</div>
+                <div class="draft-row" style="margin-top: 12px;">
+                  <strong>Missing metric</strong>
+                  <span><span class="state-chip missing">Missing</span></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-head">
+          <div class="eyebrow">Interaction families</div>
+          <h2>Make state meaning obvious and make controls feel ready for use, not like isolated style chips.</h2>
+          <p>
+            Use this section for shared control behavior, field grammar, status treatment, overlays, and system
+            feedback. The goal is calm clarity with enough fidelity that later surfaces do not need to reinterpret the
+            interaction model.
+          </p>
+        </div>
+
+        <div class="interaction-card" style="margin-bottom: 16px;">
+          <span class="strong-label">Navigation reference</span>
+          <div class="nav-surface" style="margin-top: 14px;">
+            <div class="eyebrow">Public navigation</div>
+            <div class="nav-row" style="margin-top: 12px;">
+              <span class="nav-item">Home</span>
+              <span class="nav-item active">How It Works</span>
+              <span class="nav-item">Pricing</span>
+              <span class="nav-item">Worksheet</span>
+              <span class="nav-item focus">Profile</span>
+            </div>
+            <div class="eyebrow" style="margin-top: 16px;">Signed-in navigation</div>
+            <div class="nav-row" style="margin-top: 12px;">
+              <span class="nav-item active">Profile</span>
+              <span class="nav-item">Targets</span>
+              <span class="nav-item">Tracking</span>
+              <span class="nav-item">Research</span>
+              <span class="nav-item">Settings</span>
+              <span class="nav-item disabled">Archive</span>
+            </div>
+            <div class="tabs-row" style="margin-top: 16px;">
+              <span class="tab-pill active">Preview</span>
+              <span class="tab-pill">Rationale</span>
+              <span class="tab-pill">History</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-3">
+          <div class="interaction-card">
+            <span class="strong-label">Public primary</span>
+            <h3 style="margin-top: 8px; font-size: 19px;">Build my job profile</h3>
+            <p>Use when the user already understands the mechanism and is ready to start.</p>
+            <div class="state-strip">
+              <div class="button-state">
+                <div class="button-state-label">Default</div>
+                <button class="btn primary">Build my job profile</button>
+              </div>
+              <div class="button-state">
+                <div class="button-state-label">Pressed</div>
+                <button class="btn primary pressed">Build my job profile</button>
+              </div>
+              <div class="button-state">
+                <div class="button-state-label">Disabled</div>
+                <button class="btn disabled" disabled>Review required</button>
+              </div>
+            </div>
+            <div class="button-specs">
+              <span>Gradient: `rgba(121, 214, 180, 0.96)` to `rgba(84, 184, 148, 0.92)`</span>
+              <span>Border: `rgba(121, 214, 180, 0.44)`</span>
+            </div>
+          </div>
+
+          <div class="interaction-card">
+            <span class="strong-label">Exploratory</span>
+            <h3 style="margin-top: 8px; font-size: 19px;">See how it works</h3>
+            <p>Use when the user needs mechanism, proof, or boundary context before committing.</p>
+            <div class="state-strip">
+              <div class="button-state">
+                <div class="button-state-label">Default</div>
+                <button class="btn secondary">See how it works</button>
+              </div>
+              <div class="button-state">
+                <div class="button-state-label">Focus</div>
+                <button class="btn secondary" style="outline: 2px solid rgba(143, 177, 217, 0.65); outline-offset: 3px;">See how it works</button>
+              </div>
+            </div>
+            <div class="button-specs">
+              <span>Fill: `rgba(143, 177, 217, 0.08)`</span>
+              <span>Border: `rgba(143, 177, 217, 0.24)`</span>
+            </div>
+          </div>
+
+          <div class="interaction-card">
+            <span class="strong-label">Internal primary</span>
+            <h3 style="margin-top: 8px; font-size: 19px;">Continue setup</h3>
+            <p>Use for signed-in progress. It should feel premium, quiet, and unmistakably active.</p>
+            <div class="state-strip">
+              <div class="button-state">
+                <div class="button-state-label">Default</div>
+                <button class="btn internal">Continue setup</button>
+              </div>
+              <div class="button-state">
+                <div class="button-state-label">Focus</div>
+                <button class="btn internal" style="outline: 2px solid rgba(143, 177, 217, 0.65); outline-offset: 3px;">Continue setup</button>
+              </div>
+            </div>
+            <div class="button-specs">
+              <span>Gradient: `rgba(236, 241, 247, 0.94)` to `rgba(214, 220, 228, 0.9)`</span>
+              <span>Border: `rgba(237, 242, 248, 0.6)`</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="interaction-card" style="margin-top: 16px;">
+          <span class="strong-label">Numbered cards</span>
+          <p>
+            Use the mint-tinted circled number as the default numbered-card pattern when sequence itself improves
+            scan speed across strategy, onboarding, or explainer surfaces. Keep it left aligned above the title.
+          </p>
+          <div class="grid-3" style="margin-top: 14px;">
+            <div class="panel-card" style="padding: 16px;">
+              <span class="number-chip">01</span>
+              <h4 style="margin-top: 12px;">Outcome first</h4>
+              <p style="margin-top: 8px;">Use when the card sequence should lead with destination before mechanism.</p>
+            </div>
+            <div class="panel-card" style="padding: 16px;">
+              <span class="number-chip">02</span>
+              <h4 style="margin-top: 12px;">Mechanism second</h4>
+              <p style="margin-top: 8px;">Use the same badge treatment instead of swapping to accent-color labels or plain numerals.</p>
+            </div>
+            <div class="panel-card" style="padding: 16px;">
+              <span class="number-chip">03</span>
+              <h4 style="margin-top: 12px;">Trust close</h4>
+              <p style="margin-top: 8px;">Reserve numbered cards for genuine sequence, not decorative counting.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-2" style="margin-top: 16px;">
+          <div class="interaction-card">
+            <span class="strong-label">Field states</span>
+            <p>Suggested and approved truth must never collapse into one visual treatment.</p>
+            <div class="field-matrix">
+              <div class="field-tile">
+                <label>Approved truth</label>
+                <div class="field-shell approved">Led the launch narrative for Adobe Express enterprise rollout.</div>
+                <div class="helper-copy">Reusable downstream across resume, Profile, and lane variants.</div>
+              </div>
+              <div class="field-tile">
+                <label>Suggested story</label>
+                <div class="field-shell suggested">Candidate story waiting for approval after one stronger metric.</div>
+                <div class="helper-copy">Visible and useful, but still provisional.</div>
+              </div>
+              <div class="field-tile">
+                <label>Missing proof</label>
+                <div class="field-shell missing">Quantified adoption result still needed here.</div>
+                <div class="helper-copy">Tell the user exactly what would strengthen the entry.</div>
+              </div>
+              <div class="field-tile">
+                <label>Excluded</label>
+                <div class="field-shell excluded">Generic AI efficiency claim held out of reuse.</div>
+                <div class="helper-copy">Recoverable through rationale, but not silently included.</div>
+              </div>
+              <div class="field-tile">
+                <label>Error</label>
+                <div class="field-shell error">Could not save this update. Keep approved truth visible and offer retry.</div>
+                <div class="helper-copy">Error does not erase grounded content.</div>
+              </div>
+              <div class="field-tile">
+                <label>Disabled</label>
+                <div class="field-shell disabled">Approvals unlock after one required field is complete.</div>
+                <div class="helper-copy">Disabled should read as unavailable, not broken.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="interaction-card">
+            <span class="strong-label">Status surfaces</span>
+            <div class="banner-grid">
+              <div class="banner info">
+                <strong>Informational</strong>
+                <p>Free to start. Review before sending. Profile remains the reusable anchor.</p>
+              </div>
+              <div class="banner success">
+                <strong>Success</strong>
+                <p>Story block approved and ready to reuse.</p>
+              </div>
+              <div class="banner caution">
+                <strong>Caution</strong>
+                <p>Quantified result is still missing for this role.</p>
+              </div>
+              <div class="banner review">
+                <strong>Review</strong>
+                <p>One exclusion may change lane fit. Check it before accepting the draft.</p>
+              </div>
+              <div class="banner blocked">
+                <strong>Blocked</strong>
+                <p>Application review cannot proceed until one company-research note is grounded.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="interaction-card" style="margin-top: 16px;">
+          <span class="strong-label">Interactive behavior</span>
+          <p>Use live samples to confirm motion tone. Keep the disclosure model on the left and the step-rail progression on the right.</p>
+          <div class="behavior-demo">
+            <div class="accordion-card open" data-accordion>
+              <button class="accordion-toggle" type="button">
+                <span>
+                  <h4>Why this draft expanded</h4>
+                  <span class="section-note">Use disclosure for secondary explanation, not to hide required truth.</span>
+                </span>
+                <span class="accordion-icon">&#8964;</span>
+              </button>
+              <div class="accordion-panel">
+                <p>
+                  This draft foregrounds launch ownership because the selected lane values cross-functional narrative,
+                  adoption planning, and field enablement. It still marks the missing metric so the user can tighten
+                  the claim before reuse.
+                </p>
+              </div>
+            </div>
+
+            <div class="progress-demo">
+              <div class="progress-shell">
+                <div class="progress-copy">
+                  <strong id="step-title">Step 2 of 4, Story shaping</strong>
+                  <p id="step-copy" style="margin-top: 8px;">Refine approved story blocks before moving into draft review.</p>
+                </div>
+                <span class="state-chip info" id="step-state">Active</span>
+              </div>
+              <div class="step-track" id="step-track">
+                <span class="step-pill">Profile</span>
+                <span class="step-pill active">Story</span>
+                <span class="step-pill">Preview</span>
+                <span class="step-pill">Review</span>
+              </div>
+              <div class="progress-actions">
+                <button class="btn secondary" type="button" id="step-prev">Previous</button>
+                <button class="btn primary" type="button" id="step-next">Advance</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="interaction-card" style="margin-top: 16px;">
+          <span class="strong-label">Overlays and system feedback</span>
+          <div class="overlay-stage">
+            <div class="overlay-base">
+              <div class="reference-label">Main workspace context stays visible</div>
+              <div class="overlay-base-grid">
+                <div class="field-row"><strong>Current step</strong><span>Confirm metrics before approval</span></div>
+                <div class="field-row"><strong>Preview</strong><span>Resume preview stays visible behind secondary work</span></div>
+              </div>
+            </div>
+            <div class="overlay-layer">
+              <div class="overlay-panel">
+                <div class="eyebrow">Side drawer</div>
+                <h4 style="margin-top: 8px;">Compare lane context without losing the editor</h4>
+                <p>Use for provenance, compare context, and compact rationale follow-up.</p>
+                <div class="rule-list">
+                  <div class="rule-row"><strong>Selected lane</strong><span>Product Marketing, fit 82, Resume V2</span></div>
+                  <div class="rule-row"><strong>Reason to open</strong><span>One stronger proof gap than the current lane and a weaker learning signal.</span></div>
+                </div>
+              </div>
+              <div class="overlay-panel">
+                <div class="eyebrow">Confirmation modal</div>
+                <h4 style="margin-top: 8px;">Approve this story block?</h4>
+                <p>Keep modal scope tight. Long-form grounding work stays in the main workspace.</p>
+                <div class="rule-list">
+                  <div class="rule-row"><strong>Approve if</strong><span>Metric is confirmed and the story fits the selected lane.</span></div>
+                  <div class="rule-row"><strong>Fallback</strong><span>Return to edit with the missing proof note preserved.</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="feedback-stack">
+            <div class="feedback-tile success">
+              <strong>Saved</strong>
+              <p>Experience entry updated. Preview refreshed.</p>
+            </div>
+            <div class="feedback-tile caution">
+              <strong>Needs review</strong>
+              <p>One result still needs evidence before it can be approved.</p>
+            </div>
+            <div class="feedback-tile info">
+              <strong>Next step</strong>
+              <p>Continue setup once the current lane is confirmed.</p>
+            </div>
+          </div>
+          <div class="feedback-grid">
+            <div class="empty-state">
+              <strong>Empty</strong>
+              <p style="margin-top: 8px;">No tracked applications yet. Add the first target role after the lane is confirmed.</p>
+            </div>
+            <div class="empty-state loading">
+              <strong>Loading</strong>
+              <p>Hold the current shell, preserve layout, and show what is still being prepared.</p>
+              <div class="skeleton" style="margin-top: 12px;"></div>
+              <div class="skeleton" style="margin-top: 8px;"></div>
+              <div class="skeleton" style="margin-top: 8px; width: 72%;"></div>
+            </div>
+            <div class="empty-state" style="background: var(--danger-soft);">
+              <strong>Error</strong>
+              <p style="margin-top: 8px;">Could not save this step. Keep approved truth visible and offer direct retry.</p>
+            </div>
+            <div class="empty-state" style="background: var(--offline-soft);">
+              <strong>Offline</strong>
+              <p style="margin-top: 8px;">Show what is safe locally and what will not sync until the connection returns.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-head">
+          <div class="eyebrow">Product assemblies</div>
+          <h2>Anchor the system in real Job Filter work so later chapters inherit reusable structures, not abstract boxes.</h2>
+          <p>
+            Use these assemblies to specify how Profile, guided storytelling, builders, lane comparison, tracking,
+            research, analytics, and lifecycle-adjacent components should look and behave at the shared-system level.
+          </p>
+        </div>
+
+        <div class="assembly-card">
+          <div class="specimen-head" style="margin-bottom: 14px;">
+            <div>
+              <div class="eyebrow">Profile workspace</div>
+              <h3>Preserve the horizontal rail, the main editor, and the persistent preview relationship.</h3>
+            </div>
+            <div class="section-note">Use this reference when translating the system into later activation and app packets.</div>
+          </div>
+
+          <div class="browser-shell">
+            <div class="shell-topbar">
+              <div class="browser-dots"><span></span><span></span><span></span></div>
+              <div class="shell-url">Profile · Experience</div>
+            </div>
+            <div class="nav-bar">
+              <span class="nav-item active">Profile</span>
+              <span class="nav-item">Tracking</span>
+              <span class="nav-item">Research</span>
+              <span class="nav-item">Settings</span>
+            </div>
+            <div class="workspace-rail" style="margin-top: 14px;">
+              <span class="workspace-pill">Intro</span>
+              <span class="workspace-pill">Details</span>
+              <span class="workspace-pill active">Experience</span>
+              <span class="workspace-pill">Skills</span>
+              <span class="workspace-pill">Extras</span>
+              <span class="workspace-pill">Preferences</span>
+            </div>
+            <div class="workspace-layout">
+              <div class="editor-stack">
+                <div class="module-card">
+                  <div class="eyebrow">Work history builder</div>
+                  <h4 style="margin-top: 8px;">Handle multiple responsibilities and multiple results explicitly</h4>
+                  <div class="rule-list">
+                    <div class="rule-row"><strong>Responsibility 01</strong><span>Led the launch narrative, field brief, and release-readiness review.</span></div>
+                    <div class="rule-row"><strong>Responsibility 02</strong><span>Aligned product, sales, and content around one launch story.</span></div>
+                    <div class="rule-row"><strong>Result 01</strong><span>Lifted activation of the new plan tier after launch.</span></div>
+                    <div class="rule-row"><strong>Result 02</strong><span>Reduced sales-call confusion with clearer packaging language.</span></div>
+                    <div class="rule-row"><strong>Review note</strong><span>Add one exact adoption number before final approval.</span></div>
+                  </div>
+                </div>
+                <div class="module-card">
+                  <div class="eyebrow">Guided storytelling</div>
+                  <h4 style="margin-top: 8px;">Clarify why the story exists before the asset is formatted</h4>
+                  <div class="draft-list">
+                    <div class="draft-row"><strong>Raw signal</strong><span>Launch ownership, field enablement, and customer-facing message clarity.</span></div>
+                    <div class="draft-row"><strong>Suggested frame</strong><span>Connect launch ownership to category understanding and adoption momentum.</span></div>
+                    <div class="draft-row"><strong>Approved truth</strong><span>Ready for product-marketing lane reuse after the missing metric is confirmed.</span></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="preview-stack">
+                <div class="doc-panel">
+                  <div class="doc-kicker">Persistent preview</div>
+                  <div class="doc-title">Resume draft</div>
+                  <div class="doc-lines">
+                    <div class="doc-line long"></div>
+                    <div class="doc-line medium"></div>
+                    <div class="doc-line long"></div>
+                    <div class="doc-line medium"></div>
+                    <div class="doc-line short"></div>
+                  </div>
+                </div>
+                <div class="preview-card">
+                  <div class="eyebrow">Why this draft</div>
+                  <div class="draft-list">
+                    <div class="draft-row"><strong>Launch leadership surfaced</strong><span><span class="state-chip used">Used</span></span></div>
+                    <div class="draft-row"><strong>Adoption proof still needed</strong><span><span class="state-chip missing">Missing</span></span></div>
+                    <div class="draft-row"><strong>Unverifiable AI claim removed</strong><span><span class="state-chip excluded">Excluded</span></span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="builder-grid" style="margin-top: 16px;">
+          <div class="assembly-card">
+            <span class="strong-label">Work history rules</span>
+            <h4 style="margin-top: 8px;">Facts first, outcomes second</h4>
+            <div class="builder-record">
+              <div class="builder-row">
+                <strong>Entry</strong>
+                <span>Adobe · Senior Product Marketing Manager · 2022 to 2025</span>
+              </div>
+              <div class="builder-row">
+                <strong>Responsibilities</strong>
+                <div class="builder-list">
+                  <div class="builder-list-item">01. Led the launch narrative, field brief, and release-readiness review.</div>
+                  <div class="builder-list-item">02. Aligned product, sales, and content around one launch story.</div>
+                </div>
+              </div>
+              <div class="builder-row">
+                <strong>Results</strong>
+                <div class="builder-list">
+                  <div class="builder-list-item">01. Lifted activation of the new plan tier after launch.</div>
+                  <div class="builder-list-item">02. Reduced sales-call confusion with clearer packaging language.</div>
+                </div>
+              </div>
+              <div class="builder-note">Keep responsibilities and results as repeatable grouped rows, not one compressed paragraph.</div>
+            </div>
+          </div>
+
+          <div class="assembly-card">
+            <span class="strong-label">Education and skills</span>
+            <h4 style="margin-top: 8px;">Show repeatable entries without losing scan speed</h4>
+            <div class="builder-record">
+              <div class="builder-row">
+                <strong>Education 01</strong>
+                <span>Northwestern University · MS, Integrated Marketing Communications · 2018 to 2020</span>
+              </div>
+              <div class="builder-row">
+                <strong>Education 02</strong>
+                <span>University of Illinois · BA, Journalism · 2012 to 2016</span>
+              </div>
+              <div class="builder-row">
+                <strong>Skills and tools</strong>
+                <div class="builder-chip-row">
+                  <span class="builder-chip">Messaging</span>
+                  <span class="builder-chip">Launch strategy</span>
+                  <span class="builder-chip">Enablement</span>
+                  <span class="builder-chip">Analytics</span>
+                  <span class="builder-chip">Figma</span>
+                  <span class="builder-chip">Adobe Analytics</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="assembly-card">
+            <span class="strong-label">Certifications and languages</span>
+            <h4 style="margin-top: 8px;">Optional does not mean vague</h4>
+            <div class="builder-record">
+              <div class="builder-row">
+                <strong>Certification</strong>
+                <span>Pragmatic Product Marketing Certification · Issuer: Pragmatic Institute · Status: completed · Proof: verified badge on file</span>
+              </div>
+              <div class="builder-row">
+                <strong>Language 01</strong>
+                <span>Spanish · Professional working proficiency · Used in cross-functional launch and customer-learning contexts</span>
+              </div>
+              <div class="builder-row">
+                <strong>Language 02</strong>
+                <span>French · Limited working proficiency · Optional context only, not lane-defining proof</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="assembly-card">
+            <span class="strong-label">Links, references, and leaving</span>
+            <h4 style="margin-top: 8px;">Keep surrounding trust data factual and optional</h4>
+            <div class="builder-record">
+              <div class="builder-row">
+                <strong>Link</strong>
+                <span>Portfolio · Trust signal: public case studies and launch work samples</span>
+              </div>
+              <div class="builder-row">
+                <strong>References</strong>
+                <span>Available on request. Do not imply confirmed references when none are attached.</span>
+              </div>
+              <div class="builder-row">
+                <strong>Reason for leaving</strong>
+                <span>Team restructure after product-line consolidation. Keep factual, optional, and tone-bounded.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="assembly-card" style="margin-top: 16px;">
+          <span class="strong-label">Lane system</span>
+          <h4 style="margin-top: 8px;">Use multiple lanes when one profile can credibly pursue adjacent role categories without flattening everything into one generic asset set.</h4>
+          <p>Each lane should keep its own role-title focus, fit evidence, active jobs, selected assets, and experiment history. Fit signals should never appear without the proof behind them.</p>
+          <div class="lane-view-grid">
+            <div class="lane-view-card">
+              <div class="eyebrow">Why multiple lanes</div>
+              <div class="lane-principles">
+                <div class="lane-principle-card">
+                  <strong>Lane purpose</strong>
+                  <p>Separate credible role categories so the user can sort jobs, keep different title families visible, and avoid collapsing everything into one generic resume path.</p>
+                </div>
+                <div class="lane-principle-card">
+                  <strong>Proof behind fit</strong>
+                  <p>Whenever a fit signal appears, show the proof that created it, such as approved stories, matching titles, grounded company context, and current missing-proof count.</p>
+                </div>
+              </div>
+              <div class="lane-board-actions">
+                <div class="section-note">Kanban view treats each lane like a swimlane. Jobs sit inside the lane they belong to, and each lane keeps its own asset and experiment context.</div>
+                <button class="btn secondary">Add lane</button>
+              </div>
+              <div class="lane-swimlane-board">
+                <div class="lane-swimlane selected">
+                  <div class="lane-swimlane-head">
+                    <div class="lane-head-top">
+                      <span class="lane-rank">Rank 01 · Review ready</span>
+                      <span class="state-chip used">Fit signal 82</span>
+                    </div>
+                    <div class="lane-head-copy">
+                      <h4>Product Marketing</h4>
+                      <div class="lane-role-titles">Role titles: Product Marketing Manager, Solutions Marketing Manager, GTM Lead</div>
+                    </div>
+                    <div class="lane-metric-grid">
+                      <div class="lane-metric"><strong>Approved stories</strong><span>3</span></div>
+                      <div class="lane-metric"><strong>Missing proof</strong><span>1</span></div>
+                      <div class="lane-metric"><strong>Selected asset</strong><span>Resume V2</span></div>
+                      <div class="lane-metric"><strong>Test state</strong><span>Variant A live</span></div>
+                    </div>
+                    <div class="lane-proof-card">
+                      <strong>Proof behind fit</strong>
+                      <span>Three approved launch stories, two matching role-title patterns, and grounded PLG company context. One adoption metric still missing.</span>
+                    </div>
+                  </div>
+                  <div class="lane-job-list">
+                    <div class="lane-job-card">
+                      <div>
+                        <strong>Adobe · Senior Product Marketing Manager</strong>
+                        <p>Stage: Interview loop · Selected asset: Resume V2 + PM cover letter A</p>
+                      </div>
+                      <div class="lane-job-meta">
+                        <div class="rule-row"><strong>Filter state</strong><span>Remote, B2B SaaS, salary fit, launch-heavy scope</span></div>
+                        <div class="rule-row"><strong>Next action</strong><span>Keep Variant A live until the metric gap is resolved.</span></div>
+                      </div>
+                      <div class="lane-job-footer">
+                        <span class="state-chip info">A/B test active</span>
+                        <button class="btn secondary">Review lane</button>
+                      </div>
+                    </div>
+                    <div class="lane-job-card">
+                      <div>
+                        <strong>Figma · Product Marketing Lead</strong>
+                        <p>Stage: Applied · Selected asset: Resume V2 + PM cover letter B</p>
+                      </div>
+                      <div class="lane-job-meta">
+                        <div class="rule-row"><strong>Sort rule</strong><span>Highest-fit jobs stay first, then newest opportunity, then missing-proof risk.</span></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="lane-swimlane">
+                  <div class="lane-swimlane-head">
+                    <div class="lane-head-top">
+                      <span class="lane-rank">Rank 02 · Needs revision</span>
+                      <span class="state-chip missing">Fit signal 68</span>
+                    </div>
+                    <div class="lane-head-copy">
+                      <h4>Customer Education</h4>
+                      <div class="lane-role-titles">Role titles: Customer Education Manager, Enablement Lead, Learning Experience Strategist</div>
+                    </div>
+                    <div class="lane-metric-grid">
+                      <div class="lane-metric"><strong>Approved stories</strong><span>2</span></div>
+                      <div class="lane-metric"><strong>Missing proof</strong><span>2</span></div>
+                      <div class="lane-metric"><strong>Selected asset</strong><span>Resume V1</span></div>
+                      <div class="lane-metric"><strong>Test state</strong><span>Variant B queued</span></div>
+                    </div>
+                    <div class="lane-proof-card">
+                      <strong>Proof behind fit</strong>
+                      <span>Two reusable learning stories and matching enablement titles are present, but the strongest quantified education outcome is still missing.</span>
+                    </div>
+                  </div>
+                  <div class="lane-job-list">
+                    <div class="lane-job-card">
+                      <div>
+                        <strong>Miro · Customer Education Lead</strong>
+                        <p>Stage: Story revision · Selected asset: Resume V1 + education cover letter</p>
+                      </div>
+                      <div class="lane-job-meta">
+                        <div class="rule-row"><strong>Next action</strong><span>Add one scaled-learning metric before pushing this lane higher.</span></div>
+                      </div>
+                      <div class="lane-job-footer">
+                        <span class="state-chip missing">Proof gap visible</span>
+                        <button class="btn secondary">Review lane</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="lane-swimlane">
+                  <div class="lane-swimlane-head">
+                    <div class="lane-head-top">
+                      <span class="lane-rank">Rank 03 · Exploratory</span>
+                      <span class="state-chip info">Fit signal 54</span>
+                    </div>
+                    <div class="lane-head-copy">
+                      <h4>Growth Content</h4>
+                      <div class="lane-role-titles">Role titles: Content Strategy Lead, Growth Content Manager, Editorial Programs Lead</div>
+                    </div>
+                    <div class="lane-metric-grid">
+                      <div class="lane-metric"><strong>Approved stories</strong><span>1</span></div>
+                      <div class="lane-metric"><strong>Missing proof</strong><span>3</span></div>
+                      <div class="lane-metric"><strong>Selected asset</strong><span>Resume V0</span></div>
+                      <div class="lane-metric"><strong>Test state</strong><span>Hold until grounded</span></div>
+                    </div>
+                    <div class="lane-proof-card">
+                      <strong>Proof behind fit</strong>
+                      <span>One adjacent story exists, but title overlap and proof density are weak. Keep visible as a possible fit, not a default lane.</span>
+                    </div>
+                  </div>
+                  <div class="lane-job-list">
+                    <div class="lane-job-card">
+                      <div>
+                        <strong>Add another lane or feed</strong>
+                        <p>Open a new swimlane only when the user has a credible adjacent role category with different title logic or asset needs.</p>
+                      </div>
+                      <div class="lane-job-footer">
+                        <span class="state-chip info">Lane discovery</span>
+                        <button class="btn secondary">Add feed</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="lane-sheet-card">
+              <div class="eyebrow">Sheet view</div>
+              <div class="table-wrap">
+                <table class="index-table">
+                  <tr>
+                    <th>Rank</th>
+                    <th>Lane</th>
+                    <th>Fit</th>
+                    <th>Proof behind fit</th>
+                    <th>Active jobs</th>
+                    <th>Missing proof</th>
+                    <th>Selected assets</th>
+                    <th>Action</th>
+                  </tr>
+                  <tr>
+                    <td>01</td>
+                    <td>Product Marketing<span class="table-subtext">PMM, Solutions Marketing, GTM Lead</span></td>
+                    <td>82</td>
+                    <td>3 approved stories, 2 title matches, grounded company context</td>
+                    <td>2</td>
+                    <td>1</td>
+                    <td>Resume V2, PM cover letter A/B</td>
+                    <td>Review lane</td>
+                  </tr>
+                  <tr>
+                    <td>02</td>
+                    <td>Customer Education<span class="table-subtext">Education Lead, Enablement, Learning Experience</span></td>
+                    <td>68</td>
+                    <td>2 approved stories, matching learning scope, weak metric proof</td>
+                    <td>1</td>
+                    <td>2</td>
+                    <td>Resume V1, education cover letter</td>
+                    <td>Revise lane</td>
+                  </tr>
+                  <tr>
+                    <td>03</td>
+                    <td>Growth Content<span class="table-subtext">Content Strategy, Editorial Programs</span></td>
+                    <td>52</td>
+                    <td>1 adjacent story, light title overlap, not enough proof yet</td>
+                    <td>0</td>
+                    <td>3</td>
+                    <td>Resume V0</td>
+                    <td>Add feed</td>
+                  </tr>
+                </table>
+              </div>
+              <div class="lane-sheet-actions">
+                <div class="section-note">Use dense rows when scanning lane quality quickly. Keep fit signal, visible proof, active jobs, selected asset set, and next action in one line.</div>
+                <button class="btn secondary">Add lane</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="assembly-card" style="margin-top: 16px;">
+          <span class="strong-label">Tracking and research</span>
+          <div class="tracking-list">
+            <div class="tracking-row">
+              <strong>Adobe · Product Marketing</strong>
+              <span>Stage: Final review. Asset: Resume V2. Lane rank: #1. Next action: confirm adoption metric.</span>
+            </div>
+            <div class="tracking-row">
+              <strong>Figma · Customer Education</strong>
+              <span>Stage: Story revision. Asset: Resume V1. Lane rank: #2. Next action: strengthen scope clarity.</span>
+            </div>
+          </div>
+          <div class="research-grid">
+            <div class="research-panel">
+              <div class="eyebrow">Company profile</div>
+              <h4 style="margin-top: 8px;">Grounding input for role judgment</h4>
+              <div class="metric-list">
+                <div class="metric-row"><strong>Context</strong><span>PLG motion, design-heavy audience, cross-functional launch environment.</span></div>
+                <div class="metric-row"><strong>Caution</strong><span>Needs clearer proof on customer-learning ownership.</span></div>
+                <div class="metric-row"><strong>Selected asset context</strong><span>Resume V2 foregrounds launch proof. Resume V1 weakens ownership cues.</span></div>
+                <div class="metric-row"><strong>Provenance</strong><span>Visible research link, source type, and date.</span></div>
+              </div>
+            </div>
+            <div class="research-panel">
+              <div class="eyebrow">Asset testing</div>
+              <h4 style="margin-top: 8px;">Variants need lineage and outcome hooks</h4>
+              <div class="metric-list">
+                <div class="metric-row"><strong>Variant</strong><span>Resume V2, PM lane</span></div>
+                <div class="metric-row"><strong>Lineage</strong><span>Approved story blocks 2, 3, and 5</span></div>
+                <div class="metric-row"><strong>Outcome hook</strong><span>Interview, reject, hold for more proof, or change selected lane</span></div>
+                <div class="metric-row"><strong>Comparison rule</strong><span>Do not compare variants without showing which approved stories changed.</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="utility-grid" style="margin-top: 16px;">
+          <div class="assembly-card">
+            <span class="strong-label">Command palette, notifications, settings</span>
+            <div class="palette-card" style="margin-top: 14px;">
+              <div class="eyebrow">Command palette</div>
+              <h4 style="margin-top: 8px;">Jump to the next useful action</h4>
+              <div class="palette-input">Search lanes, companies, assets, missing proof, or commands</div>
+              <div class="palette-results">
+                <div class="palette-result">
+                  <strong>Open tracking · Adobe · Product Marketing</strong>
+                  <span>Jump directly to the tracked role, selected asset, and next action.</span>
+                </div>
+                <div class="palette-result">
+                  <strong>Compare lanes · Product Marketing vs Customer Education</strong>
+                  <span>Open lane comparison without leaving the current workspace.</span>
+                </div>
+                <div class="palette-result">
+                  <strong>Review current draft</strong>
+                  <span>Open rationale and preview with the missing proof note already filtered in.</span>
+                </div>
+              </div>
+            </div>
+            <div class="utility-panel" style="margin-top: 12px;">
+              <div class="eyebrow">Notifications</div>
+              <div class="notification-list">
+                <div class="notification-item">
+                  <strong>Review request · Adobe · Product Marketing</strong>
+                  <span>One missing metric is blocking approval for Resume V2.</span>
+                </div>
+                <div class="notification-item">
+                  <strong>Lane update · Customer Education</strong>
+                  <span>Two approved stories remain reusable, but scope clarity still needs review.</span>
+                </div>
+              </div>
+            </div>
+            <div class="utility-panel" style="margin-top: 12px;">
+              <div class="eyebrow">Settings families</div>
+              <div class="settings-group">
+                <div class="settings-item">
+                  <strong>Account and privacy</strong>
+                  <span>Name, sign-in, export controls, and privacy choices stay grouped and reversible.</span>
+                </div>
+                <div class="settings-item">
+                  <strong>Lane and notification preferences</strong>
+                  <span>Default lane ordering, reminder cadence, and compare behavior stay in one family.</span>
+                </div>
+                <div class="settings-item">
+                  <strong>Integrations and experimentation</strong>
+                  <span>Testing toggles and integrations stay explicit, never hidden behind automation theater.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="assembly-card">
+            <span class="strong-label">Analytics and email globals</span>
+            <div class="utility-panel" style="margin-top: 14px;">
+              <div class="eyebrow">Analytics families</div>
+              <div class="metric-grid" style="margin-top: 12px;">
+                <div class="state-tile">
+                  <strong>Lane momentum</strong>
+                  <p>PM lane is ahead with higher fit, cleaner proof density, and stronger review readiness.</p>
+                </div>
+                <div class="state-tile">
+                  <strong>Asset comparison</strong>
+                  <p>Resume V2 is leading Resume V1 after cleaner quantified outcomes and fewer missing proof flags.</p>
+                </div>
+                <div class="state-tile">
+                  <strong>Proof quality</strong>
+                  <p>One missing metric remains the main blocker across the selected lane.</p>
+                </div>
+                <div class="state-tile">
+                  <strong>Tracking health</strong>
+                  <p>Two active roles are in review, one is waiting on research grounding.</p>
+                </div>
+              </div>
+            </div>
+            <div class="email-card" style="margin-top: 12px;">
+              <div class="email-header">
+                <strong>Job Filter</strong>
+                <span class="state-chip used">Review needed</span>
+              </div>
+              <div class="email-block">
+                <div class="eyebrow">Summary block</div>
+                <p>You have one approved story block ready for the selected lane and one metric still worth tightening.</p>
+              </div>
+              <div class="email-block">
+                <div class="eyebrow">Primary CTA block</div>
+                <div class="cta-row" style="margin-top: 12px;">
+                  <button class="btn internal">Continue setup</button>
+                </div>
+              </div>
+              <div class="email-footer">
+                <a href="#">Why this draft</a>
+                <a href="#">Privacy</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-head">
+          <div class="eyebrow">Implementation index</div>
+          <h2>Close with anatomy, inventory, and chapter handoff that later packets can build from directly.</h2>
+          <p>
+            Use this section when translating the shared system into later chapter work. It should clarify what must be
+            built, what states must exist, and how later chapters compose from this foundation.
+          </p>
+        </div>
+
+        <div class="index-grid">
+          <div class="index-card">
+            <span class="strong-label">UI anatomy index</span>
+            <div class="table-wrap">
+              <table class="index-table">
+                <tr>
+                  <th>Family</th>
+                  <th>Required anatomy</th>
+                  <th>Required states</th>
+                  <th>Cannot be simplified away</th>
+                </tr>
+                <tr>
+                  <td>Public CTA</td>
+                  <td>label, optional icon, nearby proof context</td>
+                  <td>default, hover, active, pressed, disabled, focus</td>
+                  <td>mechanism context</td>
+                </tr>
+                <tr>
+                  <td>Navigation item</td>
+                  <td>label, active cue, focus cue, optional status</td>
+                  <td>default, hover, active, pressed, focus, disabled</td>
+                  <td>consistent grammar across public and signed-in nav</td>
+                </tr>
+                <tr>
+                  <td>Field</td>
+                  <td>label, shell, helper or review note, optional approval action</td>
+                  <td>default, focus, filled, suggested, approved, missing, error, excluded, disabled</td>
+                  <td>difference between suggestion and approved truth</td>
+                </tr>
+                <tr>
+                  <td>Step rail</td>
+                  <td>label, state, progress cue</td>
+                  <td>future, active, complete, blocked</td>
+                  <td>readable horizontal orientation</td>
+                </tr>
+                <tr>
+                  <td>Rationale row</td>
+                  <td>reason, state marker, edit path</td>
+                  <td>used, missing, excluded</td>
+                  <td>explicit trust-state language</td>
+                </tr>
+                <tr>
+                  <td>Tracking row</td>
+                  <td>company, role, lane, selected asset, next step</td>
+                  <td>planned through archived</td>
+                  <td>connection to lane and asset context</td>
+                </tr>
+                <tr>
+                  <td>Email block</td>
+                  <td>header, summary, CTA, footer</td>
+                  <td>context-specific status variants</td>
+                  <td>trust-safe status and branded links</td>
+                </tr>
+              </table>
+            </div>
+          </div>
+
+          <div class="panel-card">
+            <span class="strong-label">Shared-system inventory</span>
+            <div class="horizon-list">
+              <div class="horizon-row">
+                <strong>Foundations</strong>
+                <span>Type, color, surfaces, borders, shadows, motion, containment, and button finishes.</span>
+              </div>
+              <div class="horizon-row">
+                <strong>Interaction families</strong>
+                <span>CTAs, navigation, links, fields, banners, disclosures, overlays, toasts, and system states.</span>
+              </div>
+              <div class="horizon-row">
+                <strong>Product assemblies</strong>
+                <span>Profile workspace, guided storytelling, builders, lane comparison, tracking, research, analytics, settings, and email globals.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="index-card" style="margin-top: 16px;">
+          <span class="strong-label">Chapter handoff map</span>
+          <div class="table-wrap">
+            <table class="handoff-table">
+              <tr>
+                <th>Chapter</th>
+                <th>Uses this chapter for</th>
+                <th>Still owns itself</th>
+              </tr>
+              <tr>
+                <td>04 Website and Public Funnel</td>
+                <td>public proof modules, CTA treatment, link behavior, auth handoff modules, status grammar</td>
+                <td>page roles, section flow, worksheet placement, pricing-entry composition</td>
+              </tr>
+              <tr>
+                <td>05 Activation and Core App</td>
+                <td>step rail, editor-preview relationship, guided storytelling, builders, lane comparison, tracking, research, settings, analytics</td>
+                <td>route inventory, route-level layouts, flow composition, overlay ownership by route</td>
+              </tr>
+              <tr>
+                <td>06 Lifecycle Messaging and Email</td>
+                <td>status strips, CTA families, branded links, summary cards, trust-state language</td>
+                <td>sequence architecture, campaign logic, send timing, final email compositions</td>
+              </tr>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const accordion = document.querySelector("[data-accordion]");
+      const accordionToggle = accordion?.querySelector(".accordion-toggle");
+
+      if (accordion && accordionToggle) {
+        accordionToggle.addEventListener("click", () => {
+          accordion.classList.toggle("open");
+        });
+      }
+
+      const stepTitle = document.getElementById("step-title");
+      const stepCopy = document.getElementById("step-copy");
+      const stepState = document.getElementById("step-state");
+      const stepTrack = document.getElementById("step-track");
+      const prevButton = document.getElementById("step-prev");
+      const nextButton = document.getElementById("step-next");
+
+      const steps = [
+        {
+          title: "Step 1 of 4, Profile grounding",
+          copy: "Confirm baseline role context, preferences, and reusable truth before shaping stories."
+        },
+        {
+          title: "Step 2 of 4, Story shaping",
+          copy: "Refine approved story blocks before moving into draft review."
+        },
+        {
+          title: "Step 3 of 4, Draft review",
+          copy: "Check preview quality, why-this-draft reasoning, and missing proof before reuse."
+        },
+        {
+          title: "Step 4 of 4, Final review",
+          copy: "Confirm lane fit, selected asset, and next action before moving forward."
+        }
+      ];
+
+      let activeStep = 1;
+
+      function renderStepDemo() {
+        if (!stepTrack || !stepTitle || !stepCopy || !stepState) return;
+
+        const pills = [...stepTrack.querySelectorAll(".step-pill")];
+        pills.forEach((pill, index) => {
+          pill.classList.toggle("active", index === activeStep);
+        });
+
+        stepTitle.textContent = steps[activeStep].title;
+        stepCopy.textContent = steps[activeStep].copy;
+        stepState.textContent = activeStep === steps.length - 1 ? "Ready for review" : "Active";
+        prevButton.disabled = activeStep === 0;
+        nextButton.disabled = activeStep === steps.length - 1;
+      }
+
+      prevButton?.addEventListener("click", () => {
+        activeStep = Math.max(0, activeStep - 1);
+        renderStepDemo();
+      });
+
+      nextButton?.addEventListener("click", () => {
+        activeStep = Math.min(steps.length - 1, activeStep + 1);
+        renderStepDemo();
+      });
+
+      renderStepDemo();
+    </script>
+  </body>
+</html>

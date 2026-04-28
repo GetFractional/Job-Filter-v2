@@ -45,22 +45,32 @@ function splitNameParts(
 }
 
 function buildInitialIdentity(
-  name: string | undefined,
-  firstName: string | undefined,
-  lastName: string | undefined,
+  profile: {
+    name?: string;
+    firstName?: string;
+    lastName?: string;
+    headline?: string;
+    email?: string;
+    phoneCountryCode?: string;
+    phoneNational?: string;
+    location?: string;
+    linkedIn?: string;
+    website?: string;
+    portfolio?: string;
+  } | null | undefined,
 ): ProfileIdentityDraft {
-  const resolvedName = splitNameParts(firstName, lastName, name);
+  const resolvedName = splitNameParts(profile?.firstName, profile?.lastName, profile?.name);
   return {
     firstName: resolvedName.firstName,
     lastName: resolvedName.lastName,
-    headline: '',
-    email: '',
-    phoneCountryCode: DEFAULT_PHONE_COUNTRY_CODE,
-    phoneNational: '',
-    location: '',
-    linkedIn: '',
-    website: '',
-    portfolio: '',
+    headline: profile?.headline ?? '',
+    email: profile?.email ?? '',
+    phoneCountryCode: profile?.phoneCountryCode ?? DEFAULT_PHONE_COUNTRY_CODE,
+    phoneNational: profile?.phoneNational ?? '',
+    location: profile?.location ?? '',
+    linkedIn: profile?.linkedIn ?? '',
+    website: profile?.website ?? '',
+    portfolio: profile?.portfolio ?? '',
   };
 }
 
@@ -72,9 +82,9 @@ export function ProfileWorkspacePage() {
   const forceFreshSetup = mode === 'setup' && parseFreshSetupFlag(searchParams);
   const initialIdentity = useMemo(
     () => (mode === 'setup'
-      ? buildInitialIdentity(undefined, undefined, undefined)
-      : buildInitialIdentity(profile?.name, profile?.firstName, profile?.lastName)),
-    [mode, profile?.firstName, profile?.lastName, profile?.name],
+      ? buildInitialIdentity(null)
+      : buildInitialIdentity(profile)),
+    [mode, profile],
   );
 
   return <ProfileWorkspaceShell mode={mode} initialIdentity={initialIdentity} forceFreshSetup={forceFreshSetup} />;

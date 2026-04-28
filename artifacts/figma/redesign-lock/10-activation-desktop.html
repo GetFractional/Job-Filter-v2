@@ -1,0 +1,3692 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Job Filter | Add your experience</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #091014;
+        --bg-deep: #060b0e;
+        --shell: rgba(11, 17, 21, 0.92);
+        --rail: rgba(14, 22, 27, 0.96);
+        --line: rgba(167, 184, 186, 0.16);
+        --line-strong: rgba(167, 184, 186, 0.24);
+        --text: #eff6f2;
+        --text-muted: #b4c2bf;
+        --text-dim: #879592;
+        --accent: #7fe1bb;
+        --accent-strong: #52c696;
+        --accent-soft: rgba(127, 225, 187, 0.14);
+        --accent-glow: rgba(127, 225, 187, 0.28);
+        --warning: #f0d48d;
+        --warning-soft: rgba(240, 212, 141, 0.14);
+        --danger: #ff9b88;
+        --danger-soft: rgba(255, 155, 136, 0.14);
+        --shadow: 0 28px 80px rgba(0, 0, 0, 0.46);
+        --radius-shell: 28px;
+        --radius-panel: 24px;
+        --radius-card: 18px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+      }
+
+      body {
+        font-family: "Avenir Next", Inter, "Segoe UI", sans-serif;
+        background:
+          radial-gradient(circle at top left, rgba(127, 225, 187, 0.16), transparent 28%),
+          radial-gradient(circle at top right, rgba(90, 148, 154, 0.13), transparent 24%),
+          linear-gradient(180deg, #091014 0%, #060b0e 100%);
+        color: var(--text);
+      }
+
+      button,
+      input {
+        font: inherit;
+      }
+
+      main {
+        width: min(1480px, calc(100vw - 40px));
+        margin: 20px auto;
+      }
+
+      .app-shell {
+        display: grid;
+        grid-template-columns: 248px minmax(0, 1fr);
+        min-height: calc(100vh - 40px);
+        background: linear-gradient(180deg, rgba(9, 15, 19, 0.96), rgba(7, 12, 15, 0.96));
+        border: 1px solid var(--line);
+        border-radius: var(--radius-shell);
+        overflow: hidden;
+        box-shadow: var(--shadow);
+      }
+
+      .sidebar {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        padding: 22px 18px 18px;
+        background:
+          linear-gradient(180deg, rgba(18, 26, 32, 0.98), rgba(11, 18, 22, 0.98)),
+          var(--rail);
+        border-right: 1px solid var(--line);
+      }
+
+      .sidebar-top {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+      }
+
+      .brand-mark {
+        width: 40px;
+        height: 40px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 14px;
+        border: 1px solid rgba(127, 225, 187, 0.28);
+        background: linear-gradient(135deg, rgba(127, 225, 187, 0.22), rgba(68, 119, 111, 0.12));
+        color: var(--text);
+        font-size: 0.86rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+      }
+
+      .brand strong {
+        display: block;
+        font-size: 0.96rem;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+
+      .icon-button {
+        margin-left: auto;
+        width: 34px;
+        height: 34px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 12px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.02);
+        color: var(--text-muted);
+      }
+
+      .nav {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .nav-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .nav-link,
+      .submenu-link,
+      .account-button,
+      .route-link,
+      .tool-button,
+      .field-button,
+      .proof-button,
+      .record-action,
+      .issue-link,
+      .summary-secondary,
+      .source-action {
+        border: none;
+        background: transparent;
+        color: inherit;
+      }
+
+      .nav-link {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        padding: 12px 14px;
+        border-radius: 14px;
+        text-align: left;
+        color: var(--text-muted);
+      }
+
+      .nav-link.active {
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--text);
+      }
+
+      .submenu {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding-left: 18px;
+      }
+
+      .submenu-link {
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: 12px;
+        text-align: left;
+        color: var(--text-dim);
+        cursor: pointer;
+      }
+
+      .submenu-link.active {
+        background: rgba(127, 225, 187, 0.1);
+        color: var(--text);
+      }
+
+      .sidebar-spacer {
+        flex: 1;
+      }
+
+      .account-button {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        padding: 14px;
+        border-radius: 16px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.03);
+        color: var(--text);
+      }
+
+      .main-panel {
+        display: flex;
+        flex-direction: column;
+        padding: 40px 42px 36px;
+        min-width: 0;
+      }
+
+      .screen {
+        display: none;
+      }
+
+      .screen.is-active {
+        display: block;
+      }
+
+      .screen-shell {
+        display: flex;
+        flex-direction: column;
+        gap: 22px;
+        padding: 34px 34px 30px;
+        border-radius: var(--radius-panel);
+        border: 1px solid rgba(127, 225, 187, 0.22);
+        background:
+          radial-gradient(circle at top right, rgba(127, 225, 187, 0.14), transparent 28%),
+          radial-gradient(circle at top left, rgba(109, 181, 188, 0.08), transparent 22%),
+          linear-gradient(180deg, rgba(31, 43, 49, 0.98), rgba(21, 31, 36, 0.97));
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.04),
+          0 18px 40px rgba(0, 0, 0, 0.24);
+      }
+
+      .route-row {
+        display: inline-flex;
+        align-items: center;
+        gap: 9px;
+        color: var(--text-dim);
+        font-size: 0.84rem;
+        letter-spacing: -0.01em;
+      }
+
+      .route-link {
+        padding: 0;
+        color: var(--accent);
+        font-weight: 700;
+        cursor: default;
+      }
+
+      .route-sep {
+        color: rgba(127, 225, 187, 0.8);
+      }
+
+      .route-current {
+        color: var(--text);
+        font-weight: 600;
+      }
+
+      .hero-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.08fr) minmax(332px, 0.92fr);
+        gap: 28px;
+        align-items: center;
+      }
+
+      .hero-copy {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        max-width: 680px;
+      }
+
+      .hero-copy h1,
+      .screen-header h1 {
+        margin: 0;
+        font-size: clamp(2.4rem, 4.2vw, 3.6rem);
+        line-height: 1.01;
+        letter-spacing: -0.055em;
+      }
+
+      .lead {
+        margin: 0;
+        color: var(--text-muted);
+        font-size: 1.02rem;
+        line-height: 1.7;
+        max-width: 62ch;
+      }
+
+      .source-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .source-card {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 16px 16px 15px;
+        border-radius: 20px;
+        border: 1px solid rgba(167, 184, 186, 0.16);
+        background: linear-gradient(180deg, rgba(21, 31, 36, 0.92), rgba(16, 24, 29, 0.94));
+      }
+
+      .source-card.primary {
+        border-color: rgba(127, 225, 187, 0.32);
+        background:
+          radial-gradient(circle at top right, rgba(127, 225, 187, 0.16), transparent 30%),
+          linear-gradient(180deg, rgba(24, 36, 42, 0.98), rgba(18, 28, 33, 0.98));
+      }
+
+      .source-copy {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+
+      .source-copy strong {
+        font-size: 1rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+
+      .source-copy p {
+        margin: 0;
+        color: var(--text-dim);
+        font-size: 0.9rem;
+        line-height: 1.5;
+      }
+
+      .source-action {
+        display: inline-flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 50px;
+        width: 100%;
+        padding: 0 16px;
+        border-radius: 16px;
+        color: var(--text);
+        font-weight: 650;
+        letter-spacing: -0.01em;
+        cursor: pointer;
+      }
+
+      .source-card.primary .source-action {
+        background: linear-gradient(135deg, #9af0cc 0%, #63c99b 100%);
+        color: #072218;
+        box-shadow: 0 14px 24px rgba(99, 201, 155, 0.24);
+      }
+
+      .source-card:not(.primary) .source-action {
+        border: 1px solid rgba(167, 184, 186, 0.22);
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+      }
+
+      .source-action .icon {
+        width: 24px;
+        height: 24px;
+      }
+
+      .coach-note {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+        padding: 16px 18px;
+        border-radius: 18px;
+        border: 1px solid rgba(167, 184, 186, 0.14);
+        background: rgba(255, 255, 255, 0.03);
+        color: var(--text-muted);
+        font-size: 0.95rem;
+        line-height: 1.62;
+      }
+
+      .coach-note .icon {
+        width: 18px;
+        height: 18px;
+        margin-top: 2px;
+        color: var(--accent);
+        flex: 0 0 auto;
+      }
+
+      .benefit-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .benefit-card {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 16px 16px 15px;
+        border-radius: 18px;
+        border: 1px solid rgba(167, 184, 186, 0.14);
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .benefit-card strong {
+        font-size: 0.96rem;
+        letter-spacing: -0.02em;
+      }
+
+      .benefit-card p {
+        margin: 0;
+        color: var(--text-dim);
+        font-size: 0.88rem;
+        line-height: 1.5;
+      }
+
+      .screen-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 18px 24px;
+      }
+
+      .screen-copy {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        max-width: 760px;
+      }
+
+      .state-line {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .state-chip {
+        display: inline-flex;
+        align-items: center;
+        min-height: 32px;
+        padding: 0 12px;
+        border-radius: 12px;
+        border: 1px solid rgba(127, 225, 187, 0.14);
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--text-muted);
+        font-size: 0.86rem;
+      }
+
+      .state-chip strong {
+        margin-right: 6px;
+        color: var(--text);
+      }
+
+      .header-action {
+        display: flex;
+        align-items: flex-start;
+      }
+
+      .action-button {
+        min-height: 48px;
+        padding: 0 18px;
+        border: none;
+        border-radius: 16px;
+        color: #072218;
+        background: linear-gradient(135deg, #9af0cc 0%, #63c99b 100%);
+        box-shadow: 0 14px 24px rgba(99, 201, 155, 0.24);
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .action-button .count {
+        margin-left: 10px;
+        padding: 3px 8px;
+        border-radius: 999px;
+        background: rgba(7, 34, 24, 0.14);
+        color: #0b3425;
+        font-size: 0.82rem;
+      }
+
+      .workspace-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.42fr) minmax(340px, 404px);
+        gap: 18px;
+        align-items: start;
+        min-width: 0;
+      }
+
+      .table-card,
+      .inspector-card {
+        min-width: 0;
+        border-radius: 22px;
+        border: 1px solid rgba(167, 184, 186, 0.16);
+        background: linear-gradient(180deg, rgba(20, 29, 34, 0.98), rgba(14, 22, 27, 0.96));
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+      }
+
+      .card-head,
+      .inspector-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 14px;
+        padding: 18px 20px 16px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .card-head h2,
+      .inspector-head h2 {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+
+      .card-head p,
+      .inspector-head p {
+        margin: 6px 0 0;
+        color: var(--text-dim);
+        font-size: 0.9rem;
+        line-height: 1.5;
+      }
+
+      .toolbar-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 20px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .toolbar-left,
+      .toolbar-right {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .search-wrap {
+        position: relative;
+      }
+
+      .search-wrap .icon {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 15px;
+        height: 15px;
+        color: var(--text-dim);
+      }
+
+      .search-field {
+        min-width: 240px;
+        min-height: 40px;
+        padding: 0 14px 0 36px;
+        border-radius: 14px;
+        border: 1px solid rgba(167, 184, 186, 0.22);
+        background: rgba(14, 22, 27, 0.58);
+        color: var(--text);
+      }
+
+      .search-field::placeholder {
+        color: var(--text-dim);
+      }
+
+      .tool-button,
+      .summary-secondary,
+      .record-action,
+      .field-button,
+      .proof-button,
+      .issue-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 38px;
+        padding: 0 14px;
+        border-radius: 14px;
+        border: 1px solid rgba(167, 184, 186, 0.22);
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+        color: var(--text);
+        cursor: pointer;
+      }
+
+      .tool-button .icon {
+        width: 15px;
+        height: 15px;
+      }
+
+      .tool-button.primary {
+        border-color: rgba(127, 225, 187, 0.24);
+        background: rgba(127, 225, 187, 0.1);
+      }
+
+      .table-wrap {
+        overflow: auto;
+      }
+
+      .history-table {
+        width: 100%;
+        min-width: 1280px;
+        border-collapse: separate;
+        border-spacing: 0;
+      }
+
+      .history-table th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        padding: 14px 16px;
+        text-align: left;
+        color: var(--text-dim);
+        font-size: 0.73rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        white-space: nowrap;
+        background: rgba(18, 27, 32, 0.98);
+        border-bottom: 1px solid rgba(167, 184, 186, 0.12);
+      }
+
+      .history-table td {
+        padding: 16px;
+        border-top: 1px solid rgba(167, 184, 186, 0.1);
+        vertical-align: top;
+        color: var(--text-muted);
+        font-size: 0.9rem;
+        line-height: 1.5;
+        background: rgba(16, 24, 29, 0.96);
+      }
+
+      .history-table th:first-child,
+      .history-table td:first-child {
+        position: sticky;
+        left: 0;
+        z-index: 3;
+        background: rgba(17, 26, 31, 0.99);
+      }
+
+      .history-table tr.selected td {
+        background: linear-gradient(90deg, rgba(127, 225, 187, 0.08), rgba(127, 225, 187, 0.02));
+      }
+
+      .history-table tr.selected td:first-child {
+        box-shadow: inset 2px 0 0 rgba(127, 225, 187, 0.74);
+      }
+
+      .cell-title {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+
+      .cell-title strong,
+      .benefit-card strong,
+      .issue-card strong,
+      .summary-card strong {
+        color: var(--text);
+      }
+
+      .cell-meta {
+        color: var(--text-dim);
+        font-size: 0.82rem;
+      }
+
+      .cell-count {
+        display: inline-flex;
+        align-items: center;
+        min-height: 28px;
+        padding: 0 10px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.05);
+        color: var(--text);
+        font-size: 0.82rem;
+      }
+
+      .token-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .token {
+        display: inline-flex;
+        align-items: center;
+        min-height: 28px;
+        padding: 0 10px;
+        border-radius: 10px;
+        background: rgba(127, 225, 187, 0.1);
+        color: var(--text);
+        font-size: 0.8rem;
+        max-width: 100%;
+        white-space: normal;
+        word-break: break-word;
+      }
+
+      .source-status {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .source-badge {
+        display: inline-flex;
+        align-items: center;
+        min-height: 28px;
+        padding: 0 10px;
+        border-radius: 10px;
+        border: 1px solid rgba(167, 184, 186, 0.16);
+        background: rgba(255, 255, 255, 0.03);
+        color: var(--text-muted);
+        font-size: 0.79rem;
+      }
+
+      .source-badge.warn {
+        border-color: rgba(240, 212, 141, 0.22);
+        background: rgba(240, 212, 141, 0.08);
+        color: var(--text);
+      }
+
+      .inspector-head {
+        padding-bottom: 14px;
+      }
+
+      .inspector-kicker {
+        display: inline-flex;
+        align-items: center;
+        min-height: 28px;
+        padding: 0 10px;
+        margin-bottom: 10px;
+        border-radius: 10px;
+        background: rgba(127, 225, 187, 0.1);
+        color: var(--text);
+        font-size: 0.8rem;
+      }
+
+      .inspector-body {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        padding: 18px 20px 20px;
+      }
+
+      .editor-section {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid rgba(167, 184, 186, 0.1);
+      }
+
+      .editor-section:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+      }
+
+      .section-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .section-head h3 {
+        margin: 0;
+        font-size: 0.94rem;
+        letter-spacing: -0.02em;
+      }
+
+      .section-head .helper-inline {
+        color: var(--text-dim);
+        font-size: 0.8rem;
+      }
+
+      .form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+      }
+
+      .field.full {
+        grid-column: 1 / -1;
+      }
+
+      .field-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--text-dim);
+        font-size: 0.74rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .field-label .icon {
+        width: 13px;
+        height: 13px;
+      }
+
+      .input-field,
+      .token-input,
+      .picker-row,
+      .switch-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 46px;
+        padding: 0 14px;
+        border-radius: 14px;
+        border: 1px solid rgba(167, 184, 186, 0.18);
+        background: rgba(255, 255, 255, 0.03);
+        color: var(--text);
+      }
+
+      .input-field span,
+      .token-input span,
+      .picker-row span,
+      .switch-row span {
+        font-weight: 500;
+      }
+
+      .picker-row {
+        justify-content: space-between;
+      }
+
+      .field-note,
+      .helper-line,
+      .summary-note {
+        color: var(--text-dim);
+        font-size: 0.8rem;
+        line-height: 1.45;
+      }
+
+      .field-error {
+        color: var(--danger);
+        font-size: 0.8rem;
+        line-height: 1.4;
+      }
+
+      .switch-row {
+        justify-content: space-between;
+      }
+
+      .switch-pill {
+        width: 38px;
+        height: 22px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: flex-end;
+        padding: 0 3px;
+        border-radius: 999px;
+        background: rgba(127, 225, 187, 0.22);
+        border: 1px solid rgba(127, 225, 187, 0.28);
+      }
+
+      .switch-pill::after {
+        content: "";
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: var(--text);
+      }
+
+      .token-input {
+        flex-wrap: wrap;
+        align-items: center;
+        padding: 10px 12px;
+        min-height: 46px;
+      }
+
+      .token-input .placeholder {
+        color: var(--text-dim);
+        font-weight: 500;
+      }
+
+      .repeatable-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .repeatable-item {
+        display: grid;
+        grid-template-columns: 18px minmax(0, 1fr);
+        gap: 10px;
+        padding: 12px;
+        border-radius: 16px;
+        border: 1px solid rgba(167, 184, 186, 0.14);
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .drag-handle {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-dim);
+        font-size: 0.95rem;
+      }
+
+      .repeatable-body {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .repeatable-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .inline-chip-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .inline-chip {
+        display: inline-flex;
+        align-items: center;
+        min-height: 28px;
+        padding: 0 10px;
+        border-radius: 10px;
+        border: 1px solid rgba(167, 184, 186, 0.16);
+        background: rgba(255, 255, 255, 0.03);
+        color: var(--text-muted);
+        font-size: 0.79rem;
+      }
+
+      .proof-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .proof-button.primary {
+        border-color: rgba(127, 225, 187, 0.24);
+        background: rgba(127, 225, 187, 0.1);
+      }
+
+      .proof-drawer {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 12px;
+        border-radius: 16px;
+        border: 1px solid rgba(167, 184, 186, 0.14);
+        background: rgba(9, 15, 19, 0.3);
+      }
+
+      .proof-drawer-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .proof-drawer-head strong {
+        font-size: 0.9rem;
+      }
+
+      .issue-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .issue-card {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 12px;
+        border-radius: 16px;
+        border: 1px solid rgba(167, 184, 186, 0.14);
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .issue-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .issue-type {
+        display: inline-flex;
+        align-items: center;
+        min-height: 28px;
+        padding: 0 10px;
+        border-radius: 10px;
+        background: var(--warning-soft);
+        color: var(--text);
+        font-size: 0.79rem;
+      }
+
+      .issue-severity {
+        display: inline-flex;
+        align-items: center;
+        min-height: 28px;
+        padding: 0 10px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--text-muted);
+        font-size: 0.79rem;
+      }
+
+      .summary-card {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 14px;
+        border-radius: 18px;
+        border: 1px solid rgba(167, 184, 186, 0.16);
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .summary-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .summary-item {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        color: var(--text-muted);
+        font-size: 0.88rem;
+      }
+
+      .summary-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .summary-secondary {
+        color: var(--text-muted);
+      }
+
+      .d2-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+
+      .readiness-bar {
+        position: sticky;
+        top: 12px;
+        z-index: 6;
+        display: grid;
+        grid-template-columns: minmax(0, 1.08fr) minmax(340px, 0.92fr);
+        gap: 16px;
+        padding: 18px 20px;
+        border-radius: 20px;
+        border: 1px solid rgba(127, 225, 187, 0.18);
+        background:
+          radial-gradient(circle at top right, rgba(127, 225, 187, 0.12), transparent 28%),
+          linear-gradient(180deg, rgba(21, 31, 36, 0.96), rgba(14, 22, 27, 0.96));
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.03),
+          0 16px 34px rgba(0, 0, 0, 0.18);
+      }
+
+      .readiness-primary,
+      .readiness-secondary {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        min-width: 0;
+      }
+
+      .readiness-label {
+        display: inline-flex;
+        align-items: center;
+        min-height: 28px;
+        width: fit-content;
+        padding: 0 10px;
+        border-radius: 10px;
+        border: 1px solid rgba(127, 225, 187, 0.18);
+        background: rgba(127, 225, 187, 0.08);
+        color: var(--text);
+        font-size: 0.8rem;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+
+      .readiness-copy {
+        margin: 0;
+        color: var(--text-muted);
+        font-size: 0.92rem;
+        line-height: 1.55;
+        max-width: 60ch;
+      }
+
+      .readiness-inline-states {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .heatmap-card {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 14px 14px 12px;
+        border-radius: 16px;
+        border: 1px solid rgba(167, 184, 186, 0.14);
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .heatmap-track {
+        display: grid;
+        grid-template-columns: repeat(12, minmax(0, 1fr));
+        gap: 6px;
+      }
+
+      .heatmap-cell {
+        height: 12px;
+        border-radius: 999px;
+        border: 1px solid transparent;
+      }
+
+      .heatmap-cell.imported {
+        background: rgba(167, 184, 186, 0.18);
+        border-color: rgba(167, 184, 186, 0.16);
+      }
+
+      .heatmap-cell.conflict {
+        background: rgba(255, 155, 136, 0.28);
+        border-color: rgba(255, 155, 136, 0.22);
+      }
+
+      .heatmap-cell.verified {
+        background: rgba(127, 225, 187, 0.26);
+        border-color: rgba(127, 225, 187, 0.22);
+      }
+
+      .heatmap-meta {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        color: var(--text-dim);
+        font-size: 0.8rem;
+      }
+
+      .hotspot-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .hotspot-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 36px;
+        padding: 0 12px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 155, 136, 0.18);
+        background: rgba(255, 155, 136, 0.08);
+        color: var(--text);
+        cursor: pointer;
+      }
+
+      .hotspot-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--danger);
+        flex: 0 0 auto;
+      }
+
+      .readiness-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .action-button[disabled] {
+        color: rgba(239, 246, 242, 0.7);
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.03));
+        box-shadow: none;
+        cursor: not-allowed;
+      }
+
+      .action-button[disabled] .count {
+        background: rgba(255, 255, 255, 0.06);
+        color: rgba(239, 246, 242, 0.74);
+      }
+
+      .master-card .toolbar-row {
+        justify-content: flex-start;
+      }
+
+      .toolbar-sequence {
+        display: flex;
+        flex-wrap: nowrap;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+      }
+
+      .toolbar-sequence .tool-button.primary {
+        margin-left: auto;
+      }
+
+      .grouped-master-wrap {
+        overflow: auto;
+      }
+
+      .grouped-history-table {
+        width: 100%;
+        min-width: 980px;
+        border-collapse: separate;
+        border-spacing: 0;
+      }
+
+      .grouped-history-table th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        padding: 13px 16px;
+        text-align: left;
+        color: var(--text-dim);
+        font-size: 0.73rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        white-space: nowrap;
+        background: rgba(18, 27, 32, 0.98);
+        border-bottom: 1px solid rgba(167, 184, 186, 0.12);
+      }
+
+      .grouped-history-table td {
+        padding: 15px 16px;
+        border-top: 1px solid rgba(167, 184, 186, 0.08);
+        vertical-align: middle;
+        color: var(--text-muted);
+        font-size: 0.9rem;
+        line-height: 1.45;
+        background: rgba(16, 24, 29, 0.96);
+      }
+
+      .grouped-history-table th:first-child,
+      .grouped-history-table td:first-child {
+        position: sticky;
+        left: 0;
+        z-index: 3;
+        background: rgba(17, 26, 31, 0.995);
+      }
+
+      .company-group-row td {
+        padding: 0;
+        background: rgba(13, 21, 26, 0.98);
+        border-top: 1px solid rgba(167, 184, 186, 0.12);
+      }
+
+      .company-group-row td:first-child {
+        background: rgba(13, 21, 26, 0.995);
+      }
+
+      .group-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        width: 100%;
+        padding: 14px 16px;
+        border: none;
+        background: transparent;
+        color: var(--text);
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .group-toggle-left,
+      .group-toggle-right {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+      }
+
+      .group-toggle-left strong {
+        display: block;
+        font-size: 0.94rem;
+        letter-spacing: -0.02em;
+      }
+
+      .group-toggle-left .icon {
+        width: 14px;
+        height: 14px;
+        transition: transform 140ms ease;
+      }
+
+      .company-group.is-collapsed .group-toggle-left .icon {
+        transform: rotate(-90deg);
+      }
+
+      .company-group.is-collapsed .role-row {
+        display: none;
+      }
+
+      .group-meta {
+        display: inline-flex;
+        align-items: center;
+        min-height: 28px;
+        padding: 0 10px;
+        border-radius: 10px;
+        border: 1px solid rgba(167, 184, 186, 0.14);
+        background: rgba(255, 255, 255, 0.03);
+        color: var(--text-muted);
+        font-size: 0.79rem;
+      }
+
+      .group-summary {
+        border-color: rgba(127, 225, 187, 0.14);
+        background: rgba(127, 225, 187, 0.06);
+        color: var(--text);
+      }
+
+      .group-meta.blockers {
+        border-color: rgba(255, 155, 136, 0.18);
+        background: rgba(255, 155, 136, 0.08);
+        color: var(--text);
+      }
+
+      .mix-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .mix-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        min-height: 28px;
+        padding: 0 10px;
+        border-radius: 10px;
+        border: 1px solid rgba(167, 184, 186, 0.14);
+        background: rgba(255, 255, 255, 0.03);
+        color: var(--text-muted);
+        font-size: 0.78rem;
+      }
+
+      .mix-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+      }
+
+      .mix-dot.imported {
+        background: rgba(167, 184, 186, 0.7);
+      }
+
+      .mix-dot.conflict {
+        background: var(--danger);
+      }
+
+      .mix-dot.verified {
+        background: var(--accent);
+      }
+
+      .role-row {
+        cursor: pointer;
+      }
+
+      .role-row:hover td {
+        background: rgba(21, 31, 36, 0.98);
+      }
+
+      .role-row:hover td:first-child {
+        background: rgba(20, 30, 35, 0.995);
+      }
+
+      .role-row.is-selected td {
+        background: rgba(127, 225, 187, 0.08);
+      }
+
+      .role-row.is-selected td:first-child {
+        background: rgba(20, 33, 34, 0.995);
+        box-shadow: inset 2px 0 0 rgba(127, 225, 187, 0.8);
+      }
+
+      .company-anchor {
+        display: inline-flex;
+        align-items: center;
+        min-height: 28px;
+        color: var(--text-muted);
+        font-size: 0.82rem;
+        font-weight: 600;
+      }
+
+      .role-cell {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .role-cell strong {
+        color: var(--text);
+        font-size: 0.94rem;
+        letter-spacing: -0.02em;
+      }
+
+      .preview-signals {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .row-hover-actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(2px);
+        transition:
+          opacity 120ms ease,
+          transform 120ms ease;
+      }
+
+      .role-row:hover .row-hover-actions,
+      .role-row:focus-within .row-hover-actions,
+      .role-row.is-selected .row-hover-actions {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translateY(0);
+      }
+
+      .preview-signal {
+        color: var(--text-dim);
+        font-size: 0.79rem;
+      }
+
+      .status-badge {
+        display: inline-flex;
+        align-items: center;
+        min-height: 30px;
+        padding: 0 10px;
+        border-radius: 10px;
+        border: 1px solid rgba(167, 184, 186, 0.16);
+        background: rgba(255, 255, 255, 0.03);
+        color: var(--text);
+        font-size: 0.8rem;
+      }
+
+      .status-badge.imported {
+        border-color: rgba(167, 184, 186, 0.16);
+        color: var(--text-muted);
+      }
+
+      .status-badge.conflict {
+        border-color: rgba(255, 155, 136, 0.18);
+        background: rgba(255, 155, 136, 0.08);
+      }
+
+      .status-badge.verified {
+        border-color: rgba(127, 225, 187, 0.2);
+        background: rgba(127, 225, 187, 0.08);
+      }
+
+      .issue-cell {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .issue-cell strong {
+        color: var(--text);
+        font-size: 0.88rem;
+      }
+
+      .drawer-card {
+        position: sticky;
+        top: 94px;
+      }
+
+      .drawer-card .inspector-head {
+        align-items: flex-start;
+      }
+
+      .drawer-panel {
+        display: none;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .drawer-panel.is-active {
+        display: flex;
+      }
+
+      .drawer-panel .summary-card strong,
+      .drawer-panel .section-head h3 {
+        color: var(--text);
+      }
+
+      .module-record {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 12px;
+        border-radius: 16px;
+        border: 1px solid rgba(167, 184, 186, 0.14);
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .module-record.compact {
+        gap: 8px;
+      }
+
+      .module-record-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .module-record-head strong {
+        font-size: 0.9rem;
+      }
+
+      .module-record-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .record-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(2px);
+        transition:
+          opacity 120ms ease,
+          transform 120ms ease;
+      }
+
+      .module-record:hover .record-toolbar,
+      .module-record:focus-within .record-toolbar {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translateY(0);
+      }
+
+      .reorder-cluster {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .record-action.compact,
+      .proof-button.compact {
+        min-height: 32px;
+        padding: 0 10px;
+        font-size: 0.78rem;
+      }
+
+      .module-record .input-field span,
+      .module-record .token-input span,
+      .module-record .picker-row span,
+      .module-record .switch-row span,
+      .input-field span,
+      .token-input span,
+      .picker-row span,
+      .switch-row span {
+        font-weight: 400;
+      }
+
+      .drawer-footer {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .drawer-secondary-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .icon {
+        width: 16px;
+        height: 16px;
+        fill: currentColor;
+      }
+
+      .icon-button .icon {
+        width: 19px;
+        height: 19px;
+      }
+
+      [data-tooltip] {
+        position: relative;
+      }
+
+      [data-tooltip]::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        left: 50%;
+        bottom: calc(100% + 8px);
+        transform: translateX(-50%);
+        padding: 7px 9px;
+        border-radius: 10px;
+        border: 1px solid rgba(167, 184, 186, 0.16);
+        background: rgba(9, 15, 19, 0.96);
+        color: var(--text);
+        font-size: 0.74rem;
+        font-weight: 400;
+        line-height: 1.3;
+        text-align: left;
+        white-space: normal;
+        max-width: 220px;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 120ms ease;
+        z-index: 40;
+        box-shadow: 0 16px 24px rgba(0, 0, 0, 0.28);
+      }
+
+      [data-tooltip]:hover::after,
+      [data-tooltip]:focus-visible::after,
+      [data-tooltip]:focus-within::after {
+        opacity: 1;
+      }
+
+      .submenu-link:hover,
+      .tool-button:hover,
+      .record-action:hover,
+      .field-button:hover,
+      .proof-button:hover,
+      .issue-link:hover,
+      .summary-secondary:hover,
+      .hotspot-button:hover,
+      .group-toggle:hover {
+        border-color: rgba(127, 225, 187, 0.22);
+        color: var(--text);
+        background: rgba(127, 225, 187, 0.08);
+      }
+
+      @media (max-width: 1320px) {
+        main {
+          width: min(100vw - 28px, 1320px);
+          margin: 14px auto;
+        }
+
+        .app-shell {
+          grid-template-columns: 228px minmax(0, 1fr);
+          min-height: calc(100vh - 28px);
+        }
+
+        .main-panel {
+          padding: 34px 34px 30px;
+        }
+
+        .screen-shell {
+          padding: 30px 30px 26px;
+        }
+
+        .workspace-grid {
+          grid-template-columns: minmax(0, 1.2fr) minmax(300px, 350px);
+        }
+
+        .readiness-bar {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 1180px) {
+        .screen-header {
+          flex-direction: column;
+        }
+
+        .header-action {
+          width: 100%;
+        }
+
+        .hero-grid,
+        .workspace-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .drawer-card {
+          position: static;
+        }
+      }
+
+      @media (max-width: 1100px) {
+        .app-shell {
+          grid-template-columns: 212px minmax(0, 1fr);
+        }
+
+        .sidebar {
+          padding: 18px 14px 16px;
+        }
+
+        .main-panel {
+          padding: 28px 26px 24px;
+        }
+
+        .screen-shell {
+          padding: 24px 22px 22px;
+        }
+
+        .toolbar-row,
+        .card-head,
+        .inspector-head,
+        .summary-actions {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .toolbar-left,
+        .toolbar-right {
+          width: 100%;
+        }
+
+        .search-wrap,
+        .search-field {
+          width: 100%;
+        }
+
+        .form-grid,
+        .repeatable-grid,
+        .benefit-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .hero-grid {
+        grid-template-columns: 1fr;
+        gap: 18px;
+      }
+
+      .hero-copy {
+        max-width: none;
+        padding: 30px 30px 26px;
+        border-radius: 24px;
+        border: 1px solid rgba(167, 184, 186, 0.14);
+        background:
+          radial-gradient(circle at top right, rgba(127, 225, 187, 0.12), transparent 34%),
+          radial-gradient(circle at left center, rgba(109, 181, 188, 0.08), transparent 24%),
+          linear-gradient(180deg, rgba(27, 39, 45, 0.98), rgba(19, 29, 34, 0.98));
+      }
+
+      .source-stack {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .source-card {
+        min-height: 164px;
+        padding: 16px 16px 14px;
+      }
+
+      .source-action {
+        min-height: 48px;
+      }
+
+      .benefit-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .readiness-bar {
+        grid-template-columns: minmax(0, 1.14fr) minmax(320px, 0.86fr);
+      }
+
+      .progress-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px 18px;
+        padding-top: 4px;
+      }
+
+      .progress-card {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-width: 0;
+      }
+
+      .progress-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: baseline;
+      }
+
+      .progress-head strong {
+        font-size: 0.88rem;
+        letter-spacing: -0.02em;
+      }
+
+      .progress-head span {
+        color: var(--text-muted);
+        font-size: 0.78rem;
+        white-space: nowrap;
+      }
+
+      .progress-meter {
+        height: 6px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.06);
+        overflow: hidden;
+      }
+
+      .progress-meter span {
+        display: block;
+        height: 100%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, rgba(127, 225, 187, 0.66), rgba(99, 201, 155, 0.96));
+      }
+
+      .progress-sub {
+        display: none;
+      }
+
+      .entity-strip {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .entity-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        min-height: 32px;
+        padding: 0 10px;
+        border-radius: 12px;
+        border: 1px solid rgba(167, 184, 186, 0.14);
+        background: rgba(255, 255, 255, 0.03);
+        color: var(--text-muted);
+        font-size: 0.79rem;
+      }
+
+      .entity-chip.complete {
+        border-color: rgba(127, 225, 187, 0.2);
+        background: rgba(127, 225, 187, 0.08);
+        color: var(--text);
+      }
+
+      .entity-chip .icon {
+        width: 14px;
+        height: 14px;
+      }
+
+      .d2-workspace {
+        grid-template-columns: 1fr;
+      }
+
+      .d2-workspace.has-drawer {
+        grid-template-columns: minmax(0, 1.42fr) minmax(340px, 404px);
+      }
+
+      .master-card .toolbar-row {
+        justify-content: flex-start;
+        flex-direction: row;
+        align-items: center;
+      }
+
+      .toolbar-sequence {
+        flex-wrap: nowrap;
+        width: 100%;
+        gap: 10px;
+      }
+
+      .search-wrap.compact {
+        flex: 0 0 188px;
+        min-width: 168px;
+        transition: flex-basis 140ms ease;
+      }
+
+      .search-wrap.compact .search-field {
+        min-width: 0;
+        width: 100%;
+        transition: width 140ms ease;
+      }
+
+      .search-wrap.compact:focus-within {
+        flex-basis: 224px;
+      }
+
+      .tool-button.icon-only {
+        justify-content: center;
+        width: 40px;
+        min-width: 40px;
+        padding: 0;
+      }
+
+      .tool-button.icon-only .icon {
+        width: 16px;
+        height: 16px;
+      }
+
+      .toolbar-sequence .tool-button.primary {
+        margin-left: auto;
+      }
+
+      .group-toggle-right {
+        justify-content: flex-end;
+        flex-wrap: wrap;
+      }
+
+      .group-meta.complete {
+        border-color: rgba(127, 225, 187, 0.2);
+        background: rgba(127, 225, 187, 0.08);
+        color: var(--text);
+      }
+
+      .group-action-row td {
+        padding: 0 16px 12px;
+        background: rgba(13, 21, 26, 0.98);
+        border-top: none;
+      }
+
+      .group-action-row td:first-child {
+        background: rgba(13, 21, 26, 0.995);
+      }
+
+      .group-action-strip {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .group-action-copy {
+        color: var(--text-dim);
+        font-size: 0.78rem;
+      }
+
+      .group-action-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .company-lane {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 160px;
+        padding-left: 12px;
+      }
+
+      .company-lane::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 5px;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: rgba(167, 184, 186, 0.5);
+      }
+
+      .company-lane.cue-conflict::before {
+        background: var(--danger);
+      }
+
+      .company-lane.cue-imported::before {
+        background: rgba(167, 184, 186, 0.74);
+      }
+
+      .company-lane.cue-verified::before {
+        background: var(--accent);
+      }
+
+      .company-anchor {
+        min-height: auto;
+        color: var(--text);
+        font-size: 0.81rem;
+        font-weight: 600;
+      }
+
+      .role-carry {
+        color: var(--text-dim);
+        font-size: 0.73rem;
+        line-height: 1.3;
+        font-weight: 500;
+        max-width: 182px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .status-cell {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .verified-mark {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        color: var(--accent);
+        font-size: 0.78rem;
+        white-space: nowrap;
+      }
+
+      .verified-mark .icon {
+        width: 14px;
+        height: 14px;
+      }
+
+      .review-cell {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .review-cell strong {
+        color: var(--text);
+        font-size: 0.88rem;
+      }
+
+      .verified-mark {
+        gap: 4px;
+      }
+
+      .role-row:hover td,
+      .role-row:hover td:first-child {
+        background: rgba(21, 31, 36, 0.98);
+      }
+
+      .role-row.is-selected td,
+      .role-row.is-selected td:first-child {
+        background: rgba(127, 225, 187, 0.08);
+      }
+
+      .role-row.is-selected td:first-child {
+        box-shadow: inset 2px 0 0 rgba(127, 225, 187, 0.8);
+      }
+
+      .drawer-card {
+        display: none;
+      }
+
+      .d2-workspace.has-drawer .drawer-card {
+        display: block;
+      }
+
+      .drawer-head-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 14px;
+        width: 100%;
+      }
+
+      .drawer-save-state {
+        margin: 6px 0 0;
+        color: var(--text-dim);
+        font-size: 0.8rem;
+        line-height: 1.4;
+      }
+
+      .drawer-close {
+        white-space: nowrap;
+      }
+
+      .panel-title {
+        margin: 0;
+        font-size: 1rem;
+        color: var(--text);
+        letter-spacing: -0.02em;
+      }
+
+      .panel-subtitle {
+        margin: 6px 0 0;
+        color: var(--text-dim);
+        font-size: 0.84rem;
+        line-height: 1.45;
+      }
+
+      .section-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .module-status {
+        display: inline-flex;
+        align-items: center;
+        min-height: 28px;
+        padding: 0 10px;
+        border-radius: 10px;
+        border: 1px solid rgba(167, 184, 186, 0.16);
+        background: rgba(255, 255, 255, 0.03);
+        color: var(--text-muted);
+        font-size: 0.79rem;
+      }
+
+      .module-status.conflict {
+        border-color: rgba(255, 155, 136, 0.2);
+        background: rgba(255, 155, 136, 0.08);
+        color: var(--text);
+      }
+
+      .module-status.verified {
+        border-color: rgba(127, 225, 187, 0.2);
+        background: rgba(127, 225, 187, 0.08);
+        color: var(--text);
+      }
+
+      .control-input,
+      .control-textarea,
+      .control-select {
+        width: 100%;
+        border: 1px solid rgba(167, 184, 186, 0.18);
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.03);
+        color: var(--text);
+        font: inherit;
+      }
+
+      .control-input,
+      .control-select {
+        min-height: 46px;
+        padding: 0 14px;
+      }
+
+      .control-textarea {
+        min-height: 92px;
+        padding: 12px 14px;
+        line-height: 1.55;
+        resize: none;
+      }
+
+      .control-select {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .control-input::placeholder,
+      .control-textarea::placeholder {
+        color: var(--text-dim);
+      }
+
+      .check-row {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 46px;
+        padding: 0 14px;
+        border-radius: 14px;
+        border: 1px solid rgba(167, 184, 186, 0.18);
+        background: rgba(255, 255, 255, 0.03);
+        color: var(--text);
+      }
+
+      .check-row input {
+        width: 16px;
+        height: 16px;
+        accent-color: var(--accent-strong);
+      }
+
+      .field-inline-note {
+        color: var(--text-dim);
+        font-size: 0.78rem;
+        line-height: 1.45;
+      }
+
+      .token-input input {
+        flex: 1 1 120px;
+        min-width: 120px;
+        border: none;
+        outline: none;
+        background: transparent;
+        color: var(--text);
+        font: inherit;
+      }
+
+      .token-input input::placeholder {
+        color: var(--text-dim);
+      }
+
+      .record-intro {
+        color: var(--text-dim);
+        font-size: 0.8rem;
+        line-height: 1.45;
+      }
+
+      .proof-inline-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .proof-inline-meta .source-badge {
+        min-height: 26px;
+      }
+
+      @media (max-width: 1320px) {
+        .d2-workspace.has-drawer {
+          grid-template-columns: minmax(0, 1.2fr) minmax(300px, 344px);
+        }
+
+        .search-wrap.compact {
+          flex-basis: 176px;
+          min-width: 176px;
+        }
+
+        .search-wrap.compact:focus-within {
+          flex-basis: 208px;
+        }
+      }
+
+      @media (max-width: 1180px) {
+        .d2-workspace.has-drawer {
+          grid-template-columns: 1fr;
+        }
+
+        .drawer-card {
+          position: static;
+        }
+
+        .readiness-bar {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 1100px) {
+        .benefit-grid,
+        .source-stack {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .toolbar-row,
+        .master-card .toolbar-row {
+          flex-direction: row;
+          align-items: center;
+        }
+
+        .toolbar-sequence {
+          flex-wrap: nowrap;
+        }
+
+        .search-wrap.compact {
+          flex-basis: 168px;
+          min-width: 168px;
+        }
+
+        .search-wrap.compact:focus-within {
+          flex-basis: 192px;
+        }
+
+        .tool-button.primary {
+          flex: 0 0 auto;
+        }
+
+        .progress-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <svg aria-hidden="true" width="0" height="0" style="position: absolute">
+      <symbol id="icon-profile" viewBox="0 0 24 24">
+        <path d="M12 12.75a4.875 4.875 0 1 0 0-9.75 4.875 4.875 0 0 0 0 9.75Zm0 2.25c-4.142 0-7.5 2.575-7.5 5.75a.75.75 0 0 0 .75.75h13.5a.75.75 0 0 0 .75-.75c0-3.175-3.358-5.75-7.5-5.75Z" />
+      </symbol>
+      <symbol id="icon-jobs" viewBox="0 0 24 24">
+        <path d="M5.25 4.5A2.25 2.25 0 0 0 3 6.75v10.5a2.25 2.25 0 0 0 2.25 2.25h13.5A2.25 2.25 0 0 0 21 17.25V6.75A2.25 2.25 0 0 0 18.75 4.5h-3.9a2.85 2.85 0 0 0-5.7 0h-3.9Zm5.1 0a1.65 1.65 0 0 1 3.3 0h-3.3Zm-3.6 5.25h10.5a.75.75 0 0 1 0 1.5H6.75a.75.75 0 0 1 0-1.5Zm0 3.75h7.5a.75.75 0 0 1 0 1.5h-7.5a.75.75 0 0 1 0-1.5Z" />
+      </symbol>
+      <symbol id="icon-apps" viewBox="0 0 24 24">
+        <path d="M4.5 4.5h6.75v6.75H4.5V4.5Zm8.25 0h6.75v6.75h-6.75V4.5ZM4.5 12.75h6.75v6.75H4.5v-6.75Zm8.25 0h6.75v6.75h-6.75v-6.75Z" />
+      </symbol>
+      <symbol id="icon-collapse" viewBox="0 0 24 24">
+        <path d="M6.75 3h10.5A2.25 2.25 0 0 1 19.5 5.25v13.5A2.25 2.25 0 0 1 17.25 21H6.75A2.25 2.25 0 0 1 4.5 18.75V5.25A2.25 2.25 0 0 1 6.75 3Zm2.25 1.5H6.75A.75.75 0 0 0 6 5.25v13.5c0 .414.336.75.75.75H9V4.5Zm1.5 0v15h6.75a.75.75 0 0 0 .75-.75V5.25a.75.75 0 0 0-.75-.75H10.5Zm3.22 7.5 1.78-1.78a.75.75 0 1 0-1.06-1.06l-3.06 3.06a.75.75 0 0 0 0 1.06l3.06 3.06a.75.75 0 0 0 1.06-1.06L13.72 12Z" />
+      </symbol>
+      <symbol id="icon-chevron" viewBox="0 0 24 24">
+        <path d="M6.97 9.97a.75.75 0 0 1 1.06 0L12 13.94l3.97-3.97a.75.75 0 1 1 1.06 1.06l-4.5 4.5a.75.75 0 0 1-1.06 0l-4.5-4.5a.75.75 0 0 1 0-1.06Z" />
+      </symbol>
+      <symbol id="icon-arrow" viewBox="0 0 24 24">
+        <path d="M6.75 12a.75.75 0 0 1 .75-.75h7.69l-2.97-2.97a.75.75 0 0 1 1.06-1.06l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 1 1-1.06-1.06l2.97-2.97H7.5A.75.75 0 0 1 6.75 12Z" />
+      </symbol>
+      <symbol id="icon-note" viewBox="0 0 24 24">
+        <path d="M12 2.75a9.25 9.25 0 1 0 0 18.5 9.25 9.25 0 0 0 0-18.5Zm0 5a.875.875 0 1 1 0 1.75.875.875 0 0 1 0-1.75Zm1 9.5h-2v-6h2v6Z" />
+      </symbol>
+      <symbol id="icon-search" viewBox="0 0 24 24">
+        <path d="M10.5 4.5a6 6 0 1 0 3.771 10.667l3.281 3.281a.75.75 0 1 0 1.06-1.06l-3.28-3.281A6 6 0 0 0 10.5 4.5Zm0 1.5a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9Z" />
+      </symbol>
+      <symbol id="icon-filter" viewBox="0 0 24 24">
+        <path d="M4.5 6A.75.75 0 0 1 5.25 5.25h13.5a.75.75 0 0 1 .53 1.28L14 11.81v5.44a.75.75 0 0 1-1.19.61l-2.25-1.69a.75.75 0 0 1-.31-.6v-3.76L4.72 6.53A.75.75 0 0 1 4.5 6Z" />
+      </symbol>
+      <symbol id="icon-columns" viewBox="0 0 24 24">
+        <path d="M4.5 5.25A2.25 2.25 0 0 1 6.75 3h10.5A2.25 2.25 0 0 1 19.5 5.25v13.5A2.25 2.25 0 0 1 17.25 21H6.75A2.25 2.25 0 0 1 4.5 18.75V5.25Zm6.75-.75H6.75a.75.75 0 0 0-.75.75v13.5c0 .414.336.75.75.75h4.5V4.5Zm1.5 0v15h4.5a.75.75 0 0 0 .75-.75V5.25a.75.75 0 0 0-.75-.75h-4.5Z" />
+      </symbol>
+      <symbol id="icon-sort" viewBox="0 0 24 24">
+        <path d="M7.5 4.5a.75.75 0 0 1 .75.75v11.69l1.72-1.72a.75.75 0 1 1 1.06 1.06l-3 3a.75.75 0 0 1-1.06 0l-3-3a.75.75 0 1 1 1.06-1.06l1.72 1.72V5.25A.75.75 0 0 1 7.5 4.5Zm9 15a.75.75 0 0 1-.75-.75V7.06l-1.72 1.72a.75.75 0 1 1-1.06-1.06l3-3a.75.75 0 0 1 1.06 0l3 3a.75.75 0 0 1-1.06 1.06l-1.72-1.72v11.69a.75.75 0 0 1-.75.75Z" />
+      </symbol>
+      <symbol id="icon-calendar" viewBox="0 0 24 24">
+        <path d="M7.5 3a.75.75 0 0 1 .75.75V5.25h7.5V3.75a.75.75 0 0 1 1.5 0V5.25h.75A2.25 2.25 0 0 1 20.25 7.5v10.5A2.25 2.25 0 0 1 18 20.25H6A2.25 2.25 0 0 1 3.75 18V7.5A2.25 2.25 0 0 1 6 5.25h.75V3.75A.75.75 0 0 1 7.5 3Zm11.25 6H5.25V18c0 .414.336.75.75.75h12c.414 0 .75-.336.75-.75V9Z" />
+      </symbol>
+      <symbol id="icon-help" viewBox="0 0 24 24">
+        <path d="M12 2.75a9.25 9.25 0 1 0 0 18.5 9.25 9.25 0 0 0 0-18.5Zm0 14.5a1 1 0 1 1 0-2 1 1 0 0 1 0 2Zm1.37-6.82-.62.42c-.41.27-.75.72-.75 1.4v.25a.75.75 0 0 1-1.5 0v-.25c0-1.03.55-1.9 1.42-2.47l.62-.42c.48-.33.71-.7.71-1.17 0-.82-.66-1.4-1.62-1.4-.83 0-1.51.35-2.03 1.04a.75.75 0 1 1-1.2-.9c.79-1.04 1.91-1.64 3.23-1.64 1.85 0 3.12 1.15 3.12 2.9 0 .97-.47 1.79-1.38 2.39Z" />
+      </symbol>
+      <symbol id="icon-check" viewBox="0 0 24 24">
+        <path d="M9.55 16.2 5.6 12.25a.75.75 0 1 1 1.06-1.06l2.89 2.89 7.79-7.79a.75.75 0 0 1 1.06 1.06l-8.85 8.85a.75.75 0 0 1-1.06 0Z" />
+      </symbol>
+    </svg>
+
+    <main>
+      <article class="app-shell">
+        <aside class="sidebar">
+          <div class="sidebar-top">
+            <div class="brand">
+              <div class="brand-mark">JF</div>
+              <strong>Job Filter</strong>
+            </div>
+            <button class="icon-button" aria-label="Collapse sidebar">
+              <svg class="icon"><use href="#icon-collapse"></use></svg>
+            </button>
+          </div>
+
+          <nav class="nav" aria-label="Primary">
+            <div class="nav-group">
+              <button class="nav-link active" type="button">
+                <svg class="icon"><use href="#icon-profile"></use></svg>
+                <span>Profile</span>
+              </button>
+              <div class="submenu" aria-label="Profile sections">
+                <button class="submenu-link active" type="button" data-screen-target="d1">Add your experience</button>
+                <button class="submenu-link" type="button" data-screen-target="d2">Check your history</button>
+              </div>
+            </div>
+
+            <div class="nav-group">
+              <button class="nav-link" type="button">
+                <svg class="icon"><use href="#icon-jobs"></use></svg>
+                <span>Jobs</span>
+              </button>
+            </div>
+
+            <div class="nav-group">
+              <button class="nav-link" type="button">
+                <svg class="icon"><use href="#icon-apps"></use></svg>
+                <span>Applications</span>
+              </button>
+            </div>
+          </nav>
+
+          <div class="sidebar-spacer"></div>
+
+          <button class="account-button" type="button">
+            <span>Account</span>
+            <svg class="icon"><use href="#icon-chevron"></use></svg>
+          </button>
+        </aside>
+
+        <div class="main-panel">
+          <section class="screen screen-d1 is-active" data-screen="d1" aria-labelledby="d1-title">
+            <div class="screen-shell">
+              <div class="route-row">
+                <button class="route-link" type="button">Profile</button>
+                <span class="route-sep">•</span>
+                <span class="route-current">Add your experience</span>
+              </div>
+
+              <div class="hero-grid">
+                <div class="hero-copy">
+                  <h1 id="d1-title">Build one job profile. Use it to drive better-fit applications.</h1>
+                  <p class="lead">
+                    Turn scattered experience into a reusable Profile that improves your role
+                    selection, strengthens your applications, and keeps every output closer to the
+                    truth. You aren't just building a resume; you are building the leverage to
+                    target fewer, better roles.
+                  </p>
+                </div>
+
+                <div class="source-stack" aria-label="Source chooser">
+                  <article class="source-card primary">
+                    <div class="source-copy">
+                      <strong>Sync Master Resume</strong>
+                      <p>The fastest way to establish your baseline experience. Best if your file is current and achievement-heavy.</p>
+                    </div>
+                    <button class="source-action" type="button">
+                      <span>Import resume</span>
+                      <svg class="icon"><use href="#icon-arrow"></use></svg>
+                    </button>
+                  </article>
+
+                  <article class="source-card">
+                    <div class="source-copy">
+                      <strong>Sync LinkedIn Profile</strong>
+                      <p>Best for capturing all titles, scope, and profile signals that your static resume might have missed.</p>
+                    </div>
+                    <button class="source-action" type="button">
+                      <span>Import LinkedIn</span>
+                      <svg class="icon"><use href="#icon-arrow"></use></svg>
+                    </button>
+                  </article>
+
+                  <article class="source-card">
+                    <div class="source-copy">
+                      <strong>Build Manually</strong>
+                      <p>For total control. Start with a clean slate to shape your story role-by-role without legacy data noise.</p>
+                    </div>
+                    <button class="source-action" type="button">
+                      <span>Start manually</span>
+                      <svg class="icon"><use href="#icon-arrow"></use></svg>
+                    </button>
+                  </article>
+                </div>
+              </div>
+
+              <div class="coach-note">
+                <svg class="icon"><use href="#icon-note"></use></svg>
+                <span>
+                  <strong>Your job search is in good hands.</strong> Job Filter extracts your data
+                  into a draft state first. You will review, refine, and approve every title,
+                  date, and outcome before the system uses them in a single application.
+                </span>
+              </div>
+
+              <div class="benefit-grid">
+                <article class="benefit-card">
+                  <strong>Stop Guessing, Start Winning</strong>
+                  <p>
+                    Stop wasting energy on "long shots." Use your Profile to find all of the roles
+                    where your background gives you a clear edge.
+                  </p>
+                </article>
+                <article class="benefit-card">
+                  <strong>Accelerate Your Job Search</strong>
+                  <p>
+                    Once your Profile is approved, use it to quickly generate tailored resumes,
+                    cover letters, and DMs that stay factually consistent and high-signal.
+                  </p>
+                </article>
+                <article class="benefit-card">
+                  <strong>Optimize Your Search Performance</strong>
+                  <p>
+                    Test different "Playbooks" to see which resumes and outreach methods actually
+                    convert to interviews. Job Filter turns the black box into a measurable funnel.
+                  </p>
+                </article>
+              </div>
+            </div>
+          </section>
+
+          <section class="screen screen-d2" data-screen="d2" aria-labelledby="d2-title">
+            <div class="screen-shell">
+              <div class="d2-stack">
+                <div class="route-row">
+                  <button class="route-link" type="button">Profile</button>
+                  <span class="route-sep">•</span>
+                  <span class="route-current">Check your history</span>
+                </div>
+
+                <div class="screen-copy">
+                  <h1 id="d2-title">Clean the few facts that will decide where your search can go next.</h1>
+                  <p class="lead">
+                    Review only the roles, responsibilities, outcomes, and skills that change
+                    downstream decisions. When this workspace is clean, Job Filter can help
+                    without making you recheck the same history on every role.
+                  </p>
+                </div>
+
+                <section class="readiness-bar" aria-label="Verification progress">
+                  <div class="readiness-primary">
+                    <span class="readiness-label">Verification progress</span>
+                    <p class="readiness-copy">
+                      Once you verify crucial info like roles, responsibilities, outcomes, and
+                      skills, Job Filter can confidently help you find and apply to roles best
+                      suited for you.
+                    </p>
+
+                    <div class="progress-grid">
+                      <article class="progress-card">
+                        <div class="progress-head">
+                          <strong>Role identity and timeline</strong>
+                          <span>2/4 verified</span>
+                        </div>
+                        <div class="progress-meter"><span style="width: 50%"></span></div>
+                        <div class="mix-row">
+                          <span class="mix-tag"><span class="mix-dot imported"></span>Imported 1</span>
+                          <span class="mix-tag"><span class="mix-dot conflict"></span>Conflict 2</span>
+                          <span class="mix-tag"><span class="mix-dot verified"></span>Verified 1</span>
+                        </div>
+                      </article>
+                      <article class="progress-card">
+                        <div class="progress-head">
+                          <strong>Responsibilities</strong>
+                          <span>3/4 verified</span>
+                        </div>
+                        <div class="progress-meter"><span style="width: 75%"></span></div>
+                        <div class="mix-row">
+                          <span class="mix-tag"><span class="mix-dot imported"></span>Imported 0</span>
+                          <span class="mix-tag"><span class="mix-dot conflict"></span>Conflict 1</span>
+                          <span class="mix-tag"><span class="mix-dot verified"></span>Verified 3</span>
+                        </div>
+                      </article>
+                      <article class="progress-card">
+                        <div class="progress-head">
+                          <strong>Outcomes</strong>
+                          <span>2/4 verified</span>
+                        </div>
+                        <div class="progress-meter"><span style="width: 50%"></span></div>
+                        <div class="mix-row">
+                          <span class="mix-tag"><span class="mix-dot imported"></span>Imported 0</span>
+                          <span class="mix-tag"><span class="mix-dot conflict"></span>Conflict 2</span>
+                          <span class="mix-tag"><span class="mix-dot verified"></span>Verified 2</span>
+                        </div>
+                      </article>
+                      <article class="progress-card">
+                        <div class="progress-head">
+                          <strong>Skills and tools</strong>
+                          <span>3/4 verified</span>
+                        </div>
+                        <div class="progress-meter"><span style="width: 75%"></span></div>
+                        <div class="mix-row">
+                          <span class="mix-tag"><span class="mix-dot imported"></span>Imported 1</span>
+                          <span class="mix-tag"><span class="mix-dot conflict"></span>Conflict 0</span>
+                          <span class="mix-tag"><span class="mix-dot verified"></span>Verified 3</span>
+                        </div>
+                      </article>
+                    </div>
+                  </div>
+
+                  <div class="readiness-secondary">
+                    <span class="helper-line">Blockers stay visible until you resolve the facts that still make reuse risky.</span>
+
+                    <div class="hotspot-row" aria-label="Blocker hotspots">
+                      <button class="hotspot-button" type="button" data-hotspot-target="northstar-staff" data-group-open="northstar">
+                        <span class="hotspot-dot"></span>
+                        <span>Northstar timeline blocker</span>
+                      </button>
+                      <button class="hotspot-button" type="button" data-hotspot-target="northstar-staff" data-group-open="northstar">
+                        <span class="hotspot-dot"></span>
+                        <span>Northstar title blocker</span>
+                      </button>
+                      <button class="hotspot-button" type="button" data-hotspot-target="meridian-ops" data-group-open="meridian">
+                        <span class="hotspot-dot"></span>
+                        <span>Meridian scope blocker</span>
+                      </button>
+                    </div>
+
+                    <div class="entity-strip" aria-label="Company completion">
+                      <span class="entity-chip">Northstar Labs • 2 Roles • 6/11 Claims Verified</span>
+                      <span class="entity-chip">Meridian Health • 1 Role • 5/7 Claims Verified</span>
+                      <span class="entity-chip complete"><svg class="icon"><use href="#icon-check"></use></svg>Independent Consulting • 1 Role • 5/5 Claims Verified</span>
+                    </div>
+
+                    <div class="readiness-actions">
+                      <button class="action-button" type="button" disabled>
+                        Continue to Role Discovery
+                        <span class="count">Resolve 4 blockers</span>
+                      </button>
+                      <span class="summary-note">
+                        At least one role must exist, and every included role must clear the
+                        required categories before Role Discovery unlocks.
+                      </span>
+                    </div>
+                  </div>
+                </section>
+
+                <div class="workspace-grid d2-workspace" data-d2-workspace>
+                  <section class="table-card master-card">
+                    <div class="card-head">
+                      <div>
+                        <h2>Check each role</h2>
+                        <p>Keep chronology visible, then open only the role you need to verify.</p>
+                      </div>
+                    </div>
+
+                    <div class="toolbar-row">
+                      <div class="toolbar-sequence">
+                        <div class="search-wrap compact">
+                          <svg class="icon"><use href="#icon-search"></use></svg>
+                          <input class="search-field" type="search" value="" placeholder="Search roles" aria-label="Search roles" />
+                        </div>
+                        <button class="tool-button icon-only" type="button" aria-label="Filters" data-tooltip="Filter By Blockers, Status, Source, Or Work Mode">
+                          <svg class="icon"><use href="#icon-filter"></use></svg>
+                        </button>
+                        <button class="tool-button icon-only" type="button" aria-label="Columns" data-tooltip="Show City, State, Work Mode, Compensation, Or Preview Signals">
+                          <svg class="icon"><use href="#icon-columns"></use></svg>
+                        </button>
+                        <button class="tool-button icon-only" type="button" aria-label="Sort" data-tooltip="Sort By Chronology, Blockers, Or Last Update">
+                          <svg class="icon"><use href="#icon-sort"></use></svg>
+                        </button>
+                        <button class="tool-button primary" type="button">Add role</button>
+                      </div>
+                    </div>
+
+                    <div class="grouped-master-wrap">
+                      <table class="grouped-history-table">
+                        <thead>
+                          <tr>
+                            <th>Company</th>
+                            <th>Role</th>
+                            <th>Dates</th>
+                            <th>Status</th>
+                            <th>Blockers</th>
+                          </tr>
+                        </thead>
+
+                        <tbody class="company-group" data-group="northstar">
+                          <tr class="company-group-row">
+                            <td colspan="5">
+                              <button class="group-toggle" type="button" data-group-toggle="northstar" aria-expanded="true">
+                                <span class="group-toggle-left">
+                                  <svg class="icon"><use href="#icon-chevron"></use></svg>
+                                  <strong>Northstar Labs</strong>
+                                </span>
+                                <span class="group-toggle-right">
+                                  <span class="group-meta group-summary">2 Roles • 7/10 Claims Verified</span>
+                                  <span class="group-meta blockers">3 Blockers</span>
+                                  <span class="group-meta">0/2 roles verified</span>
+                                </span>
+                              </button>
+                            </td>
+                          </tr>
+                          <tr class="group-action-row">
+                            <td colspan="5">
+                              <div class="group-action-strip">
+                                <span class="group-action-copy">Insert a role here or reorder this company without leaving the table.</span>
+                                <div class="group-action-buttons">
+                                  <span class="drag-handle" aria-hidden="true"><svg class="icon"><use href="#icon-sort"></use></svg></span>
+                                  <button class="record-action compact" type="button">Move up</button>
+                                  <button class="record-action compact" type="button">Move down</button>
+                                  <button class="record-action compact" type="button">Insert role</button>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                          <tr class="role-row" tabindex="0" data-role-target="northstar-staff">
+                            <td>
+                              <div class="company-lane cue-conflict">
+                                <span class="company-anchor">Northstar Labs</span>
+                                <span class="role-carry">Staff Product Operations Lead</span>
+                              </div>
+                            </td>
+                            <td>
+                              <div class="role-cell">
+                                <strong>Staff Product Operations Lead</strong>
+                                <div class="preview-signals">
+                                  <span class="preview-signal">4 responsibilities</span>
+                                  <span class="preview-signal">3 outcomes</span>
+                                  <span class="preview-signal">6 skills / tools</span>
+                                </div>
+                                <div class="row-hover-actions">
+                                  <span class="drag-handle" aria-hidden="true"><svg class="icon"><use href="#icon-sort"></use></svg></span>
+                                  <button class="record-action compact" type="button">Edit details</button>
+                                  <button class="record-action compact" type="button">Move up</button>
+                                  <button class="record-action compact" type="button">Move down</button>
+                                  <button class="record-action compact" type="button">Archive role</button>
+                                </div>
+                              </div>
+                            </td>
+                            <td>Jan 2023 - Present</td>
+                            <td>
+                              <div class="status-cell">
+                                <span class="status-badge conflict">Conflict</span>
+                              </div>
+                            </td>
+                            <td>
+                              <div class="review-cell">
+                                <strong>2</strong>
+                                <span class="cell-meta">Blockers</span>
+                              </div>
+                            </td>
+                          </tr>
+                          <tr class="role-row" tabindex="0" data-role-target="northstar-revops">
+                            <td>
+                              <div class="company-lane cue-imported">
+                                <span class="company-anchor">Northstar Labs</span>
+                                <span class="role-carry">Senior Revenue Operations Manager</span>
+                              </div>
+                            </td>
+                            <td>
+                              <div class="role-cell">
+                                <strong>Senior Revenue Operations Manager</strong>
+                                <div class="preview-signals">
+                                  <span class="preview-signal">3 responsibilities</span>
+                                  <span class="preview-signal">2 outcomes</span>
+                                  <span class="preview-signal">5 skills / tools</span>
+                                </div>
+                                <div class="row-hover-actions">
+                                  <span class="drag-handle" aria-hidden="true"><svg class="icon"><use href="#icon-sort"></use></svg></span>
+                                  <button class="record-action compact" type="button">Edit details</button>
+                                  <button class="record-action compact" type="button">Move up</button>
+                                  <button class="record-action compact" type="button">Move down</button>
+                                  <button class="record-action compact" type="button">Archive role</button>
+                                </div>
+                              </div>
+                            </td>
+                            <td>Apr 2021 - Dec 2022</td>
+                            <td>
+                              <div class="status-cell">
+                                <span class="status-badge imported">Imported</span>
+                              </div>
+                            </td>
+                            <td>
+                              <div class="review-cell">
+                                <strong>1</strong>
+                                <span class="cell-meta">Blockers</span>
+                              </div>
+                            </td>
+                          </tr>
+                        </tbody>
+
+                        <tbody class="company-group" data-group="meridian">
+                          <tr class="company-group-row">
+                            <td colspan="5">
+                              <button class="group-toggle" type="button" data-group-toggle="meridian" aria-expanded="true">
+                                <span class="group-toggle-left">
+                                  <svg class="icon"><use href="#icon-chevron"></use></svg>
+                                  <strong>Meridian Health</strong>
+                                </span>
+                                <span class="group-toggle-right">
+                                  <span class="group-meta group-summary">1 Role • 2/4 Claims Verified</span>
+                                  <span class="group-meta blockers">1 Blocker</span>
+                                  <span class="group-meta">0/1 roles verified</span>
+                                </span>
+                              </button>
+                            </td>
+                          </tr>
+                          <tr class="group-action-row">
+                            <td colspan="5">
+                              <div class="group-action-strip">
+                                <span class="group-action-copy">Add a role in place or adjust company order without leaving chronology.</span>
+                                <div class="group-action-buttons">
+                                  <span class="drag-handle" aria-hidden="true"><svg class="icon"><use href="#icon-sort"></use></svg></span>
+                                  <button class="record-action compact" type="button">Move up</button>
+                                  <button class="record-action compact" type="button">Move down</button>
+                                  <button class="record-action compact" type="button">Insert role</button>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                          <tr class="role-row" tabindex="0" data-role-target="meridian-ops">
+                            <td>
+                              <div class="company-lane cue-conflict">
+                                <span class="company-anchor">Meridian Health</span>
+                                <span class="role-carry">Senior Operations Manager</span>
+                              </div>
+                            </td>
+                            <td>
+                              <div class="role-cell">
+                                <strong>Senior Operations Manager</strong>
+                                <div class="preview-signals">
+                                  <span class="preview-signal">5 responsibilities</span>
+                                  <span class="preview-signal">2 outcomes</span>
+                                  <span class="preview-signal">4 skills / tools</span>
+                                </div>
+                                <div class="row-hover-actions">
+                                  <span class="drag-handle" aria-hidden="true"><svg class="icon"><use href="#icon-sort"></use></svg></span>
+                                  <button class="record-action compact" type="button">Edit details</button>
+                                  <button class="record-action compact" type="button">Move up</button>
+                                  <button class="record-action compact" type="button">Move down</button>
+                                  <button class="record-action compact" type="button">Archive role</button>
+                                </div>
+                              </div>
+                            </td>
+                            <td>Mar 2020 - Dec 2022</td>
+                            <td>
+                              <div class="status-cell">
+                                <span class="status-badge conflict">Conflict</span>
+                              </div>
+                            </td>
+                            <td>
+                              <div class="review-cell">
+                                <strong>1</strong>
+                                <span class="cell-meta">Blockers</span>
+                              </div>
+                            </td>
+                          </tr>
+                        </tbody>
+
+                        <tbody class="company-group" data-group="consulting">
+                          <tr class="company-group-row">
+                            <td colspan="5">
+                              <button class="group-toggle" type="button" data-group-toggle="consulting" aria-expanded="true">
+                                <span class="group-toggle-left">
+                                  <svg class="icon"><use href="#icon-chevron"></use></svg>
+                                  <strong>Independent Consulting</strong>
+                                </span>
+                                <span class="group-toggle-right">
+                                  <span class="group-meta group-summary">1 Role • 5/5 Claims Verified</span>
+                                  <span class="group-meta">0 Blockers</span>
+                                  <span class="group-meta">1/1 roles verified</span>
+                                  <span class="group-meta complete"><svg class="icon"><use href="#icon-check"></use></svg>All verified</span>
+                                </span>
+                              </button>
+                            </td>
+                          </tr>
+                          <tr class="group-action-row">
+                            <td colspan="5">
+                              <div class="group-action-strip">
+                                <span class="group-action-copy">Keep chronology fixed, or insert another consulting role directly here.</span>
+                                <div class="group-action-buttons">
+                                  <span class="drag-handle" aria-hidden="true"><svg class="icon"><use href="#icon-sort"></use></svg></span>
+                                  <button class="record-action compact" type="button">Move up</button>
+                                  <button class="record-action compact" type="button">Move down</button>
+                                  <button class="record-action compact" type="button">Insert role</button>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                          <tr class="role-row" tabindex="0" data-role-target="consulting-growth">
+                            <td>
+                              <div class="company-lane cue-verified">
+                                <span class="company-anchor">Independent Consulting</span>
+                                <span class="role-carry">Fractional Growth Advisor</span>
+                              </div>
+                            </td>
+                            <td>
+                              <div class="role-cell">
+                                <strong>Fractional Growth Advisor</strong>
+                                <div class="preview-signals">
+                                  <span class="preview-signal">3 responsibilities</span>
+                                  <span class="preview-signal">2 outcomes</span>
+                                  <span class="preview-signal">5 skills / tools</span>
+                                </div>
+                                <div class="row-hover-actions">
+                                  <span class="drag-handle" aria-hidden="true"><svg class="icon"><use href="#icon-sort"></use></svg></span>
+                                  <button class="record-action compact" type="button">Edit details</button>
+                                  <button class="record-action compact" type="button">Move up</button>
+                                  <button class="record-action compact" type="button">Move down</button>
+                                  <button class="record-action compact" type="button">Archive role</button>
+                                </div>
+                              </div>
+                            </td>
+                            <td>Jun 2018 - Feb 2020</td>
+                            <td>
+                              <div class="status-cell">
+                                <span class="status-badge verified">Verified</span>
+                                <span class="verified-mark"><svg class="icon"><use href="#icon-check"></use></svg>Cleared</span>
+                              </div>
+                            </td>
+                            <td>
+                              <div class="review-cell">
+                                <strong>0</strong>
+                                <span class="cell-meta">Blockers</span>
+                              </div>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
+
+                  <aside class="inspector-card drawer-card" data-drawer aria-hidden="true">
+                    <div class="inspector-head">
+                      <div class="drawer-head-top">
+                        <div>
+                          <span class="inspector-kicker">Role details</span>
+                          <h2>Role details</h2>
+                          <p class="drawer-save-state">Auto-save on • Saved just now</p>
+                        </div>
+                        <button class="tool-button drawer-close" type="button" data-drawer-close>Close drawer</button>
+                      </div>
+                    </div>
+
+                    <div class="inspector-body">
+                      <section class="drawer-panel" data-role-panel="northstar-staff">
+                        <section class="editor-section">
+                          <h3 class="panel-title">Staff Product Operations Lead</h3>
+                          <p class="panel-subtitle">Northstar Labs • Open one role at a time, then close the drawer when the facts are stable.</p>
+                        </section>
+
+                        <section class="editor-section">
+                          <div class="section-head">
+                            <h3>Role identity</h3>
+                            <span class="module-status conflict">Blockers</span>
+                          </div>
+                          <div class="form-grid">
+                            <label class="field">
+                              <span class="field-label">Company</span>
+                              <input class="control-input" type="text" value="Northstar Labs" />
+                            </label>
+                            <label class="field">
+                              <span class="field-label">Role title</span>
+                              <input class="control-input" type="text" value="Staff Product Operations Lead" />
+                              <span class="field-error">LinkedIn says Staff Revenue Operations Lead. Choose the title you would actually reuse.</span>
+                            </label>
+                            <label class="field">
+                              <span class="field-label">City</span>
+                              <input class="control-input" type="text" value="Chicago" />
+                            </label>
+                            <label class="field">
+                              <span class="field-label">State</span>
+                              <button class="control-select" type="button"><span>IL</span><svg class="icon"><use href="#icon-chevron"></use></svg></button>
+                            </label>
+                            <label class="field">
+                              <span class="field-label">Work mode</span>
+                              <button class="control-select" type="button"><span>Hybrid</span><svg class="icon"><use href="#icon-chevron"></use></svg></button>
+                            </label>
+                            <label class="field">
+                              <span class="field-label">Employment type</span>
+                              <button class="control-select" type="button"><span>Full-time</span><svg class="icon"><use href="#icon-chevron"></use></svg></button>
+                            </label>
+                          </div>
+                        </section>
+
+                        <section class="editor-section">
+                          <div class="section-head">
+                            <h3>Timeline</h3>
+                            <span class="module-status conflict">Blockers</span>
+                          </div>
+                          <div class="form-grid">
+                            <label class="field">
+                              <span class="field-label"><svg class="icon"><use href="#icon-calendar"></use></svg>Start date</span>
+                              <button class="control-select" type="button"><span>Jan 2023</span><svg class="icon"><use href="#icon-chevron"></use></svg></button>
+                              <span class="field-error">Resume says Jan 2023. LinkedIn says Feb 2023. Pick the month you would actually reuse.</span>
+                            </label>
+                            <label class="field">
+                              <span class="field-label"><svg class="icon"><use href="#icon-calendar"></use></svg>End date</span>
+                              <button class="control-select" type="button"><span>Present</span><svg class="icon"><use href="#icon-chevron"></use></svg></button>
+                            </label>
+                            <label class="field full">
+                              <span class="field-label">Present role</span>
+                              <label class="check-row">
+                                <input type="checkbox" checked />
+                                <span>Enable if its your present role</span>
+                              </label>
+                            </label>
+                          </div>
+                        </section>
+
+                        <section class="editor-section">
+                          <div class="section-head">
+                            <h3 data-tooltip="Use One Concrete Statement You Would Reuse." tabindex="0">Responsibilities</h3>
+                            <div class="section-actions">
+                              <span class="module-status verified">3 verified</span>
+                              <button class="record-action" type="button">Add row</button>
+                            </div>
+                          </div>
+                          <div class="repeatable-list">
+                            <article class="module-record">
+                              <div class="module-record-head">
+                                <strong>Responsibility 1</strong>
+                                <span class="source-badge">From your resume</span>
+                              </div>
+                              <div class="record-toolbar">
+                                <span class="reorder-cluster"><span class="drag-handle" aria-hidden="true"><svg class="icon"><use href="#icon-sort"></use></svg></span><button class="record-action compact" type="button">Move up</button><button class="record-action compact" type="button">Move down</button></span>
+                                <button class="record-action compact" type="button">Remove</button>
+                              </div>
+                              <textarea class="control-textarea">Owned planning cadence for pipeline, forecast, and launch readiness.</textarea>
+                              <div class="record-intro">Keep the scope tight enough to say later without adding context the source cannot support.</div>
+                            </article>
+                            <article class="module-record">
+                              <div class="module-record-head">
+                                <strong>Responsibility 2</strong>
+                                <span class="source-badge">From LinkedIn</span>
+                              </div>
+                              <div class="record-toolbar">
+                                <span class="reorder-cluster"><span class="drag-handle" aria-hidden="true"><svg class="icon"><use href="#icon-sort"></use></svg></span><button class="record-action compact" type="button">Move up</button><button class="record-action compact" type="button">Move down</button></span>
+                                <button class="record-action compact" type="button">Remove</button>
+                              </div>
+                              <textarea class="control-textarea">Aligned product, revenue, and lifecycle teams on one operating model.</textarea>
+                              <div class="record-intro">Edit the statement itself, not a stack of secondary subfields, before you reuse it.</div>
+                            </article>
+                          </div>
+                        </section>
+
+                        <section class="editor-section">
+                          <div class="section-head">
+                            <h3 data-tooltip="Keep It Measurable Or Use Safer Wording." tabindex="0">Outcomes</h3>
+                            <div class="section-actions">
+                              <span class="module-status conflict">Blockers</span>
+                              <button class="record-action" type="button">Add row</button>
+                            </div>
+                          </div>
+                          <div class="repeatable-list">
+                            <article class="module-record">
+                              <div class="module-record-head">
+                                <strong>Outcome 1</strong>
+                                <span class="source-badge warn">Needs proof</span>
+                              </div>
+                              <div class="record-toolbar">
+                                <span class="reorder-cluster"><span class="drag-handle" aria-hidden="true"><svg class="icon"><use href="#icon-sort"></use></svg></span><button class="record-action compact" type="button">Move up</button><button class="record-action compact" type="button">Move down</button></span>
+                                <button class="record-action compact" type="button">Remove</button>
+                              </div>
+                              <textarea class="control-textarea">Reduced handoff lag across launch workflows.</textarea>
+                              <div class="proof-actions">
+                                <button class="proof-button primary compact" type="button">Use this</button>
+                                <button class="proof-button compact" type="button">Use safer wording</button>
+                                <button class="proof-button compact" type="button">Keep out</button>
+                                <button class="proof-button compact" type="button">Needs proof</button>
+                              </div>
+                              <div class="proof-drawer">
+                                <div class="proof-drawer-head">
+                                  <strong>Source evidence</strong>
+                                  <span class="source-badge">From LinkedIn</span>
+                                </div>
+                                <div class="helper-line">The source supports the improvement claim, but not the exact metric in wording you can safely reuse yet.</div>
+                                <button class="issue-link" type="button">See source</button>
+                              </div>
+                            </article>
+                            <article class="module-record">
+                              <div class="module-record-head">
+                                <strong>Outcome 2</strong>
+                                <span class="source-badge">Added by you</span>
+                              </div>
+                              <div class="record-toolbar">
+                                <span class="reorder-cluster"><span class="drag-handle" aria-hidden="true"><svg class="icon"><use href="#icon-sort"></use></svg></span><button class="record-action compact" type="button">Move up</button><button class="record-action compact" type="button">Move down</button></span>
+                                <button class="record-action compact" type="button">Remove</button>
+                              </div>
+                              <textarea class="control-textarea">Rebuilt forecast review so leaders could spot risk earlier.</textarea>
+                              <div class="proof-actions">
+                                <button class="proof-button primary compact" type="button">Use this</button>
+                                <button class="proof-button compact" type="button">Not accurate</button>
+                                <button class="proof-button compact" type="button">Keep out</button>
+                              </div>
+                            </article>
+                          </div>
+                        </section>
+
+                        <section class="editor-section">
+                          <div class="section-head">
+                            <h3>Hard skills, soft skills, and tools</h3>
+                            <span class="module-status verified">Mostly verified</span>
+                          </div>
+                          <div class="form-grid">
+                            <label class="field">
+                              <span class="field-label" data-tooltip="Add Searchable Hard Skills Only." tabindex="0">Hard skills <svg class="icon"><use href="#icon-help"></use></svg></span>
+                              <div class="token-input">
+                                <span class="token">SQL</span>
+                                <span class="token">Forecasting</span>
+                                <span class="token">Executive reporting cadence design</span>
+                                <input type="text" value="" placeholder="Search or add a hard skill" />
+                              </div>
+                            </label>
+                            <label class="field">
+                              <span class="field-label" data-tooltip="Keep These Specific, Not Generic." tabindex="0">Soft skills <svg class="icon"><use href="#icon-help"></use></svg></span>
+                              <div class="token-input">
+                                <span class="token">Cross-functional leadership</span>
+                                <span class="token">Executive communication</span>
+                                <input type="text" value="" placeholder="Search or add a soft skill" />
+                              </div>
+                            </label>
+                            <label class="field full">
+                              <span class="field-label" data-tooltip="List Real Systems You Actually Used." tabindex="0">Tools <svg class="icon"><use href="#icon-help"></use></svg></span>
+                              <div class="token-input">
+                                <span class="token">HubSpot</span>
+                                <span class="token">Looker</span>
+                                <span class="token">Asana</span>
+                                <input type="text" value="" placeholder="Search or add a tool" />
+                              </div>
+                            </label>
+                          </div>
+                        </section>
+
+                        <section class="editor-section">
+                          <div class="section-head">
+                            <h3>Compensation</h3>
+                          </div>
+                          <div class="form-grid">
+                            <label class="field">
+                              <span class="field-label">Base salary</span>
+                              <input class="control-input" type="text" value="$168,000" />
+                              <span class="field-inline-note">Format like $180,000.</span>
+                            </label>
+                            <label class="field">
+                              <span class="field-label">Target salary</span>
+                              <input class="control-input" type="text" value="$176,000" />
+                            </label>
+                            <label class="field">
+                              <span class="field-label">Currency</span>
+                              <button class="control-select" type="button"><span>USD</span><svg class="icon"><use href="#icon-chevron"></use></svg></button>
+                            </label>
+                          </div>
+                        </section>
+                      </section>
+
+                      <section class="drawer-panel" data-role-panel="northstar-revops">
+                        <section class="editor-section">
+                          <h3 class="panel-title">Senior Revenue Operations Manager</h3>
+                          <p class="panel-subtitle">Northstar Labs • Auto-save on • Saved just now.</p>
+                        </section>
+                        <section class="editor-section">
+                          <div class="section-head">
+                            <h3>Role identity</h3>
+                            <span class="module-status">Imported</span>
+                          </div>
+                          <div class="form-grid">
+                            <label class="field">
+                              <span class="field-label">Company</span>
+                              <input class="control-input" type="text" value="Northstar Labs" />
+                            </label>
+                            <label class="field">
+                              <span class="field-label">Role title</span>
+                              <input class="control-input" type="text" value="Senior Revenue Operations Manager" />
+                            </label>
+                            <label class="field">
+                              <span class="field-label">City</span>
+                              <input class="control-input" type="text" value="Chicago" />
+                            </label>
+                            <label class="field">
+                              <span class="field-label">State</span>
+                              <button class="control-select" type="button"><span>IL</span><svg class="icon"><use href="#icon-chevron"></use></svg></button>
+                            </label>
+                            <label class="field">
+                              <span class="field-label">Work mode</span>
+                              <button class="control-select" type="button"><span>Hybrid</span><svg class="icon"><use href="#icon-chevron"></use></svg></button>
+                            </label>
+                            <label class="field">
+                              <span class="field-label">Employment type</span>
+                              <button class="control-select" type="button"><span>Full-time</span><svg class="icon"><use href="#icon-chevron"></use></svg></button>
+                            </label>
+                          </div>
+                        </section>
+                        <section class="editor-section">
+                          <div class="section-head">
+                            <h3>Timeline</h3>
+                            <span class="module-status">Imported</span>
+                          </div>
+                          <div class="form-grid">
+                            <label class="field">
+                              <span class="field-label"><svg class="icon"><use href="#icon-calendar"></use></svg>Start date</span>
+                              <button class="control-select" type="button"><span>Apr 2021</span><svg class="icon"><use href="#icon-chevron"></use></svg></button>
+                            </label>
+                            <label class="field">
+                              <span class="field-label"><svg class="icon"><use href="#icon-calendar"></use></svg>End date</span>
+                              <button class="control-select" type="button"><span>Dec 2022</span><svg class="icon"><use href="#icon-chevron"></use></svg></button>
+                            </label>
+                            <label class="field full">
+                              <span class="field-label">Present role</span>
+                              <label class="check-row">
+                                <input type="checkbox" />
+                                <span>Enable if its your present role</span>
+                              </label>
+                            </label>
+                          </div>
+                        </section>
+                        <section class="editor-section">
+                          <div class="section-head">
+                            <h3 data-tooltip="Use One Concrete Statement You Would Reuse." tabindex="0">Responsibilities</h3>
+                            <div class="section-actions">
+                              <span class="module-status conflict">Blockers</span>
+                              <button class="record-action" type="button">Add row</button>
+                            </div>
+                          </div>
+                          <div class="repeatable-list">
+                            <article class="module-record">
+                              <div class="module-record-head">
+                                <strong>Responsibility 1</strong>
+                                <span class="source-badge">From LinkedIn</span>
+                              </div>
+                              <div class="record-toolbar">
+                                <span class="reorder-cluster"><span class="drag-handle" aria-hidden="true"><svg class="icon"><use href="#icon-sort"></use></svg></span><button class="record-action compact" type="button">Move up</button><button class="record-action compact" type="button">Move down</button></span>
+                                <button class="record-action compact" type="button">Remove</button>
+                              </div>
+                              <textarea class="control-textarea">Ran revenue planning cadence across pipeline, handoff, and forecast reviews.</textarea>
+                              <div class="record-intro">Tighten the scope to the wording you can safely use outside this table.</div>
+                            </article>
+                          </div>
+                        </section>
+                        <section class="editor-section">
+                          <div class="section-head">
+                            <h3 data-tooltip="Keep It Measurable Or Use Safer Wording." tabindex="0">Outcomes</h3>
+                            <div class="section-actions">
+                              <span class="module-status">Imported</span>
+                              <button class="record-action" type="button">Add row</button>
+                            </div>
+                          </div>
+                          <div class="repeatable-list">
+                            <article class="module-record">
+                              <div class="module-record-head">
+                                <strong>Outcome 1</strong>
+                                <span class="source-badge warn">Needs proof</span>
+                              </div>
+                              <div class="record-toolbar">
+                                <span class="reorder-cluster"><span class="drag-handle" aria-hidden="true"><svg class="icon"><use href="#icon-sort"></use></svg></span><button class="record-action compact" type="button">Move up</button><button class="record-action compact" type="button">Move down</button></span>
+                                <button class="record-action compact" type="button">Remove</button>
+                              </div>
+                              <textarea class="control-textarea">Tightened review cadence so pipeline surprises surfaced earlier.</textarea>
+                              <div class="proof-actions">
+                                <button class="proof-button compact" type="button">Use safer wording</button>
+                                <button class="proof-button compact" type="button">Keep out</button>
+                                <button class="proof-button compact" type="button">See source</button>
+                              </div>
+                              <div class="proof-drawer">
+                                <div class="proof-drawer-head">
+                                  <strong>Source evidence</strong>
+                                  <span class="source-badge">From LinkedIn</span>
+                                </div>
+                                <div class="helper-line">The source supports the review-change idea, but not a stronger claim without safer wording.</div>
+                                <button class="issue-link" type="button">See source</button>
+                              </div>
+                            </article>
+                          </div>
+                        </section>
+                        <section class="editor-section">
+                          <div class="section-head">
+                            <h3>Hard skills, soft skills, and tools</h3>
+                          </div>
+                          <div class="form-grid">
+                            <label class="field">
+                              <span class="field-label" data-tooltip="Add Searchable Hard Skills Only." tabindex="0">Hard skills <svg class="icon"><use href="#icon-help"></use></svg></span>
+                              <div class="token-input">
+                                <span class="token">Forecasting</span>
+                                <span class="token">Planning cadence</span>
+                                <input type="text" value="" placeholder="Search or add a hard skill" />
+                              </div>
+                            </label>
+                            <label class="field">
+                              <span class="field-label" data-tooltip="Keep These Specific, Not Generic." tabindex="0">Soft skills <svg class="icon"><use href="#icon-help"></use></svg></span>
+                              <div class="token-input">
+                                <span class="token">Cross-functional alignment</span>
+                                <input type="text" value="" placeholder="Search or add a soft skill" />
+                              </div>
+                            </label>
+                            <label class="field full">
+                              <span class="field-label" data-tooltip="List Real Systems You Actually Used." tabindex="0">Tools <svg class="icon"><use href="#icon-help"></use></svg></span>
+                              <div class="token-input">
+                                <span class="token">Looker</span>
+                                <span class="token">Asana</span>
+                                <input type="text" value="" placeholder="Search or add a tool" />
+                              </div>
+                            </label>
+                          </div>
+                        </section>
+                      </section>
+
+                      <section class="drawer-panel" data-role-panel="meridian-ops">
+                        <section class="editor-section">
+                          <h3 class="panel-title">Senior Operations Manager</h3>
+                          <p class="panel-subtitle">Meridian Health • Auto-save on • Saved just now.</p>
+                        </section>
+                        <section class="editor-section">
+                          <div class="section-head">
+                            <h3>Role identity</h3>
+                            <span class="module-status conflict">Blockers</span>
+                          </div>
+                          <div class="form-grid">
+                            <label class="field">
+                              <span class="field-label">Company</span>
+                              <input class="control-input" type="text" value="Meridian Health" />
+                            </label>
+                            <label class="field">
+                              <span class="field-label">Role title</span>
+                              <input class="control-input" type="text" value="Senior Operations Manager" />
+                            </label>
+                            <label class="field">
+                              <span class="field-label">City</span>
+                              <input class="control-input" type="text" value="Austin" />
+                            </label>
+                            <label class="field">
+                              <span class="field-label">State</span>
+                              <button class="control-select" type="button"><span>TX</span><svg class="icon"><use href="#icon-chevron"></use></svg></button>
+                            </label>
+                            <label class="field">
+                              <span class="field-label">Work mode</span>
+                              <button class="control-select" type="button"><span>Remote</span><svg class="icon"><use href="#icon-chevron"></use></svg></button>
+                            </label>
+                            <label class="field">
+                              <span class="field-label">Employment type</span>
+                              <button class="control-select" type="button"><span>Full-time</span><svg class="icon"><use href="#icon-chevron"></use></svg></button>
+                            </label>
+                          </div>
+                        </section>
+                        <section class="editor-section">
+                          <div class="section-head">
+                            <h3>Timeline</h3>
+                            <span class="module-status conflict">Blockers</span>
+                          </div>
+                          <div class="form-grid">
+                            <label class="field">
+                              <span class="field-label"><svg class="icon"><use href="#icon-calendar"></use></svg>Start date</span>
+                              <button class="control-select" type="button"><span>Mar 2020</span><svg class="icon"><use href="#icon-chevron"></use></svg></button>
+                            </label>
+                            <label class="field">
+                              <span class="field-label"><svg class="icon"><use href="#icon-calendar"></use></svg>End date</span>
+                              <button class="control-select" type="button"><span>Dec 2022</span><svg class="icon"><use href="#icon-chevron"></use></svg></button>
+                            </label>
+                            <label class="field full">
+                              <span class="field-label">Present role</span>
+                              <label class="check-row">
+                                <input type="checkbox" />
+                                <span>Enable if its your present role</span>
+                              </label>
+                            </label>
+                          </div>
+                        </section>
+                        <section class="editor-section">
+                          <div class="section-head">
+                            <h3 data-tooltip="Use One Concrete Statement You Would Reuse." tabindex="0">Responsibilities</h3>
+                            <div class="section-actions">
+                              <span class="module-status conflict">Blockers</span>
+                              <button class="record-action" type="button">Add row</button>
+                            </div>
+                          </div>
+                          <div class="repeatable-list">
+                            <article class="module-record">
+                              <div class="module-record-head">
+                                <strong>Responsibility 1</strong>
+                                <span class="source-badge">From LinkedIn</span>
+                              </div>
+                              <div class="record-toolbar">
+                                <span class="reorder-cluster"><span class="drag-handle" aria-hidden="true"><svg class="icon"><use href="#icon-sort"></use></svg></span><button class="record-action compact" type="button">Move up</button><button class="record-action compact" type="button">Move down</button></span>
+                                <button class="record-action compact" type="button">Remove</button>
+                              </div>
+                              <textarea class="control-textarea">Owned cross-functional operating reviews across service delivery, headcount, and planning.</textarea>
+                              <div class="field-error">The imported scope still sounds broader than the source can support. Rewrite it before reuse.</div>
+                            </article>
+                          </div>
+                        </section>
+                        <section class="editor-section">
+                          <div class="section-head">
+                            <h3 data-tooltip="Keep It Measurable Or Use Safer Wording." tabindex="0">Outcomes</h3>
+                            <div class="section-actions">
+                              <span class="module-status conflict">Blockers</span>
+                              <button class="record-action" type="button">Add row</button>
+                            </div>
+                          </div>
+                          <div class="repeatable-list">
+                            <article class="module-record">
+                              <div class="module-record-head">
+                                <strong>Outcome 1</strong>
+                                <span class="source-badge warn">Needs proof</span>
+                              </div>
+                              <div class="record-toolbar">
+                                <span class="reorder-cluster"><span class="drag-handle" aria-hidden="true"><svg class="icon"><use href="#icon-sort"></use></svg></span><button class="record-action compact" type="button">Move up</button><button class="record-action compact" type="button">Move down</button></span>
+                                <button class="record-action compact" type="button">Remove</button>
+                              </div>
+                              <textarea class="control-textarea">Improved service reviews so leadership could spot operational risk earlier.</textarea>
+                              <div class="proof-actions">
+                                <button class="proof-button compact" type="button">Use safer wording</button>
+                                <button class="proof-button compact" type="button">Not accurate</button>
+                                <button class="proof-button compact" type="button">See source</button>
+                              </div>
+                              <div class="proof-drawer">
+                                <div class="proof-drawer-head">
+                                  <strong>Source evidence</strong>
+                                  <span class="source-badge">From LinkedIn</span>
+                                </div>
+                                <div class="helper-line">The source supports the review improvement, but not stronger operational claims without a safer rewrite.</div>
+                                <button class="issue-link" type="button">See source</button>
+                              </div>
+                            </article>
+                          </div>
+                        </section>
+                        <section class="editor-section">
+                          <div class="section-head">
+                            <h3>Hard skills, soft skills, and tools</h3>
+                          </div>
+                          <div class="form-grid">
+                            <label class="field">
+                              <span class="field-label" data-tooltip="Add Searchable Hard Skills Only." tabindex="0">Hard skills <svg class="icon"><use href="#icon-help"></use></svg></span>
+                              <div class="token-input">
+                                <span class="token">Forecasting</span>
+                                <span class="token">Operations planning</span>
+                                <input type="text" value="" placeholder="Search or add a hard skill" />
+                              </div>
+                            </label>
+                            <label class="field">
+                              <span class="field-label" data-tooltip="Keep These Specific, Not Generic." tabindex="0">Soft skills <svg class="icon"><use href="#icon-help"></use></svg></span>
+                              <div class="token-input">
+                                <span class="token">Change management</span>
+                                <input type="text" value="" placeholder="Search or add a soft skill" />
+                              </div>
+                            </label>
+                            <label class="field full">
+                              <span class="field-label" data-tooltip="List Real Systems You Actually Used." tabindex="0">Tools <svg class="icon"><use href="#icon-help"></use></svg></span>
+                              <div class="token-input">
+                                <span class="token">Salesforce</span>
+                                <span class="token">Tableau</span>
+                                <input type="text" value="" placeholder="Search or add a tool" />
+                              </div>
+                            </label>
+                          </div>
+                        </section>
+                      </section>
+
+                      <section class="drawer-panel" data-role-panel="consulting-growth">
+                        <section class="editor-section">
+                          <h3 class="panel-title">Fractional Growth Advisor</h3>
+                          <p class="panel-subtitle">Independent Consulting • Auto-save on • Saved just now.</p>
+                        </section>
+                        <section class="editor-section">
+                          <div class="section-head">
+                            <h3>Role identity</h3>
+                            <span class="module-status verified">Verified</span>
+                          </div>
+                          <div class="form-grid">
+                            <label class="field">
+                              <span class="field-label">Company</span>
+                              <input class="control-input" type="text" value="Independent Consulting" />
+                            </label>
+                            <label class="field">
+                              <span class="field-label">Role title</span>
+                              <input class="control-input" type="text" value="Fractional Growth Advisor" />
+                            </label>
+                            <label class="field">
+                              <span class="field-label">City</span>
+                              <input class="control-input" type="text" value="Chicago" />
+                            </label>
+                            <label class="field">
+                              <span class="field-label">State</span>
+                              <button class="control-select" type="button"><span>IL</span><svg class="icon"><use href="#icon-chevron"></use></svg></button>
+                            </label>
+                            <label class="field">
+                              <span class="field-label">Work mode</span>
+                              <button class="control-select" type="button"><span>Remote</span><svg class="icon"><use href="#icon-chevron"></use></svg></button>
+                            </label>
+                            <label class="field">
+                              <span class="field-label">Employment type</span>
+                              <button class="control-select" type="button"><span>Consulting</span><svg class="icon"><use href="#icon-chevron"></use></svg></button>
+                            </label>
+                          </div>
+                        </section>
+                        <section class="editor-section">
+                          <div class="section-head">
+                            <h3>Timeline</h3>
+                            <span class="module-status verified">Verified</span>
+                          </div>
+                          <div class="form-grid">
+                            <label class="field">
+                              <span class="field-label"><svg class="icon"><use href="#icon-calendar"></use></svg>Start date</span>
+                              <button class="control-select" type="button"><span>Jun 2018</span><svg class="icon"><use href="#icon-chevron"></use></svg></button>
+                            </label>
+                            <label class="field">
+                              <span class="field-label"><svg class="icon"><use href="#icon-calendar"></use></svg>End date</span>
+                              <button class="control-select" type="button"><span>Feb 2020</span><svg class="icon"><use href="#icon-chevron"></use></svg></button>
+                            </label>
+                            <label class="field full">
+                              <span class="field-label">Present role</span>
+                              <label class="check-row">
+                                <input type="checkbox" />
+                                <span>Enable if its your present role</span>
+                              </label>
+                            </label>
+                          </div>
+                        </section>
+                        <section class="editor-section">
+                          <div class="section-head">
+                            <h3 data-tooltip="Use One Concrete Statement You Would Reuse." tabindex="0">Responsibilities</h3>
+                            <div class="section-actions">
+                              <span class="module-status verified">Verified</span>
+                              <button class="record-action" type="button">Add row</button>
+                            </div>
+                          </div>
+                          <div class="repeatable-list">
+                            <article class="module-record">
+                              <div class="module-record-head">
+                                <strong>Responsibility 1</strong>
+                                <span class="source-badge">Added by you</span>
+                              </div>
+                              <div class="record-toolbar">
+                                <span class="reorder-cluster"><span class="drag-handle" aria-hidden="true"><svg class="icon"><use href="#icon-sort"></use></svg></span><button class="record-action compact" type="button">Move up</button><button class="record-action compact" type="button">Move down</button></span>
+                                <button class="record-action compact" type="button">Remove</button>
+                              </div>
+                              <textarea class="control-textarea">Advised early-stage teams on messaging, funnel review, and practical growth experiments.</textarea>
+                            </article>
+                          </div>
+                        </section>
+                        <section class="editor-section">
+                          <div class="section-head">
+                            <h3 data-tooltip="Keep It Measurable Or Use Safer Wording." tabindex="0">Outcomes</h3>
+                            <span class="module-status verified">Verified</span>
+                          </div>
+                          <div class="repeatable-list">
+                            <article class="module-record">
+                              <div class="module-record-head">
+                                <strong>Outcome 1</strong>
+                                <span class="source-badge">Verified</span>
+                              </div>
+                              <div class="record-toolbar">
+                                <span class="reorder-cluster"><span class="drag-handle" aria-hidden="true"><svg class="icon"><use href="#icon-sort"></use></svg></span><button class="record-action compact" type="button">Move up</button><button class="record-action compact" type="button">Move down</button></span>
+                                <button class="record-action compact" type="button">Remove</button>
+                              </div>
+                              <textarea class="control-textarea">Helped early-stage clients tighten messaging and improve funnel quality.</textarea>
+                              <div class="proof-actions">
+                                <button class="proof-button primary compact" type="button">Use this</button>
+                                <button class="proof-button compact" type="button">See source</button>
+                              </div>
+                              <div class="proof-drawer">
+                                <div class="proof-drawer-head">
+                                  <strong>Source evidence</strong>
+                                  <span class="source-badge">Verified</span>
+                                </div>
+                                <div class="helper-line">This outcome is already safe to reuse because the wording matches the source you approved.</div>
+                                <button class="issue-link" type="button">See source</button>
+                              </div>
+                            </article>
+                          </div>
+                        </section>
+                        <section class="editor-section">
+                          <div class="section-head">
+                            <h3>Hard skills, soft skills, and tools</h3>
+                          </div>
+                          <div class="form-grid">
+                            <label class="field">
+                              <span class="field-label" data-tooltip="Add Searchable Hard Skills Only." tabindex="0">Hard skills <svg class="icon"><use href="#icon-help"></use></svg></span>
+                              <div class="token-input">
+                                <span class="token">Messaging strategy</span>
+                                <span class="token">Funnel analysis</span>
+                                <input type="text" value="" placeholder="Search or add a hard skill" />
+                              </div>
+                            </label>
+                            <label class="field">
+                              <span class="field-label" data-tooltip="Keep These Specific, Not Generic." tabindex="0">Soft skills <svg class="icon"><use href="#icon-help"></use></svg></span>
+                              <div class="token-input">
+                                <span class="token">Stakeholder advising</span>
+                                <input type="text" value="" placeholder="Search or add a soft skill" />
+                              </div>
+                            </label>
+                            <label class="field full">
+                              <span class="field-label" data-tooltip="List Real Systems You Actually Used." tabindex="0">Tools <svg class="icon"><use href="#icon-help"></use></svg></span>
+                              <div class="token-input">
+                                <span class="token">HubSpot</span>
+                                <span class="token">Notion</span>
+                                <input type="text" value="" placeholder="Search or add a tool" />
+                              </div>
+                            </label>
+                          </div>
+                        </section>
+                      </section>
+                    </div>
+                  </aside>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </article>
+    </main>
+
+    <script>
+      (function () {
+        var screenButtons = Array.from(document.querySelectorAll("[data-screen-target]"));
+        var screens = Array.from(document.querySelectorAll(".screen"));
+        var roleRows = Array.from(document.querySelectorAll("[data-role-target]"));
+        var rolePanels = Array.from(document.querySelectorAll("[data-role-panel]"));
+        var groupToggles = Array.from(document.querySelectorAll("[data-group-toggle]"));
+        var hotspotButtons = Array.from(document.querySelectorAll("[data-hotspot-target]"));
+        var d2Workspace = document.querySelector("[data-d2-workspace]");
+        var drawer = document.querySelector("[data-drawer]");
+        var drawerCloseButtons = Array.from(document.querySelectorAll("[data-drawer-close]"));
+        var titles = {
+          d1: "Job Filter | Add your experience",
+          d2: "Job Filter | Check your history",
+        };
+
+        function setScreen(screenId) {
+          var next = screenId === "d2" ? "d2" : "d1";
+
+          screens.forEach(function (screen) {
+            var active = screen.getAttribute("data-screen") === next;
+            screen.classList.toggle("is-active", active);
+          });
+
+          screenButtons.forEach(function (button) {
+            var active = button.getAttribute("data-screen-target") === next;
+            button.classList.toggle("active", active);
+            button.setAttribute("aria-current", active ? "page" : "false");
+          });
+
+          document.title = titles[next];
+          if (window.location.hash !== "#" + next) {
+            window.history.replaceState(null, "", "#" + next);
+          }
+        }
+
+        function setGroup(groupId, open) {
+          var group = document.querySelector('[data-group="' + groupId + '"]');
+          if (!group) {
+            return;
+          }
+
+          group.classList.toggle("is-collapsed", !open);
+
+          var toggle = group.querySelector("[data-group-toggle]");
+          if (toggle) {
+            toggle.setAttribute("aria-expanded", open ? "true" : "false");
+          }
+        }
+
+        function setRole(roleId) {
+          var next = roleId || null;
+
+          roleRows.forEach(function (row) {
+            var active = next !== null && row.getAttribute("data-role-target") === next;
+            row.classList.toggle("is-selected", active);
+            row.setAttribute("aria-selected", active ? "true" : "false");
+          });
+
+          rolePanels.forEach(function (panel) {
+            var active = next !== null && panel.getAttribute("data-role-panel") === next;
+            panel.classList.toggle("is-active", active);
+            panel.setAttribute("aria-hidden", active ? "false" : "true");
+          });
+
+          if (d2Workspace) {
+            d2Workspace.classList.toggle("has-drawer", next !== null);
+          }
+
+          if (drawer) {
+            drawer.setAttribute("aria-hidden", next === null ? "true" : "false");
+          }
+        }
+
+        screenButtons.forEach(function (button) {
+          button.addEventListener("click", function () {
+            setScreen(button.getAttribute("data-screen-target"));
+          });
+        });
+
+        roleRows.forEach(function (row) {
+          row.addEventListener("click", function () {
+            var group = row.closest("[data-group]");
+            if (group) {
+              setGroup(group.getAttribute("data-group"), true);
+            }
+            setRole(row.getAttribute("data-role-target"));
+          });
+
+          row.addEventListener("keydown", function (event) {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              row.click();
+            }
+          });
+        });
+
+        groupToggles.forEach(function (button) {
+          button.addEventListener("click", function () {
+            var groupId = button.getAttribute("data-group-toggle");
+            var group = document.querySelector('[data-group="' + groupId + '"]');
+            if (!group) {
+              return;
+            }
+
+            var collapsed = group.classList.contains("is-collapsed");
+            setGroup(groupId, collapsed);
+          });
+        });
+
+        drawerCloseButtons.forEach(function (button) {
+          button.addEventListener("click", function () {
+            setRole(null);
+          });
+        });
+
+        hotspotButtons.forEach(function (button) {
+          button.addEventListener("click", function () {
+            var roleId = button.getAttribute("data-hotspot-target");
+            var groupId = button.getAttribute("data-group-open");
+
+            setScreen("d2");
+            if (groupId) {
+              setGroup(groupId, true);
+            }
+            setRole(roleId);
+
+            var row = document.querySelector('[data-role-target="' + roleId + '"]');
+            if (row) {
+              row.scrollIntoView({ block: "nearest", inline: "nearest" });
+            }
+          });
+        });
+
+        window.addEventListener("hashchange", function () {
+          setScreen(window.location.hash.replace("#", ""));
+        });
+
+        setScreen(window.location.hash.replace("#", "") || "d1");
+        setRole(null);
+      })();
+    </script>
+  </body>
+</html>

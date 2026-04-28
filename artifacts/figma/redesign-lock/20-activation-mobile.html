@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>06. Activation System, Mobile</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --canvas: #f8f6f2;
+        --surface: #fff;
+        --ink: #1f2a24;
+        --muted: #5c675f;
+        --forest: #2f5d50;
+        --line: #d8ddd8;
+        --line-strong: #c9d0c9;
+        --warn-bg: #f6eadb;
+        --warn-line: #dfc7ad;
+        --ok-bg: #edf6ef;
+        --ok-line: #b8d0bf;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background:
+          radial-gradient(640px 260px at 82% -8%, rgba(47, 93, 80, 0.11), transparent 60%),
+          var(--canvas);
+        color: var(--ink);
+        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+      }
+      .review { max-width: 980px; margin: 0 auto; padding: 24px 16px 52px; }
+      .intro {
+        border: 1px solid var(--line-strong);
+        border-radius: 16px;
+        background: #fff;
+        padding: 18px;
+        box-shadow: 0 12px 24px rgba(15, 28, 23, 0.08);
+      }
+      .overline {
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        font-weight: 700;
+        color: var(--muted);
+      }
+      h1 {
+        margin: 8px 0 8px;
+        font-family: "Newsreader", Georgia, serif;
+        font-size: clamp(30px, 5vw, 40px);
+        line-height: 1.06;
+      }
+      .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+      .chip {
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: #fff;
+        padding: 5px 9px;
+        font-size: 11px;
+        font-weight: 700;
+      }
+      .intro-copy {
+        margin: 0;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.55;
+      }
+      .header-grid {
+        margin-top: 16px;
+        display: grid;
+        gap: 10px;
+      }
+      .header-card {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.92);
+        padding: 12px;
+      }
+      .header-card h2 {
+        margin: 0 0 7px;
+        font-size: 11px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .header-card p,
+      .header-card li {
+        margin: 0;
+        font-size: 11px;
+        line-height: 1.5;
+      }
+      .header-card ul {
+        margin: 0;
+        padding-left: 16px;
+      }
+      .stack { margin-top: 18px; display: grid; gap: 14px; }
+      .row {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: #fff;
+        padding: 12px;
+      }
+      .row-head {
+        margin-bottom: 10px;
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .id { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+      .name { font-size: 16px; font-weight: 700; }
+      .note { font-size: 12px; color: var(--muted); text-align: right; }
+      .phone {
+        margin: 0 auto;
+        width: 375px;
+        border: 10px solid #1b241f;
+        border-radius: 34px;
+        background: #000;
+        padding: 6px;
+        box-shadow: 0 18px 36px rgba(14, 25, 20, 0.22);
+      }
+      .screen {
+        border-radius: 24px;
+        overflow: hidden;
+        background: #f9fbf9;
+      }
+      .top {
+        height: 56px;
+        border-bottom: 1px solid var(--line);
+        background: #fff;
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        gap: 10px;
+        padding: 0 12px;
+      }
+      .menu { width: 20px; display: grid; gap: 3px; }
+      .menu span { height: 2px; border-radius: 2px; background: #34443b; display: block; }
+      .title { font-size: 13px; font-weight: 700; }
+      .route { font-size: 10px; color: var(--muted); margin-top: 1px; }
+      .tag {
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: #fff;
+        padding: 5px 8px;
+        font-size: 10px;
+        font-weight: 700;
+      }
+      .body { min-height: 690px; padding: 12px; display: grid; gap: 10px; }
+      .hero {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: linear-gradient(160deg, #fff, #f4f8f5);
+        padding: 11px;
+      }
+      .hero h2 {
+        margin: 5px 0 6px;
+        font-family: "Newsreader", Georgia, serif;
+        font-size: 27px;
+        line-height: 1.07;
+      }
+      .hero p { margin: 0; color: var(--muted); font-size: 12px; }
+      .module {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: #fff;
+        padding: 9px;
+      }
+      .module .h {
+        font-size: 10px;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        font-weight: 700;
+        color: var(--muted);
+      }
+      .module .d { margin-top: 4px; font-size: 12px; }
+      .split { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+      .chips-2 { margin-top: 5px; display: flex; flex-wrap: wrap; gap: 5px; }
+      .chip-mini {
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 4px 7px;
+        font-size: 10px;
+        font-weight: 700;
+      }
+      .chip-mini.on { border-color: var(--ok-line); background: var(--ok-bg); color: #2b5345; }
+      .chip-mini.warn { border-color: var(--warn-line); background: var(--warn-bg); color: #7d4f20; }
+      .btns { margin-top: 8px; display: grid; gap: 7px; }
+      .btn {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: #fff;
+        text-align: center;
+        padding: 10px;
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .btn.primary {
+        border-color: var(--forest);
+        background: linear-gradient(180deg, #356856, #2d5849);
+        color: #fff;
+        box-shadow: 0 8px 16px rgba(36, 72, 61, 0.22);
+      }
+      .status {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 8px;
+        font-size: 11px;
+      }
+      .status.ok { border-color: var(--ok-line); background: var(--ok-bg); color: #2b5345; }
+      .status.warn { border-color: var(--warn-line); background: var(--warn-bg); color: #7d4f20; }
+      @media (max-width: 460px) { .phone { width: 100%; } .split { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <main class="review">
+      <section class="intro">
+        <div class="overline">Job Filter Foundation Series · Document 06</div>
+        <h1>Activation System, Mobile</h1>
+        <p class="intro-copy">
+          Mobile reference for activation and core app surfaces. This document carries the same step grammar, trust
+          rules, and CTA system as the desktop workspace while adapting them to touch-sized, contained mobile flows.
+        </p>
+        <div class="header-grid">
+          <article class="header-card">
+            <h2>Purpose</h2>
+            <p>Show the mobile expression of route gate, setup, feeds, assets, and trust-review surfaces.</p>
+          </article>
+          <article class="header-card">
+            <h2>Scope In</h2>
+            <ul>
+              <li>Touch layout and hierarchy</li>
+              <li>State continuity</li>
+              <li>Signed-in progression language</li>
+            </ul>
+          </article>
+          <article class="header-card">
+            <h2>Scope Out</h2>
+            <ul>
+              <li>New app scope</li>
+              <li>Production implementation</li>
+              <li>Alternative CTA systems</li>
+            </ul>
+          </article>
+          <article class="header-card">
+            <h2>Locked Decisions</h2>
+            <p>Signed-in continuation remains <strong>`Continue setup`</strong>. Feed-first and Why this draft remain intact.</p>
+          </article>
+          <article class="header-card">
+            <h2>Pending Proof / Open Items</h2>
+            <p>Figma child-node verification remains pending and premium handoff naming remains intentionally open.</p>
+          </article>
+          <article class="header-card">
+            <h2>Review Checklist</h2>
+            <p>No legacy file-letter naming, no chip-led summary header, and no loss of the calm premium workspace feel.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="stack">
+        <article class="row"><div class="row-head"><div><div class="id">P1</div><div class="name">Route gate</div></div><div class="note">Profile</div></div>
+          <div class="phone"><div class="screen"><div class="top"><div class="menu"><span></span><span></span><span></span></div><div><div class="title">Profile</div><div class="route">Setup gate</div></div><div class="tag">P1</div></div>
+            <div class="body"><div class="hero"><div class="overline">Route gate</div><h2>Finish setup to unlock feeds</h2><p>The next step is explicit and immediate.</p><div class="btns"><div class="btn primary">Continue setup</div><div class="btn">Exit setup</div></div></div><div class="module"><div class="h">Remaining</div><div class="d">Experience · Skills &amp; Tools · Profile · Targeting</div></div></div></div></div>
+        </article>
+
+        <article class="row"><div class="row-head"><div><div class="id">P2</div><div class="name">Start Here</div></div><div class="note">Step 1/6</div></div>
+          <div class="phone"><div class="screen"><div class="top"><div class="menu"><span></span><span></span><span></span></div><div><div class="title">Profile</div><div class="route">Start Here</div></div><div class="tag">1/6</div></div>
+            <div class="body"><div class="hero"><div class="overline">Start Here</div><h2>Choose your setup path</h2><p>Import suggestions or start manually.</p><div class="btns"><div class="btn primary">Import and continue</div><div class="btn">Start manually</div></div></div><div class="split"><div class="module"><div class="h">What this unlocks</div><div class="d">Faster setup</div></div><div class="module"><div class="h">Confirmation</div><div class="d">Save path choice</div></div></div></div></div></div>
+        </article>
+
+        <article class="row"><div class="row-head"><div><div class="id">P3</div><div class="name">Details</div></div><div class="note">Step 2/6</div></div>
+          <div class="phone"><div class="screen"><div class="top"><div class="menu"><span></span><span></span><span></span></div><div><div class="title">Profile</div><div class="route">Details</div></div><div class="tag">2/6</div></div>
+            <div class="body"><div class="hero"><div class="overline">Details</div><h2>Confirm identity and headline</h2><p>Operational data only.</p></div><div class="module"><div class="h">Contact block</div><div class="d">Name, email, phone, location, target title.</div></div><div class="btns"><div class="btn primary">Save and continue</div><div class="btn">Back</div></div></div></div></div>
+        </article>
+
+        <article class="row"><div class="row-head"><div><div class="id">P4</div><div class="name">Experience</div></div><div class="note">Step 3/6</div></div>
+          <div class="phone"><div class="screen"><div class="top"><div class="menu"><span></span><span></span><span></span></div><div><div class="title">Profile</div><div class="route">Experience</div></div><div class="tag">3/6</div></div>
+            <div class="body"><div class="hero"><div class="overline">Experience</div><h2>Confirm timeline and outcomes</h2><p>Responsibilities and results remain separate.</p></div><div class="module"><div class="h">Current role</div><div class="d">Senior Growth Manager · Fractional Co</div></div><div class="status warn">Unresolved evidence remains excluded until confirmed.</div><div class="btns"><div class="btn primary">Confirm and continue</div><div class="btn">Edit lines</div></div></div></div></div>
+        </article>
+
+        <article class="row"><div class="row-head"><div><div class="id">P5</div><div class="name">Skills &amp; Tools</div></div><div class="note">Step 4/6</div></div>
+          <div class="phone"><div class="screen"><div class="top"><div class="menu"><span></span><span></span><span></span></div><div><div class="title">Profile</div><div class="route">Skills &amp; Tools</div></div><div class="tag">4/6</div></div>
+            <div class="body"><div class="hero"><div class="overline">Skills &amp; Tools</div><h2>Confirm reusable capabilities</h2><p>Saved and suggested content stay visibly different.</p></div><div class="module"><div class="h">Saved</div><div class="chips-2"><span class="chip-mini on">SEO</span><span class="chip-mini on">HubSpot</span><span class="chip-mini on">JIRA</span></div></div><div class="module"><div class="h">Suggestions</div><div class="chips-2"><span class="chip-mini">AEO</span><span class="chip-mini">GEO</span><span class="chip-mini warn">Low confidence</span></div></div><div class="btns"><div class="btn primary">Save and continue</div><div class="btn">Manage suggestions</div></div></div></div></div>
+        </article>
+
+        <article class="row"><div class="row-head"><div><div class="id">P6</div><div class="name">Profile</div></div><div class="note">Step 5/6</div></div>
+          <div class="phone"><div class="screen"><div class="top"><div class="menu"><span></span><span></span><span></span></div><div><div class="title">Profile</div><div class="route">Profile details</div></div><div class="tag">5/6</div></div>
+            <div class="body"><div class="hero"><div class="overline">Profile</div><h2>Add details that strengthen your story</h2><p>Structured builders keep optional depth usable.</p></div><div class="split"><div class="module"><div class="h">Summary</div><div class="d">Professional positioning</div></div><div class="module"><div class="h">Builders</div><div class="d">Education, certifications, languages</div></div></div><div class="btns"><div class="btn primary">Save and continue</div><div class="btn">Skip this step</div></div></div></div></div>
+        </article>
+
+        <article class="row"><div class="row-head"><div><div class="id">P7</div><div class="name">Targeting</div></div><div class="note">Step 6/6</div></div>
+          <div class="phone"><div class="screen"><div class="top"><div class="menu"><span></span><span></span><span></span></div><div><div class="title">Profile</div><div class="route">Targeting</div></div><div class="tag">6/6</div></div>
+            <div class="body"><div class="hero"><div class="overline">Targeting</div><h2>Set role lanes and job conditions</h2><p>Required for feed quality and asset-ready state.</p></div><div class="module"><div class="h">Required set</div><div class="d">Role, location preference, employment type</div></div><div class="status ok">Targeting complete. Job feeds unlocked.</div><div class="btns"><div class="btn primary">Finish setup</div><div class="btn">Back</div></div></div></div></div>
+        </article>
+
+        <article class="row"><div class="row-head"><div><div class="id">P8</div><div class="name">Role-seeded job feeds</div></div><div class="note">Primary next step</div></div>
+          <div class="phone"><div class="screen"><div class="top"><div class="menu"><span></span><span></span><span></span></div><div><div class="title">Jobs</div><div class="route">Role-seeded feeds</div></div><div class="tag">P8</div></div>
+            <div class="body"><div class="hero"><div class="overline">Job feeds</div><h2>Pick your first target job</h2><p>Feeds are ranked by role-lane fit.</p></div><div class="split"><div class="module"><div class="h">Lane</div><div class="d">Growth Marketing · 12 matches</div></div><div class="module"><div class="h">Selected</div><div class="d">Atlas.io · Fit 89</div></div></div><div class="btns"><div class="btn primary">Use selected job</div><div class="btn">Add manually</div></div></div></div></div>
+        </article>
+
+        <article class="row"><div class="row-head"><div><div class="id">P9</div><div class="name">Manual job add</div></div><div class="note">Secondary path</div></div>
+          <div class="phone"><div class="screen"><div class="top"><div class="menu"><span></span><span></span><span></span></div><div><div class="title">Jobs</div><div class="route">Manual add</div></div><div class="tag">P9</div></div>
+            <div class="body"><div class="hero"><div class="overline">Manual add</div><h2>Add a specific posting when needed</h2><p>Fallback when feed does not include your target role.</p></div><div class="module"><div class="h">Required</div><div class="d">Job title, company, description.</div></div><div class="btns"><div class="btn primary">Save job</div><div class="btn">Back to feeds</div></div></div></div></div>
+        </article>
+
+        <article class="row"><div class="row-head"><div><div class="id">P10</div><div class="name">Research Brief handoff</div></div><div class="note">Optional premium</div></div>
+          <div class="phone"><div class="screen"><div class="top"><div class="menu"><span></span><span></span><span></span></div><div><div class="title">Jobs</div><div class="route">Research Brief</div></div><div class="tag">P10</div></div>
+            <div class="body"><div class="hero"><div class="overline">Research Brief</div><h2>Run deeper role analysis first</h2><p>Optional premium handoff before asset generation.</p></div><div class="module"><div class="h">Includes</div><div class="d">Role signals and strategic brief scaffolding.</div></div><div class="btns"><div class="btn primary">Start Research Brief</div><div class="btn">Skip to assets</div></div></div></div></div>
+        </article>
+
+        <article class="row"><div class="row-head"><div><div class="id">P11</div><div class="name">Assets</div></div><div class="note">Draft generation</div></div>
+          <div class="phone"><div class="screen"><div class="top"><div class="menu"><span></span><span></span><span></span></div><div><div class="title">Assets</div><div class="route">Draft</div></div><div class="tag">P11</div></div>
+            <div class="body"><div class="hero"><div class="overline">Assets</div><h2>Generate and refine the first draft</h2><p>Draft reflects selected profile context and approved evidence.</p></div><div class="module"><div class="h">Draft excerpt</div><div class="d">Role-tailored opening and quantified result line.</div></div><div class="btns"><div class="btn primary">Use draft</div><div class="btn">Edit draft</div></div></div></div></div>
+        </article>
+
+        <article class="row"><div class="row-head"><div><div class="id">P12</div><div class="name">Why this draft</div></div><div class="note">Trust check</div></div>
+          <div class="phone"><div class="screen"><div class="top"><div class="menu"><span></span><span></span><span></span></div><div><div class="title">Assets</div><div class="route">Why this draft</div></div><div class="tag">P12</div></div>
+            <div class="body"><div class="hero"><div class="overline">Why this draft</div><h2>Check context before applying</h2><p>Used, missing, and excluded rows remain explicit.</p></div><div class="module"><div class="h">Used</div><div class="d">Headline, summary, selected experience, approved IDs.</div></div><div class="module"><div class="h">Excluded unresolved</div><div class="d">PR-311</div></div><div class="status warn">Missing context warning: certification detail needed for analytics-heavy roles.</div><div class="btns"><div class="btn primary">Accept draft</div><div class="btn">Edit context</div></div></div></div></div>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>

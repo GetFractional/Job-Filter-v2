@@ -1,0 +1,845 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>05. Website and Public Funnel, Mobile</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --canvas: #f4efe7;
+        --surface: #fffdfa;
+        --surface-warm: #f8f1e7;
+        --surface-sage: #ebf1ec;
+        --surface-blue: #eaf0f4;
+        --surface-rose: #f6ecea;
+        --text: #17211c;
+        --text-muted: #5c6660;
+        --forest: #2f5d50;
+        --forest-strong: #21453a;
+        --forest-soft: #dce9e1;
+        --line: rgba(25, 37, 31, 0.14);
+        --line-strong: rgba(25, 37, 31, 0.2);
+        --shadow-lg: 0 22px 44px rgba(14, 22, 18, 0.08);
+        --shadow-sm: 0 8px 20px rgba(14, 22, 18, 0.05);
+        --radius-xl: 28px;
+        --radius-lg: 20px;
+        --radius-md: 16px;
+        --radius-sm: 12px;
+      }
+
+      * {
+        box-sizing: border-box;
+        min-width: 0;
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        background:
+          radial-gradient(660px 260px at 100% -5%, rgba(47, 93, 80, 0.1), transparent 62%),
+          radial-gradient(560px 220px at 0% 0%, rgba(148, 103, 55, 0.08), transparent 58%),
+          var(--canvas);
+        color: var(--text);
+        font-family: "Plus Jakarta Sans", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+        line-height: 1.55;
+        overflow-x: clip;
+      }
+
+      a {
+        color: var(--forest);
+        text-decoration-thickness: 1.5px;
+        text-underline-offset: 0.18em;
+      }
+
+      .page {
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 24px 16px 64px;
+      }
+
+      .hero,
+      .row {
+        border: 1px solid var(--line-strong);
+        border-radius: var(--radius-xl);
+        background: var(--surface);
+        box-shadow: var(--shadow-lg);
+      }
+
+      .hero {
+        padding: 24px;
+      }
+
+      .hero-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 16px;
+      }
+
+      .hero-tag,
+      .eyebrow,
+      .strong-label,
+      .row-id {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .hero-tag {
+        padding: 7px 11px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: var(--surface-warm);
+        color: var(--text-muted);
+      }
+
+      .eyebrow,
+      .strong-label,
+      .row-id {
+        color: var(--forest);
+      }
+
+      h1,
+      h2,
+      h3,
+      .news {
+        font-family: "Newsreader", Georgia, serif;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(34px, 7vw, 46px);
+        line-height: 1.02;
+        font-weight: 600;
+      }
+
+      .summary {
+        margin: 14px 0 0;
+        font-size: 16px;
+        color: var(--text-muted);
+      }
+
+      .hero-grid,
+      .stack,
+      .top-grid,
+      .flow-grid {
+        display: grid;
+        gap: 14px;
+      }
+
+      .hero-grid {
+        margin-top: 18px;
+      }
+
+      .top-card,
+      .note-card,
+      .mini-card,
+      .utility-card {
+        border: 1px solid var(--line);
+        border-radius: var(--radius-lg);
+        padding: 16px;
+        box-shadow: var(--shadow-sm);
+      }
+
+      .top-card,
+      .note-card {
+        background: var(--surface-warm);
+      }
+
+      .mini-card,
+      .utility-card {
+        background: var(--surface-sage);
+      }
+
+      .top-card p,
+      .note-card p,
+      .mini-card p,
+      .utility-card p,
+      li {
+        font-size: 13px;
+        margin: 8px 0 0;
+      }
+
+      .stack {
+        margin-top: 18px;
+      }
+
+      .row {
+        padding: 14px;
+      }
+
+      .row-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+
+      .row-name {
+        margin-top: 4px;
+        font-size: 18px;
+        font-weight: 700;
+        line-height: 1.2;
+      }
+
+      .row-note {
+        max-width: 280px;
+        font-size: 12px;
+        color: var(--text-muted);
+        text-align: right;
+      }
+
+      .phone-shell {
+        margin: 0 auto;
+        width: min(390px, 100%);
+        border: 10px solid #16201c;
+        border-radius: 34px;
+        background: #0e1412;
+        padding: 6px;
+        box-shadow: 0 20px 36px rgba(13, 21, 18, 0.22);
+      }
+
+      .screen {
+        overflow: hidden;
+        border-radius: 26px;
+        background: #f8faf8;
+      }
+
+      .topbar {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        gap: 10px;
+        min-height: 58px;
+        padding: 0 12px;
+        border-bottom: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.98);
+      }
+
+      .menu {
+        display: grid;
+        gap: 3px;
+        width: 18px;
+      }
+
+      .menu span {
+        display: block;
+        height: 2px;
+        border-radius: 999px;
+        background: #33433b;
+      }
+
+      .top-title {
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .top-cta {
+        border: 1px solid var(--forest);
+        border-radius: 999px;
+        background: linear-gradient(180deg, #356856, #2c5648);
+        color: #fff;
+        padding: 6px 8px;
+        font-size: 10px;
+        font-weight: 800;
+      }
+
+      .screen-body {
+        padding: 12px;
+        display: grid;
+        gap: 10px;
+      }
+
+      .module,
+      .hero-card,
+      .form-card,
+      .route-card,
+      .utility-mini {
+        border: 1px solid var(--line);
+        border-radius: var(--radius-md);
+        padding: 12px;
+        box-shadow: var(--shadow-sm);
+      }
+
+      .hero-card,
+      .form-card {
+        background: linear-gradient(180deg, #fffdf9, #f8f1e7);
+      }
+
+      .module,
+      .route-card,
+      .utility-mini {
+        background: rgba(255, 255, 255, 0.94);
+      }
+
+      .hero-card h2 {
+        margin: 6px 0 8px;
+        font-size: 29px;
+        line-height: 1.02;
+      }
+
+      .hero-card p,
+      .module p,
+      .form-card p,
+      .route-card p,
+      .utility-mini p {
+        margin: 0;
+        font-size: 12px;
+        color: var(--text-muted);
+      }
+
+      .btns {
+        display: grid;
+        gap: 8px;
+        margin-top: 12px;
+      }
+
+      .btn,
+      .input {
+        border-radius: 11px;
+        font-family: inherit;
+      }
+
+      .btn {
+        border: 1px solid var(--line);
+        background: #fff;
+        padding: 10px 12px;
+        font-size: 12px;
+        font-weight: 800;
+        text-align: center;
+      }
+
+      .btn.primary {
+        border-color: var(--forest);
+        background: linear-gradient(180deg, #356856, #2c5648);
+        color: #fff;
+      }
+
+      .btn.internal {
+        background: #f2f4f1;
+        color: #47514b;
+      }
+
+      .badge-row,
+      .pill-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .pill,
+      .state {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 8px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .pill {
+        background: #f4f7f4;
+        color: var(--text-muted);
+      }
+
+      .state.used {
+        background: #edf6f1;
+        color: #27513f;
+      }
+
+      .state.missing {
+        background: #f9f0df;
+        color: #7c5c21;
+      }
+
+      .state.excluded {
+        background: #f6ecea;
+        color: #7a4541;
+      }
+
+      .preview {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: #fbfdfb;
+        padding: 10px;
+      }
+
+      .preview-top {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 6px;
+      }
+
+      .tab {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: #fff;
+        padding: 8px;
+        font-size: 9px;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        text-align: center;
+      }
+
+      .tab.active {
+        background: var(--forest-soft);
+        color: var(--forest-strong);
+      }
+
+      .preview-panel {
+        margin-top: 8px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: #fff;
+        padding: 10px;
+      }
+
+      .preview-line {
+        height: 7px;
+        border-radius: 999px;
+        background: #e5ebe5;
+        margin-top: 6px;
+      }
+
+      .preview-line.short {
+        width: 58%;
+      }
+
+      .truth-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 8px;
+        align-items: center;
+        margin-top: 8px;
+      }
+
+      .truth-row strong {
+        font-size: 11px;
+      }
+
+      .truth-row span {
+        font-size: 10px;
+        color: var(--text-muted);
+      }
+
+      .step-list,
+      .plan-list,
+      .utility-grid {
+        display: grid;
+        gap: 8px;
+      }
+
+      .step,
+      .plan,
+      .utility-mini {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: #fff;
+        padding: 10px;
+      }
+
+      .step strong,
+      .plan strong {
+        display: block;
+        font-size: 11px;
+        margin-bottom: 4px;
+      }
+
+      .field {
+        margin-top: 10px;
+      }
+
+      .label {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+      }
+
+      .input {
+        width: 100%;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.98);
+        padding: 11px 12px;
+        font-size: 12px;
+        color: var(--text);
+      }
+
+      @media (max-width: 620px) {
+        .page {
+          padding-inline: 12px;
+        }
+
+        .hero,
+        .row {
+          border-radius: 22px;
+        }
+
+        .row-head {
+          display: grid;
+        }
+
+        .row-note {
+          text-align: left;
+          max-width: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section class="hero">
+        <div class="hero-meta">
+          <span class="hero-tag">Foundation Series 04B</span>
+          <span class="hero-tag">Website mobile artifact packet</span>
+        </div>
+        <h1>05. Website and Public Funnel, Mobile</h1>
+        <p class="summary">
+          This file translates the approved website funnel into mobile-first page artifacts. It keeps the same page
+          set, CTA hierarchy, proof architecture, worksheet placement, and auth-to-Profile handoff as the desktop
+          packet.
+        </p>
+        <div class="hero-grid">
+          <div class="top-card">
+            <div class="strong-label">Core pages represented</div>
+            <p>Home, How It Works, Pricing, Job Profile Worksheet landing page, and Auth in create-account and sign-in states.</p>
+          </div>
+          <div class="top-card">
+            <div class="strong-label">Carry-forward rules</div>
+            <p>`Build my job profile` stays primary, `See how it works` stays exploratory, and `Continue setup` remains inside the signed-in continuation path.</p>
+          </div>
+          <div class="top-card">
+            <div class="strong-label">What this packet avoids</div>
+            <p>No standalone Product, Proof, or FAQ pages. No activation layouts. No generic dashboard destination in the auth path.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="stack">
+        <article class="row">
+          <div class="row-head">
+            <div>
+              <div class="row-id">M1</div>
+              <div class="row-name">Home</div>
+            </div>
+            <div class="row-note">Category framing, proof, and primary entry in one contained mobile shell.</div>
+          </div>
+          <div class="phone-shell">
+            <div class="screen">
+              <div class="topbar">
+                <div class="menu"><span></span><span></span><span></span></div>
+                <div class="top-title">Job Filter</div>
+                <button class="top-cta">Build my job profile</button>
+              </div>
+              <div class="screen-body">
+                <div class="hero-card">
+                  <div class="eyebrow">Home</div>
+                  <h2>Target fewer roles that you can credibly win</h2>
+                  <p>Start free, choose the right lane, inspect the reasoning, and move only when the draft is ready.</p>
+                  <div class="btns">
+                    <div class="btn primary">Build my job profile</div>
+                    <div class="btn">See how it works</div>
+                  </div>
+                </div>
+                <div class="preview">
+                  <div class="preview-top">
+                    <div class="tab active">Lanes</div>
+                    <div class="tab">Stories</div>
+                    <div class="tab">Preview</div>
+                  </div>
+                  <div class="preview-panel">
+                    <div class="preview-line"></div>
+                    <div class="preview-line short"></div>
+                    <div class="pill-row" style="margin-top: 8px;">
+                      <span class="pill">Product marketing</span>
+                      <span class="pill">Customer education</span>
+                    </div>
+                  </div>
+                  <div class="preview-panel">
+                    <div class="truth-row">
+                      <div><strong>Leadership signal surfaced</strong><br /><span>Matched to selected lane</span></div>
+                      <span class="state used">Used</span>
+                    </div>
+                    <div class="truth-row">
+                      <div><strong>Quantified outcome needed</strong><br /><span>User review prompt</span></div>
+                      <span class="state missing">Missing</span>
+                    </div>
+                    <div class="truth-row">
+                      <div><strong>Over-broad claim removed</strong><br /><span>Keeps copy credible</span></div>
+                      <span class="state excluded">Excluded</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="module">
+                  <div class="strong-label">Secondary path</div>
+                  <p>Job Profile Worksheet appears as a supporting text-link module, not as the main story.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="row">
+          <div class="row-head">
+            <div>
+              <div class="row-id">M2</div>
+              <div class="row-name">How It Works</div>
+            </div>
+            <div class="row-note">Mechanism, objections, and boundaries are handled on-page instead of routing users to extra destinations.</div>
+          </div>
+          <div class="phone-shell">
+            <div class="screen">
+              <div class="topbar">
+                <div class="menu"><span></span><span></span><span></span></div>
+                <div class="top-title">How It Works</div>
+                <button class="top-cta">Build my job profile</button>
+              </div>
+              <div class="screen-body">
+                <div class="hero-card">
+                  <div class="eyebrow">How It Works</div>
+                  <h2>The loop stays visible from the first step</h2>
+                  <p>Show the sequence, the boundaries, and the review logic before asking a skeptical visitor to commit.</p>
+                  <div class="btns">
+                    <div class="btn primary">Build my job profile</div>
+                    <div class="btn">Get the Job Profile Worksheet</div>
+                  </div>
+                </div>
+                <div class="step-list">
+                  <div class="step"><strong>Step 01</strong>Pick the strongest role lane first.</div>
+                  <div class="step"><strong>Step 02</strong>Extract stories that actually support that lane.</div>
+                  <div class="step"><strong>Step 03</strong>Review what was used, missing, or excluded.</div>
+                  <div class="step"><strong>Step 04</strong>Send only when the draft is credible.</div>
+                </div>
+                <div class="module">
+                  <div class="strong-label">Boundary proof</div>
+                  <p>No auto-apply. No hidden AI scoring. Human review stays explicit in the flow.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="row">
+          <div class="row-head">
+            <div>
+              <div class="row-id">M3</div>
+              <div class="row-name">Pricing</div>
+            </div>
+            <div class="row-note">Free-to-start clarity leads. Paid value is framed as deeper leverage, not vague AI volume.</div>
+          </div>
+          <div class="phone-shell">
+            <div class="screen">
+              <div class="topbar">
+                <div class="menu"><span></span><span></span><span></span></div>
+                <div class="top-title">Pricing</div>
+                <button class="top-cta">Build my job profile</button>
+              </div>
+              <div class="screen-body">
+                <div class="hero-card">
+                  <div class="eyebrow">Pricing</div>
+                  <h2>Start with the free tier, then decide from experience</h2>
+                  <p>Visitors should understand the entry model first, then see how deeper value expands leverage without hiding control.</p>
+                  <div class="btns">
+                    <div class="btn primary">Build my job profile</div>
+                    <div class="btn">See how it works</div>
+                  </div>
+                </div>
+                <div class="plan-list">
+                  <div class="plan"><strong>Free tier</strong>Understand the workflow before paying for more.</div>
+                  <div class="plan"><strong>Deeper leverage</strong>More strategic value, not more hidden automation.</div>
+                  <div class="plan"><strong>Still true</strong>Review-before-send and inspectable reasoning remain visible.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="row">
+          <div class="row-head">
+            <div>
+              <div class="row-id">M4</div>
+              <div class="row-name">Job Profile Worksheet landing page</div>
+            </div>
+            <div class="row-note">Secondary capture path only. The worksheet previews the method and points back to the main product path.</div>
+          </div>
+          <div class="phone-shell">
+            <div class="screen">
+              <div class="topbar">
+                <div class="menu"><span></span><span></span><span></span></div>
+                <div class="top-title">Worksheet</div>
+                <button class="top-cta">Build my job profile</button>
+              </div>
+              <div class="screen-body">
+                <div class="hero-card">
+                  <div class="eyebrow">Job Profile Worksheet</div>
+                  <h2>Try the method before you enter Profile</h2>
+                  <p>Use the worksheet to clarify lane fit and story inputs. Then route back into the product when ready.</p>
+                  <div class="btns">
+                    <div class="btn primary">Get the worksheet</div>
+                    <div class="btn">Build my job profile</div>
+                  </div>
+                </div>
+                <form class="form-card">
+                  <div class="field">
+                    <label class="label">Email</label>
+                    <input class="input" type="email" autocomplete="email" value="alex@sample.com" />
+                  </div>
+                  <div class="field">
+                    <label class="label">Intent</label>
+                    <input class="input" type="text" autocomplete="off" value="Clarify first role lane" />
+                  </div>
+                </form>
+                <div class="module">
+                  <div class="strong-label">Preview of method</div>
+                  <p>The worksheet mirrors lane focus, story extraction, and credibility checks. It does not replace Profile.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="row">
+          <div class="row-head">
+            <div>
+              <div class="row-id">M5</div>
+              <div class="row-name">Auth, create-account state</div>
+            </div>
+            <div class="row-note">New visitors authenticate, then land in Profile. The destination stays explicit in the screen itself.</div>
+          </div>
+          <div class="phone-shell">
+            <div class="screen">
+              <div class="topbar">
+                <div class="menu"><span></span><span></span><span></span></div>
+                <div class="top-title">Create account</div>
+                <button class="top-cta">Free tier</button>
+              </div>
+              <div class="screen-body">
+                <div class="hero-card">
+                  <div class="eyebrow">Create account</div>
+                  <h2>Create your account, then continue in Profile</h2>
+                  <p>Public intent moves directly into the signed-in setup surface. No generic dashboard diversion.</p>
+                </div>
+                <form class="form-card">
+                  <div class="field">
+                    <label class="label">Full name</label>
+                    <input class="input" type="text" autocomplete="name" value="Jordan Rivera" />
+                  </div>
+                  <div class="field">
+                    <label class="label">Email</label>
+                    <input class="input" type="email" autocomplete="email" value="jordan@sample.com" />
+                  </div>
+                  <div class="field">
+                    <label class="label">Password</label>
+                    <input class="input" type="password" autocomplete="new-password" value="password" />
+                  </div>
+                  <div class="btns">
+                    <div class="btn primary">Create account</div>
+                    <div class="btn">Sign in instead</div>
+                  </div>
+                </form>
+                <div class="route-card">
+                  <div class="strong-label">Post-auth destination</div>
+                  <p>After account creation, the user lands in <strong>Profile</strong> and sees <strong>`Continue setup`</strong> inside the signed-in workflow.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="row">
+          <div class="row-head">
+            <div>
+              <div class="row-id">M6</div>
+              <div class="row-name">Auth, sign-in state</div>
+            </div>
+            <div class="row-note">Returning users resume the right signed-in state. Incomplete setup resumes in Profile first.</div>
+          </div>
+          <div class="phone-shell">
+            <div class="screen">
+              <div class="topbar">
+                <div class="menu"><span></span><span></span><span></span></div>
+                <div class="top-title">Sign in</div>
+                <button class="top-cta">Sign in</button>
+              </div>
+              <div class="screen-body">
+                <div class="hero-card">
+                  <div class="eyebrow">Sign in</div>
+                  <h2>Return to the next step, not a generic dashboard</h2>
+                  <p>Continuity is the promise. Resume real work where it last stopped.</p>
+                </div>
+                <form class="form-card">
+                  <div class="field">
+                    <label class="label">Email</label>
+                    <input class="input" type="email" autocomplete="email" value="jordan@sample.com" />
+                  </div>
+                  <div class="field">
+                    <label class="label">Password</label>
+                    <input class="input" type="password" autocomplete="current-password" value="password" />
+                  </div>
+                  <div class="btns">
+                    <div class="btn primary">Sign in</div>
+                  </div>
+                </form>
+                <div class="route-card">
+                  <div class="strong-label">Routing rules</div>
+                  <p>If Profile is incomplete, route there first and use the signed-in continuation control below.</p>
+                  <div class="btns" style="margin-top: 10px;">
+                    <div class="btn internal">Continue setup</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="row">
+          <div class="row-head">
+            <div>
+              <div class="row-id">M7</div>
+              <div class="row-name">Utility pages</div>
+            </div>
+            <div class="row-note">Utility handling stays compact. These pages inherit the shell but do not become funnel-heavy compositions.</div>
+          </div>
+          <div class="utility-grid">
+            <div class="utility-card">
+              <div class="strong-label">Privacy</div>
+              <p>Readable legal layout with a quiet route back into the main site.</p>
+            </div>
+            <div class="utility-card">
+              <div class="strong-label">Terms</div>
+              <p>Contained utility shell, intentionally secondary to the conversion path.</p>
+            </div>
+            <div class="utility-card">
+              <div class="strong-label">404</div>
+              <p>Short explanation plus a path back to Home and `Build my job profile`.</p>
+            </div>
+          </div>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>

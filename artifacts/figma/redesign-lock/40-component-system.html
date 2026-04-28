@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Appendix B. Component Library Examples</title>
+    <script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
+      :root {
+        --canvas: #fcfdfb;
+        --shell: #f5f8f6;
+        --surface: #eef5f1;
+        --paper: #fff;
+        --line: #d7e1db;
+        --line-strong: #bfcdc4;
+        --ink: #18211d;
+        --ink-soft: #44544b;
+        --ink-muted: #6b7c73;
+        --forest: #1f5a43;
+        --forest-soft: #ddeee6;
+        --amber: #a56522;
+        --amber-soft: #faeedc;
+        --danger: #a33a33;
+        --danger-soft: #f8e8e8;
+        --success: #2e694f;
+        --success-soft: #e9f3ed;
+        --shadow: 0 20px 46px rgba(15, 30, 21, 0.12);
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Plus Jakarta Sans", "Segoe UI", sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at 8% -10%, rgba(224, 236, 229, 0.86) 0%, rgba(224, 236, 229, 0) 48%),
+          radial-gradient(circle at 92% -8%, rgba(246, 234, 219, 0.72) 0%, rgba(246, 234, 219, 0) 41%),
+          var(--canvas);
+      }
+
+      .board {
+        width: 2900px;
+        margin: 28px auto 56px;
+        border: 1px solid var(--line);
+        border-radius: 28px;
+        background: linear-gradient(180deg, #fbfdfb, #f4f8f6);
+        padding: 16px;
+      }
+
+      .hero {
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: var(--paper);
+        box-shadow: var(--shadow);
+        padding: 16px 18px;
+      }
+
+      .kicker {
+        margin: 0;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--ink-muted);
+      }
+
+      h1 {
+        margin: 8px 0;
+        font-size: 40px;
+        line-height: 1.04;
+        letter-spacing: -0.02em;
+      }
+
+      .sub {
+        margin: 0;
+        font-size: 14px;
+        color: var(--ink-soft);
+      }
+      .hero-grid {
+        margin-top: 16px;
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 10px;
+      }
+      .hero-card {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.9);
+        padding: 12px;
+      }
+      .hero-card h2 {
+        margin: 0 0 8px;
+        font-size: 11px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--ink-muted);
+      }
+      .hero-card p,
+      .hero-card li {
+        margin: 0;
+        font-size: 12px;
+        line-height: 1.5;
+      }
+
+      .grid {
+        margin-top: 12px;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .card {
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: var(--paper);
+        box-shadow: var(--shadow);
+        padding: 10px;
+      }
+
+      .card h2 {
+        margin: 0;
+        font-size: 16px;
+      }
+
+      .module {
+        margin-top: 7px;
+        border: 1px solid var(--line);
+        border-radius: 11px;
+        background: #fff;
+        padding: 7px;
+      }
+
+      .label {
+        font-size: 9px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--ink-muted);
+        font-weight: 700;
+      }
+
+      .row {
+        margin-top: 6px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+      }
+
+      .pill {
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: #f8fbf9;
+        color: var(--ink-soft);
+        font-size: 10px;
+        padding: 5px 8px;
+      }
+
+      .pill.active {
+        border-color: #9fc2ad;
+        background: var(--forest-soft);
+        color: var(--forest);
+        font-weight: 700;
+      }
+
+      .btn {
+        border: 1px solid var(--line-strong);
+        border-radius: 999px;
+        background: #fff;
+        color: var(--ink-soft);
+        font-size: 10px;
+        font-weight: 700;
+        padding: 6px 9px;
+      }
+
+      .btn.primary {
+        border-color: var(--forest);
+        background: linear-gradient(180deg, #2b6d53, #1f5a43);
+        color: #f4fff9;
+        box-shadow: 0 8px 18px rgba(31, 90, 67, 0.28);
+      }
+
+      .field {
+        margin-top: 6px;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        background: #fff;
+        padding: 6px;
+      }
+
+      .field .n {
+        font-size: 9px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--ink-muted);
+        font-weight: 700;
+      }
+
+      .field .v {
+        margin-top: 3px;
+        font-size: 10px;
+        color: var(--ink-soft);
+      }
+
+      .field.focus {
+        border-color: #8eb5a0;
+        box-shadow: 0 0 0 2px rgba(31, 90, 67, 0.12);
+      }
+
+      .field.error {
+        border-color: #d2a2a2;
+        background: var(--danger-soft);
+      }
+
+      .split {
+        margin-top: 6px;
+        display: grid;
+        grid-template-columns: 84px 1fr;
+        gap: 6px;
+      }
+
+      .select {
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        background: #fff;
+        padding: 6px;
+        font-size: 10px;
+        color: var(--ink-soft);
+      }
+
+      .chips {
+        margin-top: 6px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+      }
+
+      .chip {
+        border: 1px solid #c5d6cc;
+        border-radius: 999px;
+        background: #e9f2ed;
+        color: #2d5541;
+        font-size: 10px;
+        font-weight: 700;
+        padding: 4px 8px;
+      }
+
+      .chip.suggested {
+        border-color: var(--line);
+        background: #fff;
+        color: #60796c;
+      }
+
+      .chip.warn {
+        border-color: #e5c8a8;
+        background: var(--amber-soft);
+        color: var(--amber);
+      }
+
+      .builder {
+        margin-top: 6px;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        background: #f8fbf9;
+        padding: 6px;
+      }
+
+      .builder .h {
+        font-size: 10px;
+        font-weight: 700;
+      }
+
+      .builder .d {
+        margin-top: 3px;
+        font-size: 10px;
+        color: var(--ink-soft);
+      }
+
+      .status {
+        margin-top: 6px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 6px 7px;
+        font-size: 10px;
+      }
+
+      .status.success {
+        border-color: #b7dcca;
+        background: var(--success-soft);
+        color: var(--success);
+      }
+
+      .status.warn {
+        border-color: #e5c8a8;
+        background: var(--amber-soft);
+        color: var(--amber);
+      }
+
+      .status.error {
+        border-color: #e2c1c1;
+        background: var(--danger-soft);
+        color: var(--danger);
+      }
+
+      .preview {
+        margin-top: 6px;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        background: #fff;
+        padding: 6px;
+      }
+
+      .preview .sec {
+        margin-top: 5px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fdfefe;
+        padding: 5px;
+      }
+
+      .preview .sec .h {
+        font-size: 10px;
+        font-weight: 700;
+      }
+
+      .preview .sec .d {
+        margin-top: 2px;
+        font-size: 9px;
+        color: var(--ink-soft);
+      }
+      @media (max-width: 1080px) {
+        .hero-grid { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="board">
+      <section class="hero">
+        <p class="kicker">Job Filter Foundation Series · Appendix B</p>
+        <h1>Component Library Examples</h1>
+        <p class="sub">
+          Implementation-grade component examples for website and product surfaces, including field states, builders,
+          selectors, progress patterns, and trust/status grammar.
+        </p>
+        <div class="hero-grid">
+          <article class="hero-card">
+            <h2>Purpose</h2>
+            <p>Show concrete component examples that inherit the locked visual and CTA system.</p>
+          </article>
+          <article class="hero-card">
+            <h2>Scope In / Out</h2>
+            <p>In: examples and states. Out: new component definitions that conflict with Document 02.</p>
+          </article>
+          <article class="hero-card">
+            <h2>Locked Decisions</h2>
+            <p>Public primary CTA is `Build my job profile`, exploratory CTA is `See how it works`.</p>
+          </article>
+          <article class="hero-card">
+            <h2>Pending Proof / Open Items</h2>
+            <p>Examples remain architecture-level and avoid invented proof or pricing specifics.</p>
+          </article>
+          <article class="hero-card">
+            <h2>Review Checklist</h2>
+            <p>No legacy file-letter naming, no year-stamped CTA label, and no state examples that hide trust logic.</p>
+          </article>
+        </div>
+      </section>
+
+      <div class="grid">
+        <section class="card">
+          <h2>Website navigation + CTA buttons</h2>
+          <div class="module">
+            <div class="label">Desktop nav</div>
+            <div class="row"><span class="pill active">Product</span><span class="pill">How It Works</span><span class="pill">Proof</span><span class="pill">Pricing</span><span class="pill">FAQ</span><span class="pill">Sign in</span></div>
+            <div class="row"><button class="btn primary">Build my job profile</button><button class="btn">See how it works</button></div>
+          </div>
+          <div class="module">
+            <div class="label">Mobile nav</div>
+            <div class="row"><span class="pill">Hamburger menu</span><span class="pill">Slide-down drawer</span><span class="pill active">Persistent primary CTA</span></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Step header + numbered guidance block</h2>
+          <div class="module">
+            <div class="label">Step header</div>
+            <div class="builder"><div class="h">Confirm your skills and tools</div><div class="d">Keep what you want reused in resumes, outreach, and interview prep.</div></div>
+          </div>
+          <div class="module">
+            <div class="label">Guidance block</div>
+            <div class="builder"><div class="h">What this unlocks</div><div class="d">1. Faster tailoring 2. Stronger role-fit language 3. Better draft specificity.</div></div>
+            <div class="builder"><div class="h">How to confirm this step</div><div class="d">Save at least one skill/tool and click Save and continue.</div></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Form fields + phone picker</h2>
+          <div class="field"><div class="n">First name</div><div class="v">Matt</div></div>
+          <div class="field focus"><div class="n">Email</div><div class="v">matt@getfractional.co</div></div>
+          <div class="split">
+            <div class="select">+1 US</div>
+            <div class="field"><div class="n">Mobile phone</div><div class="v">(312) 555-0198</div></div>
+          </div>
+          <div class="field error"><div class="n">Visa sponsorship</div><div class="v">Please select yes or no.</div></div>
+        </section>
+
+        <section class="card">
+          <h2>Chips and selectors</h2>
+          <div class="module"><div class="label">Saved skills/tools</div><div class="chips"><span class="chip">SEO</span><span class="chip">Lifecycle strategy</span><span class="chip">HubSpot</span><span class="chip">JIRA</span></div></div>
+          <div class="module"><div class="label">Suggestions (not saved)</div><div class="chips"><span class="chip suggested">AEO</span><span class="chip suggested">GEO</span><span class="chip warn">Low confidence: Programmatic</span></div></div>
+          <div class="module"><div class="label">Targeting selectors</div><div class="row"><span class="pill active">Remote</span><span class="pill active">Hybrid</span><span class="pill">Onsite</span><span class="pill active">Full-time</span><span class="pill">Contract</span></div></div>
+        </section>
+
+        <section class="card">
+          <h2>Builder editors</h2>
+          <div class="builder"><div class="h">Experience entry</div><div class="d">Senior Growth Manager • Fractional Co • +31% qualified pipeline</div></div>
+          <div class="builder"><div class="h">Education entry</div><div class="d">University of Illinois • B.S. Marketing • 2011-2015</div></div>
+          <div class="builder"><div class="h">Certification entry</div><div class="d">Google Analytics Certification • Issued 2025-03</div></div>
+          <div class="builder"><div class="h">Language entry</div><div class="d">Spanish • Professional</div></div>
+        </section>
+
+        <section class="card">
+          <h2>Pricing cards</h2>
+          <div class="builder"><div class="h">Free</div><div class="d">Who: low-risk start. Includes profile setup + basic feeds.</div></div>
+          <div class="builder"><div class="h">Seasonal Pass</div><div class="d">Who: concentrated search. Includes expanded assets + priority usage.</div></div>
+          <div class="builder"><div class="h">Pro + credits</div><div class="d">Who: continuous high-intent search. Includes research/annual-plan workflows.</div></div>
+        </section>
+
+        <section class="card">
+          <h2>Preview modules</h2>
+          <div class="preview">
+            <div class="label">Live preview</div>
+            <div class="sec"><div class="h">Summary</div><div class="d">Growth leader focused on pipeline quality and conversion efficiency.</div></div>
+            <div class="sec"><div class="h">Skills</div><div class="d">SEO • Lifecycle strategy • Experimentation</div></div>
+            <div class="sec"><div class="h">Tools</div><div class="d">HubSpot • Salesforce • Looker • JIRA</div></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Status + trust banners</h2>
+          <div class="status success">Saved. Next step unlocked.</div>
+          <div class="status warn">Missing context warning: add at least one target role.</div>
+          <div class="status error">Excluded unresolved: PR-311 remains unavailable for auto-use.</div>
+          <div class="module"><div class="label">Why this draft row set</div><div class="chips"><span class="chip">Profile context used</span><span class="chip">Proof IDs used</span><span class="chip warn">Excluded unresolved</span><span class="chip suggested">Research not available</span></div></div>
+        </section>
+
+        <section class="card">
+          <h2>Progress confirmation surfaces</h2>
+          <div class="module"><div class="label">Top workflow cue</div><div class="builder"><div class="h">Step complete</div><div class="d">Targeting complete. Job feeds unlocked.</div></div></div>
+          <div class="module"><div class="label">Inline confirmation</div><div class="builder"><div class="h">2 suggestions accepted</div><div class="d">Changes saved to canonical profile context.</div></div></div>
+          <div class="module"><div class="label">Footer-safe fallback</div><div class="builder"><div class="h">Saved at 2:31 PM</div><div class="d">Used only as secondary cue, never the only signal.</div></div></div>
+        </section>
+      </div>
+    </div>
+  </body>
+</html>

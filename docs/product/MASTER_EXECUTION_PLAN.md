@@ -101,7 +101,7 @@ Obsolete or superseded:
 
 ## 5. Authority Split
 
-### 5.1 GPT-5.4 lead thread
+### 5.1 GPT-5.5 lead thread
 
 Owns:
 

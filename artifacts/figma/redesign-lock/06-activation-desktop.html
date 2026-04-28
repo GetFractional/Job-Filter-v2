@@ -1,0 +1,2706 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>05. Activation and Core App, Desktop</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --shell-bg: #071019;
+        --shell-bg-2: #0d1824;
+        --shell-surface: rgba(13, 20, 31, 0.92);
+        --shell-line: rgba(226, 233, 242, 0.14);
+        --shell-line-strong: rgba(226, 233, 242, 0.24);
+        --shell-text: #edf4fb;
+        --shell-muted: #aab9ca;
+        --shell-faint: #7f92a6;
+        --window-bg: #f5f7fb;
+        --window-surface: #ffffff;
+        --window-surface-2: #eef2f8;
+        --window-surface-3: #e7edf5;
+        --window-line: #d7dee8;
+        --window-line-strong: #c2ccd8;
+        --window-text: #162232;
+        --window-muted: #5d6d82;
+        --window-faint: #8190a4;
+        --accent: #1f8f6d;
+        --accent-soft: #dbf0e9;
+        --blue: #2d5b96;
+        --blue-soft: #dbe8f7;
+        --amber: #9a6d2c;
+        --amber-soft: #f4ead5;
+        --red: #9d4c59;
+        --red-soft: #f6e5e9;
+        --shadow-shell: 0 30px 80px rgba(0, 0, 0, 0.28);
+        --shadow-window: 0 22px 55px rgba(6, 14, 24, 0.18);
+        --radius-shell: 24px;
+        --radius-window: 18px;
+        --radius-lg: 12px;
+        --radius-md: 10px;
+        --radius-sm: 8px;
+        --chapter-width: 1360px;
+        --annotation-width: 248px;
+        --annotation-gap: 24px;
+        --sidebar-expanded: 216px;
+        --sidebar-collapsed: 72px;
+      }
+
+      * {
+        box-sizing: border-box;
+        min-width: 0;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        font-family:
+          "SF Pro Text",
+          "Segoe UI",
+          "Avenir Next",
+          "Helvetica Neue",
+          Arial,
+          sans-serif;
+        background:
+          radial-gradient(circle at top, rgba(58, 130, 108, 0.22), transparent 28%),
+          radial-gradient(circle at 88% 10%, rgba(69, 108, 160, 0.18), transparent 24%),
+          linear-gradient(180deg, var(--shell-bg) 0%, #0b1520 58%, #08111a 100%);
+        color: var(--shell-text);
+      }
+
+      body {
+        padding: 40px 24px 72px;
+      }
+
+      a {
+        color: inherit;
+      }
+
+      .chapter-shell {
+        width: min(100%, var(--chapter-width));
+        margin: 0 auto;
+      }
+
+      .chapter-header {
+        display: grid;
+        gap: 24px;
+        padding: 28px;
+        border: 1px solid var(--shell-line);
+        border-radius: var(--radius-shell);
+        background:
+          linear-gradient(180deg, rgba(15, 24, 36, 0.96), rgba(10, 17, 27, 0.94)),
+          rgba(14, 22, 34, 0.94);
+        box-shadow: var(--shadow-shell);
+        backdrop-filter: blur(18px);
+      }
+
+      .eyebrow {
+        margin: 0 0 10px;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: #8dc6b0;
+      }
+
+      .chapter-header h1 {
+        margin: 0;
+        font-size: clamp(2.2rem, 3vw, 3.1rem);
+        line-height: 1.04;
+        letter-spacing: -0.04em;
+      }
+
+      .chapter-summary {
+        max-width: 760px;
+        margin: 16px 0 0;
+        font-size: 1rem;
+        line-height: 1.6;
+        color: var(--shell-muted);
+      }
+
+      .toc {
+        display: grid;
+        gap: 14px;
+      }
+
+      .toc-label {
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--shell-faint);
+      }
+
+      .toc-list {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .toc-item {
+        padding: 12px 14px;
+        border: 1px solid var(--shell-line);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.03);
+        color: var(--shell-muted);
+        font-size: 0.9rem;
+      }
+
+      .toc-item strong {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 0.76rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .toc-item.active {
+        border-color: rgba(141, 198, 176, 0.52);
+        background: linear-gradient(180deg, rgba(35, 66, 58, 0.88), rgba(16, 31, 28, 0.92));
+        color: var(--shell-text);
+        box-shadow: inset 0 0 0 1px rgba(141, 198, 176, 0.24);
+      }
+
+      .screen-stack {
+        display: grid;
+        gap: 34px;
+        margin-top: 32px;
+      }
+
+      .artifact-section {
+        display: grid;
+        gap: 20px;
+      }
+
+      .artifact-section.side {
+        grid-template-columns: var(--annotation-width) minmax(0, 1fr);
+        gap: var(--annotation-gap);
+        align-items: start;
+      }
+
+      .annotation-card,
+      .annotation-band {
+        border: 1px solid var(--shell-line);
+        border-radius: 16px;
+        background: linear-gradient(180deg, rgba(14, 22, 33, 0.94), rgba(12, 18, 28, 0.92));
+        box-shadow: var(--shadow-shell);
+      }
+
+      .annotation-card {
+        padding: 18px 18px 16px;
+        position: sticky;
+        top: 24px;
+      }
+
+      .annotation-band {
+        padding: 18px 20px;
+      }
+
+      .annotation-kicker {
+        margin: 0 0 8px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: #8dc6b0;
+      }
+
+      .annotation-card h2,
+      .annotation-band h2 {
+        margin: 0;
+        font-size: 1.08rem;
+        line-height: 1.28;
+      }
+
+      .annotation-card p,
+      .annotation-band p {
+        margin: 10px 0 0;
+        color: var(--shell-muted);
+        font-size: 0.92rem;
+        line-height: 1.55;
+      }
+
+      .annotation-fields {
+        display: grid;
+        gap: 12px;
+        margin-top: 18px;
+      }
+
+      .annotation-field {
+        padding-top: 12px;
+        border-top: 1px solid var(--shell-line);
+      }
+
+      .annotation-field span {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--shell-faint);
+      }
+
+      .annotation-field strong {
+        display: block;
+        font-size: 0.92rem;
+        line-height: 1.45;
+      }
+
+      .annotation-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+        margin-top: 16px;
+      }
+
+      .annotation-grid .annotation-field {
+        margin: 0;
+      }
+
+      .browser-frame {
+        border-radius: var(--radius-shell);
+        border: 1px solid rgba(216, 225, 236, 0.18);
+        background:
+          linear-gradient(180deg, rgba(231, 237, 245, 0.12), rgba(11, 18, 27, 0.06)),
+          rgba(248, 251, 255, 0.06);
+        box-shadow: var(--shadow-shell);
+        overflow: hidden;
+      }
+
+      .browser-top {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 16px;
+        border-bottom: 1px solid rgba(215, 222, 232, 0.18);
+        background: rgba(255, 255, 255, 0.07);
+      }
+
+      .browser-dots {
+        display: flex;
+        gap: 6px;
+      }
+
+      .browser-dots span {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.28);
+      }
+
+      .browser-address {
+        padding: 7px 12px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 999px;
+        color: rgba(237, 244, 251, 0.8);
+        font-size: 12px;
+        letter-spacing: 0.02em;
+      }
+
+      .window-surface {
+        background: var(--window-bg);
+        color: var(--window-text);
+      }
+
+      .app-shell {
+        display: grid;
+        min-height: 720px;
+      }
+
+      .app-shell.expanded {
+        grid-template-columns: var(--sidebar-expanded) minmax(0, 1fr);
+      }
+
+      .app-shell.collapsed {
+        grid-template-columns: var(--sidebar-collapsed) minmax(0, 1fr);
+      }
+
+      .sidebar {
+        display: flex;
+        flex-direction: column;
+        gap: 22px;
+        border-right: 1px solid var(--window-line);
+        background: #f1f4f9;
+      }
+
+      .sidebar.expanded {
+        padding: 22px 16px 18px;
+      }
+
+      .sidebar.collapsed {
+        padding: 18px 10px 16px;
+        align-items: center;
+      }
+
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
+        background: linear-gradient(180deg, #1d8364, #155842);
+        color: #f4fbf8;
+        font-size: 0.95rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+      }
+
+      .nav-list {
+        display: grid;
+        gap: 6px;
+      }
+
+      .nav-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        color: var(--window-muted);
+        font-size: 0.95rem;
+        font-weight: 600;
+      }
+
+      .nav-item.active {
+        background: #e1edf0;
+        color: var(--window-text);
+        box-shadow: inset 3px 0 0 #1d8364;
+      }
+
+      .nav-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 18px;
+        border-radius: 6px;
+        background: #dce6f0;
+        color: #4a5b6f;
+        font-size: 11px;
+        font-weight: 800;
+      }
+
+      .sidebar.collapsed .nav-item {
+        justify-content: center;
+        padding: 10px;
+      }
+
+      .sidebar.collapsed .nav-item span:not(.nav-icon) {
+        display: none;
+      }
+
+      .sidebar-spacer {
+        flex: 1;
+      }
+
+      .account-block {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        border: 1px solid var(--window-line);
+        border-radius: 12px;
+        background: #ffffff;
+      }
+
+      .account-avatar {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        border-radius: 999px;
+        background: #dbe8f7;
+        color: #244267;
+        font-size: 0.78rem;
+        font-weight: 700;
+      }
+
+      .account-text {
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+      }
+
+      .account-text strong {
+        font-size: 0.88rem;
+      }
+
+      .account-text span {
+        font-size: 0.74rem;
+        color: var(--window-faint);
+      }
+
+      .sidebar.collapsed .account-block {
+        padding: 0;
+        border: 0;
+        background: transparent;
+      }
+
+      .sidebar.collapsed .account-text,
+      .sidebar.collapsed .chevron {
+        display: none;
+      }
+
+      .chevron {
+        margin-left: auto;
+        color: var(--window-faint);
+      }
+
+      .workspace {
+        position: relative;
+        overflow: hidden;
+      }
+
+      .workspace.padded {
+        padding: 28px;
+      }
+
+      .workspace.dense {
+        padding: 20px;
+      }
+
+      .page {
+        display: grid;
+        gap: 16px;
+      }
+
+      .route-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 20px;
+      }
+
+      .title-stack {
+        display: grid;
+        gap: 8px;
+      }
+
+      .route-label {
+        margin: 0;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--window-faint);
+      }
+
+      .stage-label {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 8px;
+        border-radius: 999px;
+        background: var(--window-surface-2);
+        color: var(--window-muted);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .title-stack h3 {
+        margin: 0;
+        font-size: 1.55rem;
+        line-height: 1.1;
+        letter-spacing: -0.03em;
+      }
+
+      .title-stack p {
+        margin: 0;
+        color: var(--window-muted);
+        font-size: 0.96rem;
+        line-height: 1.5;
+      }
+
+      .btn,
+      .ghost-btn,
+      .chip-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        border-radius: 10px;
+        font-size: 0.9rem;
+        font-weight: 700;
+        line-height: 1;
+        text-decoration: none;
+        white-space: nowrap;
+      }
+
+      .btn {
+        border: 0;
+        padding: 12px 16px;
+        background: #1c8566;
+        color: #f6fffb;
+        box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.12);
+      }
+
+      .btn.secondary {
+        background: var(--window-surface-2);
+        color: var(--window-text);
+      }
+
+      .ghost-btn {
+        padding: 10px 12px;
+        border: 1px solid var(--window-line);
+        background: #ffffff;
+        color: var(--window-text);
+      }
+
+      .chip-btn {
+        padding: 8px 10px;
+        border: 1px solid var(--window-line);
+        background: #ffffff;
+        color: var(--window-muted);
+      }
+
+      .local-progress {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .progress-step {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        border: 1px solid var(--window-line);
+        border-radius: 10px;
+        background: #ffffff;
+        color: var(--window-muted);
+        font-size: 0.84rem;
+        font-weight: 600;
+      }
+
+      .progress-step strong {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        height: 22px;
+        border-radius: 999px;
+        background: var(--window-surface-2);
+        color: var(--window-text);
+        font-size: 0.72rem;
+      }
+
+      .progress-step.current {
+        border-color: #bfd7cd;
+        color: var(--window-text);
+        background: #ffffff;
+      }
+
+      .progress-step.current strong {
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+
+      .content-a {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 256px;
+        gap: 20px;
+      }
+
+      .content-e {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 280px;
+        gap: 20px;
+      }
+
+      .panel,
+      .rail-card,
+      .table-card,
+      .editor-card,
+      .summary-card,
+      .asset-card,
+      .panel-card,
+      .inspector-card,
+      .empty-surface {
+        border: 1px solid var(--window-line);
+        border-radius: 12px;
+        background: var(--window-surface);
+      }
+
+      .panel,
+      .rail-card,
+      .editor-card,
+      .summary-card,
+      .asset-card,
+      .panel-card,
+      .inspector-card,
+      .empty-surface {
+        padding: 18px;
+      }
+
+      .rail-card,
+      .panel-card,
+      .inspector-card {
+        display: grid;
+        gap: 14px;
+      }
+
+      .rail-title,
+      .section-title,
+      .card-title {
+        margin: 0;
+        font-size: 0.95rem;
+        font-weight: 700;
+      }
+
+      .subtle-note {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        background: #ecf7f2;
+        color: #1a654e;
+        font-size: 0.85rem;
+        font-weight: 600;
+      }
+
+      .subtle-note.warning {
+        background: #fff6e7;
+        color: #8d6327;
+      }
+
+      .subtle-note.boundary {
+        background: #edf3fa;
+        color: #35506c;
+      }
+
+      .source-list,
+      .payoff-list,
+      .story-list,
+      .meta-list,
+      .fit-list,
+      .proof-list,
+      .jobs-mini-list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .source-row,
+      .payoff-item,
+      .story-item,
+      .mini-row,
+      .fit-item,
+      .proof-item,
+      .note-row {
+        display: grid;
+        gap: 4px;
+        padding: 12px 14px;
+        border: 1px solid var(--window-line);
+        border-radius: 10px;
+        background: #ffffff;
+      }
+
+      .source-row strong,
+      .payoff-item strong,
+      .story-item strong,
+      .mini-row strong,
+      .fit-item strong,
+      .proof-item strong,
+      .note-row strong {
+        font-size: 0.9rem;
+      }
+
+      .source-row span,
+      .payoff-item span,
+      .story-item span,
+      .mini-row span,
+      .fit-item span,
+      .proof-item span,
+      .note-row span {
+        font-size: 0.83rem;
+        line-height: 1.45;
+        color: var(--window-muted);
+      }
+
+      .source-row {
+        grid-template-columns: 1fr auto;
+        align-items: center;
+      }
+
+      .source-copy {
+        display: grid;
+        gap: 4px;
+      }
+
+      .source-row em {
+        font-style: normal;
+        color: var(--window-faint);
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 5px 8px;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        background: var(--window-surface-2);
+        color: var(--window-muted);
+      }
+
+      .pill.good {
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+
+      .pill.warn {
+        background: var(--amber-soft);
+        color: var(--amber);
+      }
+
+      .pill.bad {
+        background: var(--red-soft);
+        color: var(--red);
+      }
+
+      .table-card {
+        overflow: hidden;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.84rem;
+      }
+
+      th,
+      td {
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--window-line);
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        color: var(--window-faint);
+        font-size: 0.73rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        background: #f7f9fc;
+      }
+
+      tr.selected td {
+        background: #f0f5fb;
+      }
+
+      tr:last-child td {
+        border-bottom: 0;
+      }
+
+      .table-toolbar,
+      .utility-bar,
+      .filter-bar,
+      .action-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .table-toolbar,
+      .utility-bar,
+      .filter-bar {
+        justify-content: space-between;
+      }
+
+      .toolbar-group,
+      .filter-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .segmented {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px;
+        border: 1px solid var(--window-line);
+        border-radius: 10px;
+        background: #ffffff;
+      }
+
+      .segmented button {
+        border: 0;
+        background: transparent;
+        color: var(--window-muted);
+        padding: 8px 12px;
+        border-radius: 8px;
+        font-weight: 700;
+        font-size: 0.84rem;
+      }
+
+      .segmented button.active {
+        background: var(--window-surface-2);
+        color: var(--window-text);
+      }
+
+      .editor-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 300px;
+        gap: 0;
+        border: 1px solid var(--window-line);
+        border-radius: 12px;
+        overflow: hidden;
+        background: #ffffff;
+      }
+
+      .editor-pane {
+        border-left: 1px solid var(--window-line);
+        padding: 18px;
+        display: grid;
+        gap: 16px;
+        background: #fbfcfe;
+      }
+
+      .field-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .field,
+      .input-like,
+      .search-input {
+        display: grid;
+        gap: 6px;
+      }
+
+      .field label,
+      .input-like label {
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--window-faint);
+      }
+
+      .value {
+        padding: 10px 12px;
+        border: 1px solid var(--window-line);
+        border-radius: 10px;
+        background: #ffffff;
+        color: var(--window-text);
+        font-size: 0.88rem;
+      }
+
+      .textarea-like {
+        min-height: 92px;
+      }
+
+      .issue-inline,
+      .summary-row,
+      .boundary-note,
+      .proof-usage,
+      .next-step-card,
+      .board-preview,
+      .safe-wording-block,
+      .capture-sheet,
+      .drawer,
+      .proof-drawer,
+      .fit-drawer,
+      .review-layout,
+      .workspace-layout {
+        border: 1px solid var(--window-line);
+        border-radius: 12px;
+        background: #ffffff;
+      }
+
+      .issue-inline,
+      .summary-row,
+      .boundary-note,
+      .next-step-card,
+      .board-preview,
+      .safe-wording-block,
+      .proof-usage {
+        padding: 14px 16px;
+      }
+
+      .summary-row {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .metric {
+        padding: 10px 12px;
+        border-radius: 10px;
+        background: var(--window-surface-2);
+      }
+
+      .metric span {
+        display: block;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--window-faint);
+      }
+
+      .metric strong {
+        display: block;
+        margin-top: 6px;
+        font-size: 1rem;
+      }
+
+      .story-proof-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 14px;
+      }
+
+      .safe-wording-block {
+        display: grid;
+        gap: 10px;
+        background: #fbfcfe;
+      }
+
+      .safe-wording-block textarea {
+        width: 100%;
+        min-height: 64px;
+        border: 1px solid var(--window-line);
+        border-radius: 10px;
+        padding: 10px 12px;
+        font: inherit;
+        color: var(--window-text);
+        background: #ffffff;
+        resize: none;
+      }
+
+      .overlay-scene {
+        position: relative;
+        min-height: 560px;
+        border: 1px solid var(--window-line);
+        border-radius: 12px;
+        background: linear-gradient(180deg, #fbfcfe, #f5f8fc);
+        overflow: hidden;
+      }
+
+      .overlay-scene .workspace-base {
+        padding: 18px;
+        display: grid;
+        gap: 14px;
+      }
+
+      .drawer,
+      .fit-drawer,
+      .proof-drawer {
+        position: absolute;
+        top: 18px;
+        right: 18px;
+        width: 300px;
+        padding: 18px;
+        display: grid;
+        gap: 14px;
+        box-shadow: var(--shadow-window);
+      }
+
+      .proof-drawer {
+        width: 320px;
+      }
+
+      .capture-sheet {
+        position: absolute;
+        top: 56px;
+        left: 50%;
+        width: 560px;
+        transform: translateX(-50%);
+        padding: 18px;
+        display: grid;
+        gap: 16px;
+        box-shadow: var(--shadow-window);
+      }
+
+      .capture-grid {
+        display: grid;
+        grid-template-columns: 1.15fr 0.85fr;
+        gap: 14px;
+      }
+
+      .capture-results,
+      .capture-summary {
+        display: grid;
+        gap: 10px;
+      }
+
+      .result-row {
+        padding: 12px;
+        border: 1px solid var(--window-line);
+        border-radius: 10px;
+        background: #ffffff;
+      }
+
+      .result-row.selected {
+        border-color: #b6cad8;
+        background: #f1f6fb;
+      }
+
+      .result-row strong {
+        display: block;
+        font-size: 0.88rem;
+      }
+
+      .result-row span {
+        display: block;
+        margin-top: 4px;
+        color: var(--window-muted);
+        font-size: 0.8rem;
+        line-height: 1.45;
+      }
+
+      .sheet-footer,
+      .review-actions {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .footer-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .group-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--window-line);
+        background: #f7f9fc;
+        color: var(--window-muted);
+        font-size: 0.82rem;
+        font-weight: 700;
+      }
+
+      .jobs-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 280px;
+        gap: 0;
+        border: 1px solid var(--window-line);
+        border-radius: 12px;
+        overflow: hidden;
+        background: #ffffff;
+      }
+
+      .jobs-layout .inspector-card {
+        border: 0;
+        border-left: 1px solid var(--window-line);
+        border-radius: 0;
+        background: #fbfcfe;
+      }
+
+      .board-preview {
+        display: grid;
+        gap: 10px;
+      }
+
+      .board-lane {
+        display: grid;
+        gap: 8px;
+      }
+
+      .board-card {
+        padding: 10px 12px;
+        border: 1px solid var(--window-line);
+        border-radius: 10px;
+        background: #ffffff;
+      }
+
+      .review-layout {
+        padding: 18px;
+        display: grid;
+        gap: 16px;
+        position: relative;
+        min-height: 560px;
+      }
+
+      .review-grid {
+        display: grid;
+        grid-template-columns: 1.1fr 0.9fr;
+        gap: 16px;
+      }
+
+      .draft-card {
+        border: 1px solid var(--window-line);
+        border-radius: 12px;
+        background: #ffffff;
+        padding: 16px;
+        display: grid;
+        gap: 14px;
+      }
+
+      .draft-surface {
+        padding: 16px;
+        border: 1px solid var(--window-line);
+        border-radius: 10px;
+        background: #fbfcfe;
+        display: grid;
+        gap: 10px;
+      }
+
+      .workspace-layout {
+        padding: 18px;
+        display: grid;
+        gap: 18px;
+      }
+
+      .workspace-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 280px;
+        gap: 18px;
+      }
+
+      .notes-surface,
+      .asset-surface {
+        border: 1px solid var(--window-line);
+        border-radius: 12px;
+        background: #ffffff;
+        padding: 16px;
+        display: grid;
+        gap: 12px;
+      }
+
+      .asset-tabs {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .asset-tab {
+        padding: 8px 10px;
+        border-radius: 9px;
+        background: var(--window-surface-2);
+        color: var(--window-muted);
+        font-size: 0.82rem;
+        font-weight: 700;
+      }
+
+      .asset-tab.active {
+        background: #ffffff;
+        color: var(--window-text);
+        border: 1px solid var(--window-line);
+      }
+
+      .job-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--window-line);
+      }
+
+      .job-meta {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        color: var(--window-muted);
+        font-size: 0.84rem;
+      }
+
+      .text-block {
+        display: grid;
+        gap: 8px;
+        color: var(--window-muted);
+        font-size: 0.86rem;
+        line-height: 1.55;
+      }
+
+      .account-menu-crop {
+        width: 220px;
+        margin-top: 16px;
+        margin-left: auto;
+        padding: 12px;
+        border: 1px solid var(--shell-line);
+        border-radius: 14px;
+        background: rgba(11, 18, 28, 0.94);
+        box-shadow: var(--shadow-shell);
+      }
+
+      .account-menu-crop .crop-title {
+        margin: 0 0 10px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--shell-faint);
+      }
+
+      .account-menu {
+        border: 1px solid rgba(221, 229, 237, 0.14);
+        border-radius: 12px;
+        background: #101926;
+        color: #eff5fb;
+        overflow: hidden;
+      }
+
+      .account-menu-header {
+        padding: 12px 14px;
+        border-bottom: 1px solid rgba(221, 229, 237, 0.12);
+        display: grid;
+        gap: 2px;
+      }
+
+      .account-menu-header span {
+        color: #98a9bb;
+        font-size: 0.78rem;
+      }
+
+      .menu-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 14px;
+        border-bottom: 1px solid rgba(221, 229, 237, 0.08);
+        font-size: 0.88rem;
+      }
+
+      .menu-item:last-child {
+        border-bottom: 0;
+      }
+
+      .search-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .search-box {
+        padding: 10px 12px;
+        border: 1px solid var(--window-line);
+        border-radius: 10px;
+        color: var(--window-faint);
+        background: #ffffff;
+        font-size: 0.84rem;
+      }
+
+      .empty-surface {
+        min-height: 180px;
+        display: grid;
+        place-items: center;
+        color: var(--window-faint);
+        font-size: 0.9rem;
+      }
+
+      .muted {
+        color: var(--window-muted);
+      }
+
+      .tight {
+        display: grid;
+        gap: 8px;
+      }
+
+      .spaced {
+        display: grid;
+        gap: 16px;
+      }
+
+      .hide-mobile {
+        display: inline;
+      }
+
+      @media (max-width: 1420px) {
+        .chapter-shell {
+          width: min(100%, 1320px);
+        }
+      }
+
+      @media (max-width: 1220px) {
+        .toc-list,
+        .content-a,
+        .content-e,
+        .review-grid,
+        .workspace-grid,
+        .capture-grid,
+        .editor-layout,
+        .jobs-layout,
+        .artifact-section.side {
+          grid-template-columns: 1fr;
+        }
+
+        .annotation-card {
+          position: static;
+        }
+
+        .drawer,
+        .fit-drawer,
+        .proof-drawer,
+        .capture-sheet {
+          position: static;
+          width: auto;
+          transform: none;
+          margin: 0 18px 18px;
+        }
+
+        .app-shell.expanded,
+        .app-shell.collapsed {
+          grid-template-columns: 1fr;
+        }
+
+        .sidebar {
+          border-right: 0;
+          border-bottom: 1px solid var(--window-line);
+        }
+
+        .sidebar.collapsed .nav-item span:not(.nav-icon) {
+          display: inline;
+        }
+
+        .workspace.padded,
+        .workspace.dense {
+          padding: 20px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="chapter-shell">
+      <header class="chapter-header">
+        <div>
+          <p class="eyebrow">Foundation Series</p>
+          <h1>05. Activation and Core App</h1>
+          <p class="chapter-summary">
+            Chapter 05 turns approved profile truth into real job work. The desktop authority below keeps
+            early activation focused, keeps review-before-send explicit, and moves one saved lane into a real
+            working surface.
+          </p>
+        </div>
+        <nav class="toc" aria-label="Foundation Series table of contents">
+          <span class="toc-label">Table of Contents</span>
+          <div class="toc-list">
+            <div class="toc-item">
+              <strong>01</strong>
+              Market Intelligence
+            </div>
+            <div class="toc-item">
+              <strong>02</strong>
+              Brand Strategy
+            </div>
+            <div class="toc-item">
+              <strong>03</strong>
+              Product System
+            </div>
+            <div class="toc-item">
+              <strong>04</strong>
+              Public Funnel
+            </div>
+            <div class="toc-item active">
+              <strong>05</strong>
+              Activation and Core App
+            </div>
+          </div>
+        </nav>
+      </header>
+
+      <main class="screen-stack">
+        <section class="artifact-section side" id="d1">
+          <aside class="annotation-card">
+            <p class="annotation-kicker">D1 · P0 · Layout A</p>
+            <h2>Profile start and source capture</h2>
+            <p>
+              The first screen leads with one source-neutral action, keeps all four paths visibly valid, and
+              keeps payoff secondary but above the fold.
+            </p>
+            <div class="annotation-fields">
+              <div class="annotation-field">
+                <span>Render</span>
+                <strong>Source chooser expanded, no path committed</strong>
+              </div>
+              <div class="annotation-field">
+                <span>Focus</span>
+                <strong>Dominant CTA, then source rows, then payoff rail</strong>
+              </div>
+              <div class="annotation-field">
+                <span>Sidebar</span>
+                <strong>Expanded</strong>
+              </div>
+            </div>
+          </aside>
+          <div class="browser-frame">
+            <div class="browser-top">
+              <div class="browser-dots"><span></span><span></span><span></span></div>
+              <div class="browser-address">jobfilter.app/profile</div>
+            </div>
+            <div class="window-surface app-shell expanded">
+              <aside class="sidebar expanded">
+                <div class="brand">JF</div>
+                <nav class="nav-list">
+                  <div class="nav-item active"><span class="nav-icon">P</span><span>Profile</span></div>
+                  <div class="nav-item"><span class="nav-icon">J</span><span>Jobs</span></div>
+                  <div class="nav-item"><span class="nav-icon">Pr</span><span>Proof</span></div>
+                </nav>
+                <div class="sidebar-spacer"></div>
+                <div class="account-block">
+                  <span class="account-avatar">AS</span>
+                  <div class="account-text">
+                    <strong>Alen Sultanic</strong>
+                    <span>Account</span>
+                  </div>
+                  <span class="chevron">^</span>
+                </div>
+              </aside>
+              <div class="workspace padded">
+                <div class="page">
+                  <div class="route-header">
+                    <div class="title-stack">
+                      <p class="route-label">Profile</p>
+                      <span class="stage-label">Add your experience</span>
+                      <h3>Bring in your experience</h3>
+                      <p>Bring in a source once. You'll use it across roles, jobs, and drafts.</p>
+                    </div>
+                  </div>
+                  <div class="local-progress">
+                    <div class="progress-step current"><strong>1</strong><span>Add your experience</span></div>
+                    <div class="progress-step"><strong>2</strong><span>Check your history</span></div>
+                    <div class="progress-step"><strong>3</strong><span>Approve your proof</span></div>
+                    <div class="progress-step"><strong>4</strong><span>Role Discovery</span></div>
+                  </div>
+                  <div class="content-a">
+                    <div class="panel spaced">
+                      <div class="action-row">
+                        <button class="btn">Add your experience</button>
+                      </div>
+                      <div class="source-list">
+                        <div class="source-row">
+                          <div class="source-copy">
+                            <strong>Resume</strong>
+                            <span>Use this if your recent work is already clear here.</span>
+                          </div>
+                          <em>Source</em>
+                        </div>
+                        <div class="source-row">
+                          <div class="source-copy">
+                            <strong>LinkedIn</strong>
+                            <span>Use this if your latest experience is more complete there.</span>
+                          </div>
+                          <em>Source</em>
+                        </div>
+                        <div class="source-row">
+                          <div class="source-copy">
+                            <strong>Paste text</strong>
+                            <span>Use notes, old drafts, or copied experience.</span>
+                          </div>
+                          <em>Source</em>
+                        </div>
+                        <div class="source-row">
+                          <div class="source-copy">
+                            <strong>Manual entry</strong>
+                            <span>Use this when you want to build it yourself.</span>
+                          </div>
+                          <em>Source</em>
+                        </div>
+                      </div>
+                      <div class="subtle-note boundary">Nothing carries forward until you review it.</div>
+                    </div>
+                    <aside class="rail-card">
+                      <h4 class="rail-title">What this unlocks</h4>
+                      <div class="payoff-list">
+                        <div class="payoff-item">
+                          <strong>Clearer role options</strong>
+                          <span>See which roles your experience can actually support.</span>
+                        </div>
+                        <div class="payoff-item">
+                          <strong>Proof you can reuse</strong>
+                          <span>Approve stories, metrics, and proof once, then use them again.</span>
+                        </div>
+                        <div class="payoff-item">
+                          <strong>Stronger job review</strong>
+                          <span>Review fit, proof, and draft language before anything carries forward.</span>
+                        </div>
+                      </div>
+                    </aside>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="artifact-section band" id="d2">
+          <div class="annotation-band">
+            <p class="annotation-kicker">D2 · P1 · Layout C</p>
+            <h2>Experience normalization</h2>
+            <p>
+              Table-first review keeps chronology, provenance, and unresolved issues visible while the selected
+              row editor stays open for factual cleanup.
+            </p>
+            <div class="annotation-grid">
+              <div class="annotation-field">
+                <span>Render</span>
+                <strong>Selected row, editor open, one unresolved issue visible</strong>
+              </div>
+              <div class="annotation-field">
+                <span>Focus</span>
+                <strong>History rows and one-value-per-field editor</strong>
+              </div>
+              <div class="annotation-field">
+                <span>Model</span>
+                <strong>Dense table plus inline right editor</strong>
+              </div>
+              <div class="annotation-field">
+                <span>Sidebar</span>
+                <strong>Expanded</strong>
+              </div>
+            </div>
+          </div>
+          <div class="browser-frame">
+            <div class="browser-top">
+              <div class="browser-dots"><span></span><span></span><span></span></div>
+              <div class="browser-address">jobfilter.app/profile/history</div>
+            </div>
+            <div class="window-surface app-shell expanded">
+              <aside class="sidebar expanded">
+                <div class="brand">JF</div>
+                <nav class="nav-list">
+                  <div class="nav-item active"><span class="nav-icon">P</span><span>Profile</span></div>
+                  <div class="nav-item"><span class="nav-icon">J</span><span>Jobs</span></div>
+                  <div class="nav-item"><span class="nav-icon">Pr</span><span>Proof</span></div>
+                </nav>
+                <div class="sidebar-spacer"></div>
+                <div class="account-block">
+                  <span class="account-avatar">AS</span>
+                  <div class="account-text">
+                    <strong>Alen Sultanic</strong>
+                    <span>Account</span>
+                  </div>
+                  <span class="chevron">^</span>
+                </div>
+              </aside>
+              <div class="workspace dense">
+                <div class="page">
+                  <div class="route-header">
+                    <div class="title-stack">
+                      <p class="route-label">Profile</p>
+                      <span class="stage-label">Check your history</span>
+                      <h3>Check your history</h3>
+                      <p>Review each role once so the rest of your search starts from clean structure.</p>
+                    </div>
+                  </div>
+                  <div class="local-progress">
+                    <div class="progress-step"><strong>1</strong><span>Add your experience</span></div>
+                    <div class="progress-step current"><strong>2</strong><span>Check your history</span></div>
+                    <div class="progress-step"><strong>3</strong><span>Approve your proof</span></div>
+                    <div class="progress-step"><strong>4</strong><span>Role Discovery</span></div>
+                  </div>
+                  <div class="table-toolbar">
+                    <div class="toolbar-group">
+                      <button class="ghost-btn">Add role</button>
+                      <button class="chip-btn">Chronology</button>
+                      <button class="chip-btn">Show archived</button>
+                    </div>
+                    <div class="subtle-note warning">Needs a closer look, one role still has missing location detail.</div>
+                  </div>
+                  <div class="editor-layout">
+                    <div class="table-card">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Role</th>
+                            <th>Company</th>
+                            <th>Dates</th>
+                            <th>Location</th>
+                            <th>Source</th>
+                            <th>Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr class="selected">
+                            <td><strong>Senior Product Marketing Manager</strong></td>
+                            <td>Clarity AI</td>
+                            <td>2022 to Present</td>
+                            <td>Remote</td>
+                            <td><span class="pill">From LinkedIn</span></td>
+                            <td><span class="pill warn">Needs confirmation</span></td>
+                          </tr>
+                          <tr>
+                            <td><strong>Lifecycle Marketing Lead</strong></td>
+                            <td>Converge Cloud</td>
+                            <td>2019 to 2022</td>
+                            <td>Chicago, IL</td>
+                            <td><span class="pill">From your resume</span></td>
+                            <td><span class="pill good">Ready</span></td>
+                          </tr>
+                          <tr>
+                            <td><strong>Growth Marketing Manager</strong></td>
+                            <td>Northwind Health</td>
+                            <td>2016 to 2019</td>
+                            <td>Chicago, IL</td>
+                            <td><span class="pill">Added by you</span></td>
+                            <td><span class="pill good">Ready</span></td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                    <aside class="editor-pane">
+                      <div class="tight">
+                        <span class="route-label">Role details</span>
+                        <div class="field-grid">
+                          <div class="field">
+                            <label>Role title</label>
+                            <div class="value">Senior Product Marketing Manager</div>
+                          </div>
+                          <div class="field">
+                            <label>Company</label>
+                            <div class="value">Clarity AI</div>
+                          </div>
+                          <div class="field">
+                            <label>Start date</label>
+                            <div class="value">Jan 2022</div>
+                          </div>
+                          <div class="field">
+                            <label>End date</label>
+                            <div class="value">Present</div>
+                          </div>
+                          <div class="field">
+                            <label>Location</label>
+                            <div class="value">Remote</div>
+                          </div>
+                          <div class="field">
+                            <label>Work mode</label>
+                            <div class="value">Hybrid travel</div>
+                          </div>
+                          <div class="field">
+                            <label>Employment type</label>
+                            <div class="value">Full-time</div>
+                          </div>
+                          <div class="field">
+                            <label>Short mandate</label>
+                            <div class="value">Owned launch messaging, lifecycle growth, and sales enablement.</div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="issue-inline">
+                        <strong>Needs a closer look</strong>
+                        <div class="text-block">
+                          <span>LinkedIn shows remote, the resume does not mention work mode.</span>
+                          <span>Source: From LinkedIn</span>
+                        </div>
+                      </div>
+                      <div class="review-actions">
+                        <button class="ghost-btn">Review later</button>
+                        <div class="footer-actions">
+                          <button class="btn secondary">Edit details</button>
+                          <button class="btn">Confirm history</button>
+                        </div>
+                      </div>
+                    </aside>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="artifact-section side" id="d3">
+          <aside class="annotation-card">
+            <p class="annotation-kicker">D3 · P2 · Layout A</p>
+            <h2>Stories and proof approval</h2>
+            <p>
+              The screen keeps stories, metrics, and proof in one review surface, with safe wording, exclusion,
+              and provenance all visible before foundation approval.
+            </p>
+            <div class="annotation-fields">
+              <div class="annotation-field">
+                <span>Render</span>
+                <strong>Mixed approval state, safe wording visible inline</strong>
+              </div>
+              <div class="annotation-field">
+                <span>Focus</span>
+                <strong>Approval decisions and proof readiness</strong>
+              </div>
+              <div class="annotation-field">
+                <span>Sidebar</span>
+                <strong>Expanded</strong>
+              </div>
+            </div>
+          </aside>
+          <div class="browser-frame">
+            <div class="browser-top">
+              <div class="browser-dots"><span></span><span></span><span></span></div>
+              <div class="browser-address">jobfilter.app/profile/proof</div>
+            </div>
+            <div class="window-surface app-shell expanded">
+              <aside class="sidebar expanded">
+                <div class="brand">JF</div>
+                <nav class="nav-list">
+                  <div class="nav-item active"><span class="nav-icon">P</span><span>Profile</span></div>
+                  <div class="nav-item"><span class="nav-icon">J</span><span>Jobs</span></div>
+                  <div class="nav-item"><span class="nav-icon">Pr</span><span>Proof</span></div>
+                </nav>
+                <div class="sidebar-spacer"></div>
+                <div class="account-block">
+                  <span class="account-avatar">AS</span>
+                  <div class="account-text">
+                    <strong>Alen Sultanic</strong>
+                    <span>Account</span>
+                  </div>
+                  <span class="chevron">^</span>
+                </div>
+              </aside>
+              <div class="workspace padded">
+                <div class="page">
+                  <div class="route-header">
+                    <div class="title-stack">
+                      <p class="route-label">Profile</p>
+                      <span class="stage-label">Approve your proof</span>
+                      <h3>Approve your proof</h3>
+                      <p>Review what the app can use later, what needs proof, and what should stay out.</p>
+                    </div>
+                  </div>
+                  <div class="local-progress">
+                    <div class="progress-step"><strong>1</strong><span>Add your experience</span></div>
+                    <div class="progress-step"><strong>2</strong><span>Check your history</span></div>
+                    <div class="progress-step current"><strong>3</strong><span>Approve your proof</span></div>
+                    <div class="progress-step"><strong>4</strong><span>Role Discovery</span></div>
+                  </div>
+                  <div class="content-a">
+                    <div class="story-proof-grid">
+                      <div class="summary-row">
+                        <div class="metric"><span>Used</span><strong>12 items</strong></div>
+                        <div class="metric"><span>Needs proof</span><strong>4 items</strong></div>
+                        <div class="metric"><span>Excluded</span><strong>2 items</strong></div>
+                        <div class="metric"><span>Ready to approve</span><strong>Foundation is nearly ready</strong></div>
+                      </div>
+                      <div class="story-list">
+                        <div class="story-item">
+                          <strong>Launched a lifecycle messaging system across email and in-product touchpoints.</strong>
+                          <span>Used, supported by launch recap and sales deck. <a href="#">See source</a></span>
+                          <div class="action-row">
+                            <span class="pill good">Use this</span>
+                            <button class="chip-btn">Use safer wording</button>
+                          </div>
+                        </div>
+                        <div class="story-item">
+                          <strong>Increased qualified pipeline by 34% in two quarters.</strong>
+                          <span>Needs proof, the metric appears in notes but not in a reviewed source.</span>
+                          <div class="action-row">
+                            <span class="pill warn">Needs proof</span>
+                            <button class="chip-btn">Keep out</button>
+                          </div>
+                        </div>
+                        <div class="story-item">
+                          <strong>Owned all global GTM strategy.</strong>
+                          <span>Excluded, the source shows regional ownership only.</span>
+                          <div class="action-row">
+                            <span class="pill bad">Excluded</span>
+                            <button class="chip-btn">Use again</button>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="table-card">
+                        <table>
+                          <thead>
+                            <tr>
+                              <th>Proof</th>
+                              <th>Type</th>
+                              <th>State</th>
+                              <th>Source</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr>
+                              <td>Launch recap, Q2 2024</td>
+                              <td>Story</td>
+                              <td><span class="pill good">Used</span></td>
+                              <td><a href="#">See source</a></td>
+                            </tr>
+                            <tr>
+                              <td>Pipeline report excerpt</td>
+                              <td>Metric</td>
+                              <td><span class="pill warn">Needs proof</span></td>
+                              <td><a href="#">See source</a></td>
+                            </tr>
+                            <tr>
+                              <td>Sales deck, retail segment</td>
+                              <td>Proof</td>
+                              <td><span class="pill bad">Excluded</span></td>
+                              <td><a href="#">See source</a></td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                      <div class="safe-wording-block">
+                        <strong>Safer wording</strong>
+                        <textarea>Improved launch-to-pipeline conversion across key lifecycle journeys.</textarea>
+                        <div class="action-row">
+                          <button class="ghost-btn">Keep out</button>
+                          <button class="btn secondary">Use safer wording</button>
+                        </div>
+                      </div>
+                      <div class="review-actions">
+                        <span class="subtle-note boundary">Nothing moves into Role Discovery until you approve this foundation.</span>
+                        <button class="btn">Approve foundation</button>
+                      </div>
+                    </div>
+                    <aside class="rail-card">
+                      <h4 class="rail-title">What the app can use</h4>
+                      <div class="payoff-list">
+                        <div class="payoff-item">
+                          <strong>Use this</strong>
+                          <span>Approved for later fit and draft use.</span>
+                        </div>
+                        <div class="payoff-item">
+                          <strong>Keep out</strong>
+                          <span>Saved, but excluded from fit and drafts.</span>
+                        </div>
+                        <div class="payoff-item">
+                          <strong>Use safer wording</strong>
+                          <span>Keep the truth, soften unsupported specificity.</span>
+                        </div>
+                      </div>
+                    </aside>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="artifact-section side" id="d4">
+          <aside class="annotation-card">
+            <p class="annotation-kicker">D4 · P3 · Layout B</p>
+            <h2>Role Discovery</h2>
+            <p>
+              Approved truth becomes one user-owned lane. Role fit stays inspectable, lane opportunity stays
+              separate, and the drawer explains criteria without replacing the main workspace.
+            </p>
+            <div class="annotation-fields">
+              <div class="annotation-field">
+                <span>Render</span>
+                <strong>One role candidate active, Role fit drawer open</strong>
+              </div>
+              <div class="annotation-field">
+                <span>Focus</span>
+                <strong>Candidate comparison and lane creation</strong>
+              </div>
+              <div class="annotation-field">
+                <span>Sidebar</span>
+                <strong>Expanded</strong>
+              </div>
+            </div>
+          </aside>
+          <div class="browser-frame">
+            <div class="browser-top">
+              <div class="browser-dots"><span></span><span></span><span></span></div>
+              <div class="browser-address">jobfilter.app/profile/roles</div>
+            </div>
+            <div class="window-surface app-shell expanded">
+              <aside class="sidebar expanded">
+                <div class="brand">JF</div>
+                <nav class="nav-list">
+                  <div class="nav-item active"><span class="nav-icon">P</span><span>Profile</span></div>
+                  <div class="nav-item"><span class="nav-icon">J</span><span>Jobs</span></div>
+                  <div class="nav-item"><span class="nav-icon">Pr</span><span>Proof</span></div>
+                </nav>
+                <div class="sidebar-spacer"></div>
+                <div class="account-block">
+                  <span class="account-avatar">AS</span>
+                  <div class="account-text">
+                    <strong>Alen Sultanic</strong>
+                    <span>Account</span>
+                  </div>
+                  <span class="chevron">^</span>
+                </div>
+              </aside>
+              <div class="workspace padded">
+                <div class="page">
+                  <div class="route-header">
+                    <div class="title-stack">
+                      <p class="route-label">Profile</p>
+                      <span class="stage-label">Role Discovery</span>
+                      <h3>Roles your profile can support</h3>
+                      <p>Compare role directions after your foundation is approved, then save the lane you want to work.</p>
+                    </div>
+                  </div>
+                  <div class="local-progress">
+                    <div class="progress-step"><strong>1</strong><span>Add your experience</span></div>
+                    <div class="progress-step"><strong>2</strong><span>Check your history</span></div>
+                    <div class="progress-step"><strong>3</strong><span>Approve your proof</span></div>
+                    <div class="progress-step current"><strong>4</strong><span>Role Discovery</span></div>
+                  </div>
+                  <div class="overlay-scene">
+                    <div class="workspace-base">
+                      <div class="table-card">
+                        <table>
+                          <thead>
+                            <tr>
+                              <th>Role</th>
+                              <th>Included titles</th>
+                              <th>Role fit</th>
+                              <th>Lane opportunity</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr class="selected">
+                              <td><strong>Product Marketing</strong></td>
+                              <td>Senior PMM, Growth PMM, Lifecycle PMM</td>
+                              <td><button class="chip-btn">Why this fits</button></td>
+                              <td><button class="chip-btn">Lane opportunity</button></td>
+                            </tr>
+                            <tr>
+                              <td><strong>Growth Marketing</strong></td>
+                              <td>Lifecycle Lead, Growth Strategy Manager</td>
+                              <td><button class="chip-btn">Why this fits</button></td>
+                              <td><button class="chip-btn">Lane opportunity</button></td>
+                            </tr>
+                            <tr>
+                              <td><strong>Customer Marketing</strong></td>
+                              <td>Advocacy Lead, Retention Marketing Manager</td>
+                              <td><button class="chip-btn">Why this fits</button></td>
+                              <td><button class="chip-btn">Lane opportunity</button></td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                      <div class="panel-card">
+                        <strong class="card-title">Create your first lane</strong>
+                        <div class="field">
+                          <label>Lane name</label>
+                          <div class="value">Product Marketing</div>
+                        </div>
+                        <div class="field">
+                          <label>Recommended category</label>
+                          <div class="value">B2B SaaS Growth and Messaging</div>
+                        </div>
+                        <div class="subtle-note">Name this lane the way you would search it.</div>
+                        <div class="action-row">
+                          <button class="ghost-btn">Compare another role</button>
+                          <button class="btn">Create lane</button>
+                        </div>
+                      </div>
+                    </div>
+                    <aside class="fit-drawer">
+                      <span class="route-label">Why this fits</span>
+                      <div class="fit-list">
+                        <div class="fit-item">
+                          <strong>Messaging depth</strong>
+                          <span>Strong proof across launch, positioning, and lifecycle work.</span>
+                        </div>
+                        <div class="fit-item">
+                          <strong>Revenue context</strong>
+                          <span>Good evidence in pipeline support, weaker direct ownership of pricing.</span>
+                        </div>
+                        <div class="fit-item">
+                          <strong>Supporting proof</strong>
+                          <span>Launch recap, enablement plan, campaign performance summary.</span>
+                        </div>
+                      </div>
+                    </aside>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="artifact-section side" id="d5">
+          <aside class="annotation-card">
+            <p class="annotation-kicker">D5 · J0 · Layout B</p>
+            <h2>First-job entry in Jobs</h2>
+            <p>
+              The route-level action starts the intake flow. The capture sheet owns the equal Search jobs and
+              Paste or link paths, and Save job stays inside the sheet as the explicit confirmation step.
+            </p>
+            <div class="annotation-fields">
+              <div class="annotation-field">
+                <span>Render</span>
+                <strong>Capture sheet open, Search jobs active, parsed summary visible</strong>
+              </div>
+              <div class="annotation-field">
+                <span>Focus</span>
+                <strong>Add a job entry action, then the open intake sheet</strong>
+              </div>
+              <div class="annotation-field">
+                <span>Sidebar</span>
+                <strong>Expanded</strong>
+              </div>
+            </div>
+          </aside>
+          <div class="browser-frame">
+            <div class="browser-top">
+              <div class="browser-dots"><span></span><span></span><span></span></div>
+              <div class="browser-address">jobfilter.app/jobs</div>
+            </div>
+            <div class="window-surface app-shell expanded">
+              <aside class="sidebar expanded">
+                <div class="brand">JF</div>
+                <nav class="nav-list">
+                  <div class="nav-item"><span class="nav-icon">P</span><span>Profile</span></div>
+                  <div class="nav-item active"><span class="nav-icon">J</span><span>Jobs</span></div>
+                  <div class="nav-item"><span class="nav-icon">Pr</span><span>Proof</span></div>
+                </nav>
+                <div class="sidebar-spacer"></div>
+                <div class="account-block">
+                  <span class="account-avatar">AS</span>
+                  <div class="account-text">
+                    <strong>Alen Sultanic</strong>
+                    <span>Account</span>
+                  </div>
+                  <span class="chevron">^</span>
+                </div>
+              </aside>
+              <div class="workspace padded">
+                <div class="page">
+                  <div class="route-header">
+                    <div class="title-stack">
+                      <p class="route-label">Jobs</p>
+                      <span class="stage-label">Add a job</span>
+                      <h3>Bring in your first job</h3>
+                      <p>Save one real job into your lane, then move into review before it becomes active work.</p>
+                    </div>
+                  </div>
+                  <div class="utility-bar">
+                    <div class="toolbar-group">
+                      <span class="subtle-note">Your first saved job will move into review before work.</span>
+                    </div>
+                    <button class="btn">Add a job</button>
+                  </div>
+                  <div class="overlay-scene">
+                    <div class="workspace-base">
+                      <div class="empty-surface">No saved jobs yet</div>
+                    </div>
+                    <div class="capture-sheet">
+                      <div class="route-header">
+                        <div class="title-stack">
+                          <p class="route-label">Jobs</p>
+                          <h3>Add a job</h3>
+                          <p>Search jobs or bring one in from a pasted listing. Both paths save the same job object.</p>
+                        </div>
+                      </div>
+                      <div class="segmented">
+                        <button class="active">Search jobs</button>
+                        <button>Paste or link</button>
+                      </div>
+                      <div class="capture-grid">
+                        <div class="capture-results">
+                          <div class="result-row selected">
+                            <strong>Senior Product Marketing Manager</strong>
+                            <span>Clarity AI · Hybrid · Posted 3 days ago</span>
+                          </div>
+                          <div class="result-row">
+                            <strong>Growth PMM</strong>
+                            <span>Signal Labs · Remote · Posted yesterday</span>
+                          </div>
+                          <div class="result-row">
+                            <strong>Lifecycle Marketing Lead</strong>
+                            <span>Ridge Health · Hybrid · Posted 5 days ago</span>
+                          </div>
+                        </div>
+                        <div class="capture-summary">
+                          <div class="field">
+                            <label>Job details</label>
+                            <div class="value">Senior Product Marketing Manager, lifecycle growth, sales enablement, pricing support.</div>
+                          </div>
+                          <div class="field">
+                            <label>Primary lane</label>
+                            <div class="value">Product Marketing</div>
+                          </div>
+                          <div class="field">
+                            <label>Source</label>
+                            <div class="value">Search jobs</div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="sheet-footer">
+                        <span class="subtle-note boundary">Search jobs and Paste or link are equal ways in.</span>
+                        <div class="footer-actions">
+                          <button class="ghost-btn">Cancel</button>
+                          <button class="btn">Save job</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="artifact-section band" id="d6">
+          <div class="annotation-band">
+            <p class="annotation-kicker">D6 · JL0 · Layout D</p>
+            <h2>Jobs list with lane management</h2>
+            <p>
+              Jobs stay sheet-first for scan speed. The route keeps board and sheet available, keeps Add a job
+              visible, and preserves lane grouping with a compact selected-job inspector.
+            </p>
+            <div class="annotation-grid">
+              <div class="annotation-field">
+                <span>Render</span>
+                <strong>Sheet active, selected-job inspector open, board preview inset visible</strong>
+              </div>
+              <div class="annotation-field">
+                <span>Focus</span>
+                <strong>Dense lane-grouped sheet and inspector</strong>
+              </div>
+              <div class="annotation-field">
+                <span>Model</span>
+                <strong>Table-first with optional board switch</strong>
+              </div>
+              <div class="annotation-field">
+                <span>Sidebar</span>
+                <strong>Expanded</strong>
+              </div>
+            </div>
+          </div>
+          <div class="browser-frame">
+            <div class="browser-top">
+              <div class="browser-dots"><span></span><span></span><span></span></div>
+              <div class="browser-address">jobfilter.app/jobs/list</div>
+            </div>
+            <div class="window-surface app-shell expanded">
+              <aside class="sidebar expanded">
+                <div class="brand">JF</div>
+                <nav class="nav-list">
+                  <div class="nav-item"><span class="nav-icon">P</span><span>Profile</span></div>
+                  <div class="nav-item active"><span class="nav-icon">J</span><span>Jobs</span></div>
+                  <div class="nav-item"><span class="nav-icon">Pr</span><span>Proof</span></div>
+                </nav>
+                <div class="sidebar-spacer"></div>
+                <div class="account-block">
+                  <span class="account-avatar">AS</span>
+                  <div class="account-text">
+                    <strong>Alen Sultanic</strong>
+                    <span>Account</span>
+                  </div>
+                  <span class="chevron">^</span>
+                </div>
+              </aside>
+              <div class="workspace dense">
+                <div class="page">
+                  <div class="route-header">
+                    <div class="title-stack">
+                      <p class="route-label">Jobs</p>
+                      <h3>Jobs</h3>
+                      <p>Keep saved jobs organized by lane, review state, and next action.</p>
+                    </div>
+                  </div>
+                  <div class="utility-bar">
+                    <div class="toolbar-group">
+                      <div class="segmented">
+                        <button class="active">Sheet</button>
+                        <button>Board</button>
+                      </div>
+                      <button class="chip-btn">Sort</button>
+                      <button class="chip-btn">Filter</button>
+                      <button class="chip-btn">Columns</button>
+                    </div>
+                    <div class="toolbar-group">
+                      <span class="subtle-note">Sheet is the default for dense review.</span>
+                      <button class="btn">Add a job</button>
+                    </div>
+                  </div>
+                  <div class="jobs-layout">
+                    <div class="table-card">
+                      <div class="group-header">
+                        <span>Role Lane: Product Marketing</span>
+                        <span>3 jobs</span>
+                      </div>
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Job</th>
+                            <th>Company</th>
+                            <th>Primary lane</th>
+                            <th>Status</th>
+                            <th>Fit state</th>
+                            <th>Source</th>
+                            <th>Updated</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr class="selected">
+                            <td><strong>Senior Product Marketing Manager</strong></td>
+                            <td>Clarity AI</td>
+                            <td>Product Marketing</td>
+                            <td>Review</td>
+                            <td><span class="pill good">Job fit ready</span></td>
+                            <td>Search jobs</td>
+                            <td>Today</td>
+                          </tr>
+                          <tr>
+                            <td><strong>Growth PMM</strong></td>
+                            <td>Signal Labs</td>
+                            <td>Product Marketing</td>
+                            <td>Shortlist</td>
+                            <td><span class="pill">Needs review</span></td>
+                            <td>Paste or link</td>
+                            <td>Yesterday</td>
+                          </tr>
+                          <tr>
+                            <td><strong>Lifecycle Marketing Lead</strong></td>
+                            <td>Ridge Health</td>
+                            <td>Product Marketing</td>
+                            <td>New</td>
+                            <td><span class="pill warn">Needs lane check</span></td>
+                            <td>Search jobs</td>
+                            <td>3 days ago</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                    <aside class="inspector-card">
+                      <strong class="card-title">Selected job</strong>
+                      <div class="meta-list">
+                        <div class="mini-row">
+                          <strong>Senior Product Marketing Manager</strong>
+                          <span>Clarity AI · Product Marketing · Review</span>
+                        </div>
+                        <div class="mini-row">
+                          <strong>Shortlist</strong>
+                          <span>Saved because role scope and lifecycle proof are already strong.</span>
+                        </div>
+                      </div>
+                      <button class="btn secondary">Open job</button>
+                      <div class="board-preview">
+                        <strong class="card-title">Board preview</strong>
+                        <div class="board-lane">
+                          <div class="board-card">
+                            <strong>Review</strong>
+                            <span>Clarity AI · Senior Product Marketing Manager</span>
+                          </div>
+                          <div class="board-card">
+                            <strong>Shortlist</strong>
+                            <span>Signal Labs · Growth PMM</span>
+                          </div>
+                        </div>
+                      </div>
+                    </aside>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="artifact-section side" id="d7">
+          <aside class="annotation-card">
+            <p class="annotation-kicker">D7 · J1 · Layout B</p>
+            <h2>First-job review</h2>
+            <p>
+              The review boundary stays explicit. Fit, supporting proof, and draft language all remain visible
+              before the job moves into active work.
+            </p>
+            <div class="annotation-fields">
+              <div class="annotation-field">
+                <span>Render</span>
+                <strong>Review boundary visible, Job fit drawer open, proof usage in view</strong>
+              </div>
+              <div class="annotation-field">
+                <span>Focus</span>
+                <strong>Review boundary and proof usage before workspace handoff</strong>
+              </div>
+              <div class="annotation-field">
+                <span>Sidebar</span>
+                <strong>Expanded</strong>
+              </div>
+            </div>
+          </aside>
+          <div class="browser-frame">
+            <div class="browser-top">
+              <div class="browser-dots"><span></span><span></span><span></span></div>
+              <div class="browser-address">jobfilter.app/jobs/review</div>
+            </div>
+            <div class="window-surface app-shell expanded">
+              <aside class="sidebar expanded">
+                <div class="brand">JF</div>
+                <nav class="nav-list">
+                  <div class="nav-item"><span class="nav-icon">P</span><span>Profile</span></div>
+                  <div class="nav-item active"><span class="nav-icon">J</span><span>Jobs</span></div>
+                  <div class="nav-item"><span class="nav-icon">Pr</span><span>Proof</span></div>
+                </nav>
+                <div class="sidebar-spacer"></div>
+                <div class="account-block">
+                  <span class="account-avatar">AS</span>
+                  <div class="account-text">
+                    <strong>Alen Sultanic</strong>
+                    <span>Account</span>
+                  </div>
+                  <span class="chevron">^</span>
+                </div>
+              </aside>
+              <div class="workspace padded">
+                <div class="page">
+                  <div class="job-header">
+                    <div class="title-stack">
+                      <p class="route-label">Jobs</p>
+                      <h3>Review before work</h3>
+                      <p>Senior Product Marketing Manager, Clarity AI</p>
+                    </div>
+                    <div class="job-meta">
+                      <span class="pill">Product Marketing</span>
+                      <span class="pill">Review</span>
+                    </div>
+                  </div>
+                  <div class="review-layout">
+                    <div class="boundary-note">
+                      <strong>Review fit, supporting proof, and draft language before this job becomes active work.</strong>
+                    </div>
+                    <div class="review-grid">
+                      <div class="spaced">
+                        <div class="proof-usage">
+                          <strong class="card-title">What supports this job</strong>
+                          <div class="proof-list">
+                            <div class="proof-item">
+                              <strong>Used</strong>
+                              <span>Lifecycle launch recap, enablement deck, segmentation brief.</span>
+                            </div>
+                            <div class="proof-item">
+                              <strong>What's still missing</strong>
+                              <span>Direct pricing ownership proof for enterprise packaging language.</span>
+                            </div>
+                            <div class="proof-item">
+                              <strong>What stays out</strong>
+                              <span>Global ownership phrasing that overstates the reviewed source.</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div class="draft-card">
+                          <strong class="card-title">Draft review</strong>
+                          <div class="asset-tabs">
+                            <span class="asset-tab active">Resume</span>
+                            <span class="asset-tab">Cover letter</span>
+                          </div>
+                          <div class="draft-surface">
+                            <strong>Role summary</strong>
+                            <span class="muted">Product marketer with lifecycle growth depth, launch leadership, and clear B2B SaaS proof.</span>
+                            <strong>Evidence line</strong>
+                            <span class="muted">Used reviewed launch and enablement proof, kept unsupported pricing claims out.</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div></div>
+                    </div>
+                    <aside class="fit-drawer">
+                      <span class="route-label">Why this fits</span>
+                      <div class="fit-list">
+                        <div class="fit-item">
+                          <strong>Matched requirements</strong>
+                          <span>Messaging strategy, lifecycle growth, enablement support, launch ownership.</span>
+                        </div>
+                        <div class="fit-item">
+                          <strong>Missing requirements</strong>
+                          <span>Direct pricing operations evidence remains light.</span>
+                        </div>
+                        <div class="fit-item">
+                          <strong>Excluded proof</strong>
+                          <span>Global GTM ownership stayed out because the reviewed source narrows scope.</span>
+                        </div>
+                      </div>
+                    </aside>
+                    <div class="review-actions">
+                      <button class="ghost-btn">Review later</button>
+                      <div class="footer-actions">
+                        <button class="btn secondary">Edit job</button>
+                        <button class="btn">Open Workspace</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="artifact-section side" id="d8">
+          <aside class="annotation-card">
+            <p class="annotation-kicker">D8 · J2 · Layout E</p>
+            <h2>First Job Workspace</h2>
+            <p>
+              This is the only collapsed-sidebar primary render. The main asset area stays central, the next-step
+              panel owns action guidance, and plan state appears only in the separate account-menu crop.
+            </p>
+            <div class="annotation-fields">
+              <div class="annotation-field">
+                <span>Render</span>
+                <strong>Active asset open, next-step panel visible, sidebar collapsed</strong>
+              </div>
+              <div class="annotation-field">
+                <span>Focus</span>
+                <strong>Main asset first, next-step panel second</strong>
+              </div>
+              <div class="annotation-field">
+                <span>Sidebar</span>
+                <strong>Collapsed, post-value</strong>
+              </div>
+            </div>
+            <div class="account-menu-crop">
+              <p class="crop-title">Account menu crop</p>
+              <div class="account-menu">
+                <div class="account-menu-header">
+                  <strong>Alen Sultanic</strong>
+                  <span>Free tier</span>
+                </div>
+                <div class="menu-item"><span>Settings</span><span>></span></div>
+                <div class="menu-item"><span>See plans</span><span>></span></div>
+                <div class="menu-item"><span>Sign out</span><span>></span></div>
+              </div>
+            </div>
+          </aside>
+          <div class="browser-frame">
+            <div class="browser-top">
+              <div class="browser-dots"><span></span><span></span><span></span></div>
+              <div class="browser-address">jobfilter.app/jobs/workspace</div>
+            </div>
+            <div class="window-surface app-shell collapsed">
+              <aside class="sidebar collapsed">
+                <div class="brand">JF</div>
+                <nav class="nav-list">
+                  <div class="nav-item"><span class="nav-icon">P</span><span>Profile</span></div>
+                  <div class="nav-item active"><span class="nav-icon">J</span><span>Jobs</span></div>
+                  <div class="nav-item"><span class="nav-icon">Pr</span><span>Proof</span></div>
+                </nav>
+                <div class="sidebar-spacer"></div>
+                <div class="account-block">
+                  <span class="account-avatar">AS</span>
+                  <div class="account-text">
+                    <strong>Alen Sultanic</strong>
+                    <span>Account</span>
+                  </div>
+                </div>
+              </aside>
+              <div class="workspace padded">
+                <div class="workspace-layout">
+                  <div class="job-header">
+                    <div class="title-stack">
+                      <p class="route-label">Job Workspace</p>
+                      <h3>Senior Product Marketing Manager</h3>
+                      <p>Clarity AI</p>
+                    </div>
+                    <div class="job-meta">
+                      <span class="pill">Product Marketing</span>
+                      <span class="pill">Review in progress</span>
+                    </div>
+                  </div>
+                  <div class="workspace-grid">
+                    <div class="spaced">
+                      <div class="asset-surface">
+                        <div class="asset-tabs">
+                          <span class="asset-tab active">Application draft</span>
+                          <span class="asset-tab">Role notes</span>
+                        </div>
+                        <div class="text-block">
+                          <strong>Opening summary</strong>
+                          <span>
+                            Product marketer with lifecycle growth depth, launch leadership, and reviewed proof that
+                            maps closely to the posted role.
+                          </span>
+                          <strong>Role evidence</strong>
+                          <span>
+                            Emphasize lifecycle ownership, cross-functional launch work, and the reviewed enablement
+                            proof already tied to this job.
+                          </span>
+                        </div>
+                      </div>
+                      <div class="notes-surface">
+                        <strong class="card-title">Job notes</strong>
+                        <div class="note-row">
+                          <strong>Hiring team priority</strong>
+                          <span>Cross-functional launch and post-launch conversion improvement.</span>
+                        </div>
+                        <div class="note-row">
+                          <strong>Keep visible</strong>
+                          <span>Lifecycle pipeline work is strong, pricing depth still needs careful wording.</span>
+                        </div>
+                      </div>
+                    </div>
+                    <aside class="panel-card">
+                      <strong class="card-title">Start here</strong>
+                      <button class="btn">Review next action</button>
+                      <div class="next-step-card">
+                        <strong>Refine the opening summary</strong>
+                        <span class="muted">Tighten the first paragraph against the posted responsibilities before you edit supporting sections.</span>
+                      </div>
+                      <div class="mini-row">
+                        <strong>See fit</strong>
+                        <span>Role match is strong, pricing depth still needs careful phrasing.</span>
+                      </div>
+                      <div class="mini-row">
+                        <strong>See proof</strong>
+                        <span>Three reviewed items already support this job, one remains excluded.</span>
+                      </div>
+                      <div class="mini-row">
+                        <strong>Company context</strong>
+                        <span>Category shift toward enterprise storytelling, lifecycle and enablement remain central.</span>
+                      </div>
+                    </aside>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="artifact-section band" id="d9">
+          <div class="annotation-band">
+            <p class="annotation-kicker">D9 · PF0 · Layout F</p>
+            <h2>Proof Library</h2>
+            <p>
+              Proof stays dense, reusable, and inspectable. Review proof remains visible in the filter bar while
+              the table stays primary and the detail drawer overlays instead of shrinking the table.
+            </p>
+            <div class="annotation-grid">
+              <div class="annotation-field">
+                <span>Render</span>
+                <strong>Proof table visible, one row selected, detail drawer open</strong>
+              </div>
+              <div class="annotation-field">
+                <span>Focus</span>
+                <strong>Dense proof table, then detail drawer</strong>
+              </div>
+              <div class="annotation-field">
+                <span>Model</span>
+                <strong>Full table plus overlay drawer</strong>
+              </div>
+              <div class="annotation-field">
+                <span>Sidebar</span>
+                <strong>Expanded</strong>
+              </div>
+            </div>
+          </div>
+          <div class="browser-frame">
+            <div class="browser-top">
+              <div class="browser-dots"><span></span><span></span><span></span></div>
+              <div class="browser-address">jobfilter.app/proof</div>
+            </div>
+            <div class="window-surface app-shell expanded">
+              <aside class="sidebar expanded">
+                <div class="brand">JF</div>
+                <nav class="nav-list">
+                  <div class="nav-item"><span class="nav-icon">P</span><span>Profile</span></div>
+                  <div class="nav-item"><span class="nav-icon">J</span><span>Jobs</span></div>
+                  <div class="nav-item active"><span class="nav-icon">Pr</span><span>Proof</span></div>
+                </nav>
+                <div class="sidebar-spacer"></div>
+                <div class="account-block">
+                  <span class="account-avatar">AS</span>
+                  <div class="account-text">
+                    <strong>Alen Sultanic</strong>
+                    <span>Account</span>
+                  </div>
+                  <span class="chevron">^</span>
+                </div>
+              </aside>
+              <div class="workspace dense">
+                <div class="page">
+                  <div class="route-header">
+                    <div class="title-stack">
+                      <p class="route-label">Proof Library</p>
+                      <h3>Keep proof reusable</h3>
+                      <p>Review stories, metrics, and proof in one place so they stay safe to use again.</p>
+                    </div>
+                  </div>
+                  <div class="overlay-scene">
+                    <div class="workspace-base">
+                      <div class="filter-bar">
+                        <div class="filter-group">
+                          <div class="segmented">
+                            <button class="active">All</button>
+                            <button>Stories</button>
+                            <button>Metrics</button>
+                            <button>Proof</button>
+                          </div>
+                          <button class="chip-btn">Used</button>
+                          <button class="chip-btn">Missing</button>
+                          <button class="chip-btn">Excluded</button>
+                        </div>
+                        <div class="toolbar-group">
+                          <div class="search-box">Search proof</div>
+                          <button class="btn">Review proof</button>
+                        </div>
+                      </div>
+                      <div class="table-card">
+                        <table>
+                          <thead>
+                            <tr>
+                              <th>Item</th>
+                              <th>Type</th>
+                              <th>Usage</th>
+                              <th>Source</th>
+                              <th>Wording</th>
+                              <th>Last used</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr class="selected">
+                              <td><strong>Lifecycle launch recap</strong></td>
+                              <td>Story</td>
+                              <td><span class="pill good">Used</span></td>
+                              <td>Launch memo</td>
+                              <td>Safe wording applied</td>
+                              <td>Today</td>
+                            </tr>
+                            <tr>
+                              <td><strong>Qualified pipeline +34%</strong></td>
+                              <td>Metric</td>
+                              <td><span class="pill warn">Missing</span></td>
+                              <td>Planning notes</td>
+                              <td>Needs review</td>
+                              <td>2 days ago</td>
+                            </tr>
+                            <tr>
+                              <td><strong>Global GTM ownership</strong></td>
+                              <td>Proof</td>
+                              <td><span class="pill bad">Excluded</span></td>
+                              <td>Sales deck</td>
+                              <td>Excluded</td>
+                              <td>Last week</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                    <aside class="proof-drawer">
+                      <span class="route-label">Proof details</span>
+                      <div class="proof-list">
+                        <div class="proof-item">
+                          <strong>Usage</strong>
+                          <span>Used in Product Marketing fit, first-job review, and the current workspace draft.</span>
+                        </div>
+                        <div class="proof-item">
+                          <strong>See source</strong>
+                          <span>Launch memo, reviewed and approved in foundation review.</span>
+                        </div>
+                        <div class="proof-item">
+                          <strong>Safe wording</strong>
+                          <span>Lifecycle launch recap with reviewed launch and enablement proof.</span>
+                        </div>
+                        <div class="proof-item">
+                          <strong>Excluded recovery</strong>
+                          <span>Use again is available only on excluded items with recoverable truth.</span>
+                        </div>
+                      </div>
+                      <div class="action-row">
+                        <button class="ghost-btn">See source</button>
+                        <button class="btn secondary">Use safer wording</button>
+                        <button class="btn">Use again</button>
+                      </div>
+                    </aside>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>

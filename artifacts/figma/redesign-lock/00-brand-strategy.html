@@ -1,0 +1,1314 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>02. Brand Strategy</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,600&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        color-scheme: dark;
+        --canvas: #05070a;
+        --canvas-depth: #091018;
+        --shell: rgba(14, 20, 28, 0.84);
+        --shell-strong: rgba(20, 28, 38, 0.92);
+        --shell-soft: rgba(12, 17, 24, 0.74);
+        --shell-muted: rgba(17, 24, 34, 0.68);
+        --shell-elevated: rgba(24, 32, 43, 0.9);
+        --shell-review: rgba(18, 27, 37, 0.94);
+        --shell-overlay: rgba(7, 11, 16, 0.82);
+        --line: rgba(223, 233, 244, 0.12);
+        --line-strong: rgba(223, 233, 244, 0.22);
+        --line-accent: rgba(121, 214, 180, 0.34);
+        --text: #f4f7fb;
+        --text-secondary: #c9d2dc;
+        --text-muted: #94a2b2;
+        --text-faint: #718094;
+        --accent: #79d6b4;
+        --accent-strong: #49bb91;
+        --accent-soft: rgba(121, 214, 180, 0.14);
+        --accent-soft-strong: rgba(121, 214, 180, 0.24);
+        --mineral: #8fb1d9;
+        --mineral-soft: rgba(143, 177, 217, 0.16);
+        --copper: #d4a66b;
+        --copper-soft: rgba(212, 166, 107, 0.18);
+        --danger: #cc8c97;
+        --danger-soft: rgba(204, 140, 151, 0.16);
+        --success-soft: rgba(96, 173, 136, 0.2);
+        --shadow-lg: 0 32px 90px rgba(0, 0, 0, 0.42);
+        --shadow-md: 0 18px 42px rgba(0, 0, 0, 0.3);
+        --shadow-sm: 0 12px 26px rgba(0, 0, 0, 0.22);
+        --radius-xl: 28px;
+        --radius-lg: 22px;
+        --radius-md: 16px;
+        --radius-sm: 12px;
+        --page-width: 1180px;
+        --primary-gradient: linear-gradient(180deg, rgba(121, 214, 180, 0.96), rgba(84, 184, 148, 0.92));
+        --secondary-gradient: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.04));
+        --internal-gradient: linear-gradient(180deg, rgba(236, 241, 247, 0.94), rgba(214, 220, 228, 0.9));
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        font-family: "Plus Jakarta Sans", sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(circle at top, rgba(121, 214, 180, 0.1), transparent 34%),
+          radial-gradient(circle at 80% 12%, rgba(143, 177, 217, 0.12), transparent 24%),
+          linear-gradient(180deg, #06090d 0%, #090f14 100%);
+      }
+
+      body {
+        position: relative;
+        padding: 28px 20px 48px;
+      }
+
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        opacity: 0.2;
+        background-image: radial-gradient(rgba(255, 255, 255, 0.06) 0.8px, transparent 0.8px);
+        background-size: 28px 28px;
+        mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.65), transparent 72%);
+      }
+
+      a {
+        color: var(--mineral);
+        text-decoration-color: rgba(143, 177, 217, 0.55);
+        text-underline-offset: 3px;
+      }
+
+      .page {
+        position: relative;
+        width: min(100%, var(--page-width));
+        margin: 0 auto;
+      }
+
+      .hero,
+      .section {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-xl);
+        background: linear-gradient(180deg, rgba(20, 28, 38, 0.88), rgba(10, 15, 22, 0.82));
+        box-shadow: var(--shadow-lg);
+        backdrop-filter: blur(18px);
+      }
+
+      .hero {
+        padding: 28px 30px 30px;
+      }
+
+      .section {
+        margin-top: 22px;
+        padding: 28px;
+      }
+
+      .hero::before,
+      .section::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        border-radius: inherit;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 18%);
+      }
+
+      h1,
+      h2,
+      h3,
+      h4 {
+        margin: 0;
+      }
+
+      h1,
+      h2 {
+        font-family: "Newsreader", serif;
+        font-weight: 600;
+      }
+
+      h1 {
+        max-width: 920px;
+        font-size: clamp(2.8rem, 4.2vw, 4.5rem);
+        line-height: 0.96;
+        letter-spacing: -0.04em;
+      }
+
+      h2 {
+        font-size: clamp(2rem, 2.6vw, 3rem);
+        line-height: 1.06;
+      }
+
+      .summary {
+        max-width: 920px;
+        margin: 16px 0 0;
+        color: var(--text-secondary);
+        font-size: 17px;
+        line-height: 1.75;
+      }
+
+      .eyebrow,
+      .strong-label {
+        display: block;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .eyebrow {
+        color: var(--accent);
+        margin-bottom: 12px;
+      }
+
+      .option-tag,
+      .status-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .section-head {
+        max-width: 900px;
+        margin-bottom: 20px;
+      }
+
+      .section-head p,
+      .summary-card p,
+      .card p,
+      .statement-card p,
+      .purpose-card p,
+      .toc-card p,
+      .note-card p,
+      .headline-option p,
+      .cta-card p,
+      .language-card p,
+      .objection-card p,
+      .handoff-card p,
+      td,
+      th,
+      li {
+        margin: 10px 0 0;
+        color: var(--text-secondary);
+        font-size: 14px;
+        line-height: 1.72;
+      }
+
+      .section-note,
+      .footer-note,
+      .subtle-note {
+        margin-top: 10px;
+        color: var(--text-muted);
+        font-size: 13px;
+        line-height: 1.68;
+      }
+
+      .strong-label {
+        color: var(--text-muted);
+      }
+
+      .series-panel,
+      .purpose-card,
+      .statement-card,
+      .card,
+      .headline-card,
+      .cta-card,
+      .language-card,
+      .objection-card,
+      .handoff-card,
+      .note-card,
+      .message-card {
+        position: relative;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-lg);
+        background: linear-gradient(180deg, rgba(26, 34, 45, 0.88), rgba(16, 23, 32, 0.88));
+        box-shadow: var(--shadow-md);
+      }
+
+      .series-panel {
+        padding: 20px;
+      }
+
+      .hero-intro {
+        margin-top: 30px;
+      }
+
+      .series-grid,
+      .purpose-grid,
+      .grid-2,
+      .grid-3,
+      .grid-4,
+      .message-grid,
+      .territory-grid,
+      .differentiator-grid,
+      .cta-grid,
+      .language-grid,
+      .handoff-grid {
+        display: grid;
+        gap: 16px;
+      }
+
+      .series-grid,
+      .grid-3,
+      .territory-grid,
+      .cta-grid,
+      .language-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .purpose-grid,
+      .grid-2,
+      .handoff-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .grid-4 {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      .message-grid,
+      .differentiator-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .toc-card {
+        min-height: 134px;
+        padding: 18px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .toc-card.active {
+        border-color: var(--line-accent);
+        background: linear-gradient(180deg, rgba(121, 214, 180, 0.12), rgba(22, 30, 40, 0.88));
+        box-shadow: 0 18px 44px rgba(73, 187, 145, 0.14);
+      }
+
+      .toc-number {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 34px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.05);
+        color: var(--text-secondary);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .toc-card h3 {
+        margin-top: 12px;
+        font-size: 16px;
+        font-weight: 700;
+        line-height: 1.3;
+      }
+
+      .purpose-grid {
+        margin-top: 24px;
+      }
+
+      .purpose-card,
+      .statement-card,
+      .card,
+      .cta-card,
+      .language-card,
+      .objection-card,
+      .handoff-card,
+      .note-card,
+      .headline-card,
+      .message-card {
+        padding: 20px;
+      }
+
+      .statement-card h3,
+      .card h3,
+      .headline-card h3,
+      .cta-card h3,
+      .language-card h3,
+      .objection-card h3,
+      .handoff-card h3,
+      .note-card h3,
+      .message-card h3 {
+        margin-top: 12px;
+        font-size: 18px;
+        line-height: 1.32;
+      }
+
+      .statement-card.toned-mint,
+      .headline-card.toned-mint,
+      .note-card.toned-mint {
+        background: linear-gradient(180deg, rgba(20, 40, 38, 0.94), rgba(14, 24, 29, 0.92));
+        border-color: rgba(121, 214, 180, 0.24);
+      }
+
+      .statement-card.toned-mineral,
+      .headline-card.toned-mineral,
+      .language-card.testing {
+        background: linear-gradient(180deg, rgba(20, 30, 44, 0.94), rgba(14, 21, 31, 0.92));
+        border-color: rgba(143, 177, 217, 0.24);
+      }
+
+      .statement-card.toned-copper,
+      .headline-card.toned-copper,
+      .cta-card.toned-copper {
+        background: linear-gradient(180deg, rgba(39, 29, 20, 0.94), rgba(23, 18, 13, 0.92));
+        border-color: rgba(212, 166, 107, 0.24);
+      }
+
+      .statement-card.toned-danger,
+      .language-card.disallowed {
+        background: linear-gradient(180deg, rgba(41, 25, 30, 0.94), rgba(23, 15, 18, 0.92));
+        border-color: rgba(204, 140, 151, 0.24);
+      }
+
+      .card-list,
+      .rule-list,
+      .boundary-list {
+        margin: 12px 0 0;
+        padding-left: 18px;
+      }
+
+      .card-list li + li,
+      .rule-list li + li,
+      .boundary-list li + li {
+        margin-top: 8px;
+      }
+
+      .number-chip {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 34px;
+        height: 34px;
+        padding: 0 12px;
+        border-radius: 999px;
+        border: 1px solid rgba(121, 214, 180, 0.22);
+        background: rgba(121, 214, 180, 0.12);
+        color: var(--accent);
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .message-card .belief {
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid var(--line);
+        color: var(--text-muted);
+      }
+
+      .numbered-card h3 {
+        margin-top: 14px;
+      }
+
+      .territory-intro {
+        max-width: 940px;
+        margin-top: 14px;
+        padding: 16px 18px;
+        border-radius: var(--radius-md);
+        border: 1px solid rgba(143, 177, 217, 0.22);
+        background: rgba(143, 177, 217, 0.08);
+      }
+
+      .territory-intro p {
+        margin: 0;
+        color: var(--text-secondary);
+        font-size: 14px;
+      }
+
+      .headline-option {
+        margin-top: 14px;
+        padding: 14px 14px 15px;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .headline-option.locked {
+        border-color: rgba(121, 214, 180, 0.3);
+        background: linear-gradient(180deg, rgba(121, 214, 180, 0.14), rgba(19, 32, 35, 0.9));
+      }
+
+      .option-tag {
+        color: var(--text-muted);
+      }
+
+      .option-tag.locked {
+        color: var(--accent);
+      }
+
+      .headline-line {
+        margin: 10px 0 0;
+        font-family: "Newsreader", serif;
+        font-size: 30px;
+        line-height: 1.08;
+        letter-spacing: -0.03em;
+        color: var(--text);
+      }
+
+      .btn {
+        appearance: none;
+        border: 1px solid transparent;
+        border-radius: 999px;
+        padding: 12px 18px;
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.01em;
+        cursor: pointer;
+        transition:
+          transform 160ms ease,
+          box-shadow 160ms ease,
+          border-color 160ms ease,
+          background-color 160ms ease,
+          color 160ms ease;
+      }
+
+      .btn:hover {
+        transform: translateY(-1px);
+      }
+
+      .btn:active,
+      .btn.pressed {
+        transform: translateY(1px);
+        box-shadow: none;
+      }
+
+      .btn:focus-visible {
+        outline: 2px solid rgba(143, 177, 217, 0.65);
+        outline-offset: 3px;
+      }
+
+      .btn.primary {
+        background: var(--primary-gradient);
+        color: #052018;
+        border-color: rgba(121, 214, 180, 0.44);
+        box-shadow: 0 12px 28px rgba(73, 187, 145, 0.24);
+      }
+
+      .btn.secondary {
+        background: rgba(143, 177, 217, 0.08);
+        color: #d8e6f6;
+        border-color: rgba(143, 177, 217, 0.24);
+      }
+
+      .btn.internal {
+        background: var(--internal-gradient);
+        color: #23303c;
+        border-color: rgba(237, 242, 248, 0.6);
+        box-shadow: 0 10px 22px rgba(0, 0, 0, 0.12);
+      }
+
+      .status-chip {
+        padding: 8px 10px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        color: var(--text-secondary);
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      .status-chip.locked {
+        border-color: rgba(121, 214, 180, 0.24);
+        color: var(--accent);
+        background: rgba(121, 214, 180, 0.12);
+      }
+
+      .status-chip.testing {
+        border-color: rgba(143, 177, 217, 0.24);
+        color: var(--mineral);
+        background: rgba(143, 177, 217, 0.12);
+      }
+
+      .status-chip.disallowed {
+        border-color: rgba(204, 140, 151, 0.24);
+        color: #f0b3bd;
+        background: rgba(204, 140, 151, 0.12);
+      }
+
+      .chip-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      .table-wrap {
+        overflow-x: auto;
+        margin-top: 16px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-lg);
+        background: linear-gradient(180deg, rgba(18, 25, 34, 0.9), rgba(11, 17, 24, 0.88));
+        box-shadow: var(--shadow-md);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 920px;
+      }
+
+      th,
+      td {
+        padding: 15px 16px;
+        border-right: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th:last-child,
+      td:last-child {
+        border-right: 0;
+      }
+
+      tr:last-child td,
+      tr:last-child th {
+        border-bottom: 0;
+      }
+
+      thead th {
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--text-muted);
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      tbody th {
+        width: 210px;
+        color: var(--text);
+        font-size: 14px;
+        font-weight: 700;
+        background: rgba(255, 255, 255, 0.02);
+      }
+
+      .quote-line {
+        margin-top: 12px;
+        padding: 12px 14px;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.03);
+        color: var(--text);
+      }
+
+      .quote-line:first-of-type {
+        margin-top: 14px;
+      }
+
+      .language-card.stable .quote-line {
+        border-color: rgba(255, 255, 255, 0.09);
+        background: rgba(255, 255, 255, 0.02);
+      }
+
+      .language-card.testing .quote-line {
+        border-color: rgba(143, 177, 217, 0.16);
+        background: rgba(143, 177, 217, 0.08);
+      }
+
+      .language-card.disallowed .quote-line {
+        border-color: rgba(204, 140, 151, 0.18);
+        background: rgba(204, 140, 151, 0.08);
+      }
+
+      .handoff-table tbody th {
+        width: 240px;
+      }
+
+      .boundary-card {
+        margin-top: 16px;
+        padding: 16px 18px;
+        border-radius: var(--radius-md);
+        border: 1px solid rgba(121, 214, 180, 0.18);
+        background: rgba(121, 214, 180, 0.08);
+      }
+
+      .boundary-card p {
+        margin: 0;
+        color: var(--text-secondary);
+        font-size: 14px;
+      }
+
+      @media (max-width: 1120px) {
+        .grid-4,
+        .grid-3,
+        .territory-grid,
+        .cta-grid,
+        .language-grid,
+        .message-grid,
+        .differentiator-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      @media (max-width: 860px) {
+        body {
+          padding: 18px 14px 40px;
+        }
+
+        .hero,
+        .section {
+          padding: 22px 20px;
+        }
+
+        .purpose-grid,
+        .grid-2,
+        .grid-3,
+        .grid-4,
+        .message-grid,
+        .territory-grid,
+        .cta-grid,
+        .language-grid,
+        .handoff-grid,
+        .differentiator-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .summary {
+          font-size: 16px;
+        }
+      }
+
+      @media (max-width: 640px) {
+        h1 {
+          font-size: 2.4rem;
+        }
+
+        h2 {
+          font-size: 2rem;
+        }
+
+        .headline-line {
+          font-size: 25px;
+        }
+
+        .section-head p,
+        .summary-card p,
+        .card p,
+        .statement-card p,
+        .purpose-card p,
+        .toc-card p,
+        .note-card p,
+        .headline-option p,
+        .cta-card p,
+        .language-card p,
+        .objection-card p,
+        .handoff-card p,
+        td,
+        th,
+        li {
+          font-size: 13px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section class="hero">
+        <div class="eyebrow">Foundation Series</div>
+        <div class="series-panel">
+          <div class="series-grid">
+            <div class="toc-card">
+              <span class="toc-number">01</span>
+              <h3>Market Intelligence</h3>
+              <p>Category tensions, trust triggers, pricing friction, and lane-level workflow needs.</p>
+            </div>
+            <div class="toc-card active">
+              <span class="toc-number">02</span>
+              <h3>Brand Strategy</h3>
+              <p>Category framing, promise, CTA ladder, trust-safe language, and message architecture.</p>
+            </div>
+            <div class="toc-card">
+              <span class="toc-number">03</span>
+              <h3>Shared Visual and Product System</h3>
+              <p>Reusable foundations, states, component anatomy, and product assemblies for later chapters.</p>
+            </div>
+            <div class="toc-card">
+              <span class="toc-number">04</span>
+              <h3>Website and Public Funnel</h3>
+              <p>Public-site IA, page roles, proof placement, worksheet entry, and auth handoff.</p>
+            </div>
+            <div class="toc-card">
+              <span class="toc-number">05</span>
+              <h3>Activation and Core App</h3>
+              <p>Route-level app composition, setup flows, tracking, and lane-driven workspaces.</p>
+            </div>
+            <div class="toc-card">
+              <span class="toc-number">06</span>
+              <h3>Lifecycle Messaging and Email</h3>
+              <p>Status language, reusable email components, and trust-safe follow-up patterns.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="hero-intro">
+          <h1>02. Brand Strategy</h1>
+          <p class="summary">
+            Define the category framing, brand promise, message hierarchy, CTA ladder, proof language, and tone rules
+            that later system, website, activation, and lifecycle work must inherit without reinterpretation.
+          </p>
+        </div>
+
+        <div class="purpose-grid">
+          <div class="purpose-card">
+            <div class="eyebrow">Chapter 02 owns</div>
+            <p>
+              Message layer, CTA behavior, trust language, objection handling, and brand expression. This chapter does
+              not own final website IA, lead magnet architecture, or final app layouts.
+            </p>
+          </div>
+          <div class="purpose-card">
+            <div class="eyebrow">Persistent product rules</div>
+            <p>
+              Preserve <strong>Build my job profile</strong>, <strong>See how it works</strong>,
+              <strong>Continue setup</strong>, <strong>Profile</strong>, free-to-start clarity as user-facing trust
+              language, the <strong>Free tier</strong> governance lock, no auto-apply, review-before-send,
+              inspectable reasoning, guided storytelling, and multiple role lanes.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-head">
+          <div class="eyebrow">Category, Promise, and Expression</div>
+          <h2>Present Job Filter as a truth-first workspace for serious applicants, not as another AI shortcut.</h2>
+          <p>
+            Chapter 01 translates into a brand that leads with decision quality, reusable leverage, and visible review
+            logic. The tone should feel calm, operator-grade, and final enough that later teams inherit it instead of
+            rewording it.
+          </p>
+        </div>
+
+        <div class="grid-2">
+          <article class="statement-card">
+            <span class="strong-label">Primary category</span>
+            <h3>Job Filter is a truth-first job-search workspace for serious operators.</h3>
+            <p>
+              It is a Profile-led system for experienced applicants who need to target fewer, better-fit roles,
+              extract the right story from broad experience, and review what belongs before they apply.
+            </p>
+          </article>
+          <article class="statement-card">
+            <span class="strong-label">Brand promise</span>
+            <h3>Build one job profile, use it to drive better-fit applications, and review what belongs before you send anything out.</h3>
+            <p>
+              Keep this intact when trust and mechanism need to travel together. It should stay more precise than a
+              broad aspirational slogan and more human than a system-spec label.
+            </p>
+          </article>
+        </div>
+
+        <div class="grid-2" style="margin-top: 16px;">
+          <article class="statement-card">
+            <span class="strong-label">Positioning statement</span>
+            <h3>For experienced applicants managing multiple credible role lanes, Job Filter keeps targeting, story extraction, drafting, and reasoning connected in one inspectable system.</h3>
+            <p>
+              Use in internal strategy, page-set alignment, product planning, and pitch framing. Do not paste the full
+              statement into hero copy.
+            </p>
+          </article>
+          <article class="statement-card">
+            <span class="strong-label">Value proposition</span>
+            <h3>Job Filter turns scattered experience into a reusable Profile that improves role selection, strengthens applications, and keeps final outputs closer to approved truth.</h3>
+            <p>
+              Use in hero support copy, overview paragraphs, onboarding framing, and lifecycle summaries where the
+              product needs to feel tangible quickly.
+            </p>
+          </article>
+        </div>
+
+        <div class="grid-3" style="margin-top: 16px;">
+          <article class="card">
+            <span class="strong-label">Brand expression</span>
+            <h3>Calm, grounded, premium without theatrics.</h3>
+            <ul class="card-list">
+              <li>Mechanism before aspiration.</li>
+              <li>Clarity before cleverness.</li>
+              <li>Boundaries before bold claims.</li>
+              <li>Sound like an operator, not a hype funnel.</li>
+            </ul>
+          </article>
+          <article class="card">
+            <span class="strong-label">Category boundaries</span>
+            <h3>Do not collapse the product into a noisy or risky adjacent category.</h3>
+            <ul class="card-list">
+              <li>Not a generic AI copilot.</li>
+              <li>Not a resume optimization utility.</li>
+              <li>Not a generic job tracker.</li>
+              <li>Not an auto-apply engine.</li>
+            </ul>
+          </article>
+          <article class="card">
+            <span class="strong-label">Why this category wins</span>
+            <h3>It answers the market’s trust problem, not just the writing problem.</h3>
+            <ul class="card-list">
+              <li>It anchors the story in better-fit decisions instead of application volume.</li>
+              <li>It keeps room for tracking and later learning without overpromising now.</li>
+              <li>It makes review-before-send and inspectable reasoning core value, not reassurance copy.</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-head">
+          <div class="eyebrow">Message Architecture and Differentiators</div>
+          <h2>Lock the message so belief changes in a precise sequence instead of drifting by surface.</h2>
+          <p>
+            The message should move from destination to mechanism to change work to trust. If a later page, product
+            screen, or lifecycle touchpoint skips the sequence, it should be treated as drift.
+          </p>
+        </div>
+
+        <div class="message-grid">
+          <article class="message-card numbered-card">
+            <span class="number-chip">01</span>
+            <h3>Strategic outcome</h3>
+            <p><strong>Locked message:</strong> Target fewer roles that you can credibly win.</p>
+            <p class="belief"><strong>Belief shift:</strong> A lower-volume search can be smarter, not smaller.</p>
+          </article>
+          <article class="message-card numbered-card">
+            <span class="number-chip">02</span>
+            <h3>Core mechanism</h3>
+            <p><strong>Locked message:</strong> Build one job profile that carries the right story forward.</p>
+            <p class="belief"><strong>Belief shift:</strong> Setup becomes reusable leverage.</p>
+          </article>
+          <article class="message-card numbered-card">
+            <span class="number-chip">03</span>
+            <h3>Change work</h3>
+            <p><strong>Locked message:</strong> Profile helps extract, organize, and reuse the right story before each application.</p>
+            <p class="belief"><strong>Belief shift:</strong> The product is thinking support, not generic text generation.</p>
+          </article>
+          <article class="message-card numbered-card">
+            <span class="number-chip">04</span>
+            <h3>Operational payoff</h3>
+            <p><strong>Locked message:</strong> Use Profile to shape resumes, cover letters, outreach, and targeting without starting over each time.</p>
+            <p class="belief"><strong>Belief shift:</strong> The work compounds instead of fragmenting.</p>
+          </article>
+          <article class="message-card numbered-card">
+            <span class="number-chip">05</span>
+            <h3>Trust layer</h3>
+            <p><strong>Locked message:</strong> Review what was used, missing, or excluded before you accept a draft.</p>
+            <p class="belief"><strong>Belief shift:</strong> The user keeps control and can verify the reasoning.</p>
+          </article>
+          <article class="message-card numbered-card">
+            <span class="number-chip">06</span>
+            <h3>Entry assurance</h3>
+            <p><strong>Locked message:</strong> Start free, understand the workflow, then decide whether deeper leverage is worth paying for later.</p>
+            <p class="belief"><strong>Belief shift:</strong> The first step feels safe, concrete, and bounded.</p>
+          </article>
+        </div>
+
+        <div class="section-head" style="margin-top: 28px;">
+          <div class="eyebrow">Differentiators</div>
+          <p>
+            These are the stable reasons the brand wins. Downstream work can expand them, but it should not replace
+            them with generic AI convenience rhetoric.
+          </p>
+        </div>
+
+        <div class="differentiator-grid">
+          <article class="card numbered-card">
+            <span class="number-chip">01</span>
+            <h3>One reusable Profile</h3>
+            <p>The user stops rebuilding the same story from scratch for every role.</p>
+          </article>
+          <article class="card numbered-card">
+            <span class="number-chip">02</span>
+            <h3>Guided story extraction before formatting</h3>
+            <p>Broad, nonlinear experience gets translated before it becomes an asset.</p>
+          </article>
+          <article class="card numbered-card">
+            <span class="number-chip">03</span>
+            <h3>Targeting and drafting stay connected</h3>
+            <p>Role choice and story quality stay inside one system instead of splitting across tools.</p>
+          </article>
+          <article class="card numbered-card">
+            <span class="number-chip">04</span>
+            <h3>Review-before-send logic</h3>
+            <p>Trust is earned through used, missing, and excluded reasoning.</p>
+          </article>
+          <article class="card numbered-card">
+            <span class="number-chip">05</span>
+            <h3>Search continuity beyond setup</h3>
+            <p>The product story extends into application tracking and later learning, not only draft creation.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-head">
+          <div class="eyebrow">Headline Territories</div>
+          <h2>Keep headline territory comparison clean so later teams inherit approved options, not accidental rewrites.</h2>
+          <p>
+            Each territory below has three approved variants. The first line is the locked default for downstream use.
+            The next two are approved supporting variants within the same territory. They are not acquisition
+            experiments, and they do not outrank the locked default without a later packet.
+          </p>
+        </div>
+
+        <div class="territory-intro">
+          <p>
+            Canonical default and approved supporting variants stay inside the brand system. Experimental acquisition
+            language lives later in the language-classification section and must never be silently upgraded into locked
+            downstream copy.
+          </p>
+        </div>
+
+        <div class="territory-grid" style="margin-top: 16px;">
+          <article class="headline-card">
+            <span class="strong-label">Outcome territory</span>
+            <h3>Lead with better-fit role selection and decision quality.</h3>
+            <div class="headline-option locked">
+              <span class="option-tag locked">Locked default</span>
+              <p class="headline-line">Target fewer roles that you can credibly win.</p>
+            </div>
+            <div class="headline-option">
+              <span class="option-tag">Approved support</span>
+              <p class="headline-line">Put more energy into roles that actually fit your story.</p>
+            </div>
+            <div class="headline-option">
+              <span class="option-tag">Approved support</span>
+              <p class="headline-line">Narrow your search to roles you can defend with confidence.</p>
+            </div>
+            <p class="section-note">Use this territory when the user first needs to feel the strategic payoff of a narrower, smarter search.</p>
+          </article>
+
+          <article class="headline-card">
+            <span class="strong-label">Mechanism territory</span>
+            <h3>Make the workflow believable before the ask gets larger.</h3>
+            <div class="headline-option locked">
+              <span class="option-tag locked">Locked default</span>
+              <p class="headline-line">Build one job profile. Use it to drive better-fit applications.</p>
+            </div>
+            <div class="headline-option">
+              <span class="option-tag">Approved support</span>
+              <p class="headline-line">Turn scattered experience into one Profile you can reuse with intent.</p>
+            </div>
+            <div class="headline-option">
+              <span class="option-tag">Approved support</span>
+              <p class="headline-line">Build your Profile once, then shape each application from approved truth.</p>
+            </div>
+            <p class="section-note">Use this territory when the system model itself needs to become tangible and easier to trust.</p>
+          </article>
+
+          <article class="headline-card">
+            <span class="strong-label">Trust territory</span>
+            <h3>Show the review path and boundary conditions without sounding defensive.</h3>
+            <div class="headline-option locked">
+              <span class="option-tag locked">Locked default</span>
+              <p class="headline-line">Check what was used, missing, or excluded before you apply.</p>
+            </div>
+            <div class="headline-option">
+              <span class="option-tag">Approved support</span>
+              <p class="headline-line">Review the logic before anything carries forward.</p>
+            </div>
+            <div class="headline-option">
+              <span class="option-tag">Approved support</span>
+              <p class="headline-line">Keep unsupported claims out of the final draft.</p>
+            </div>
+            <p class="section-note">Use this territory in trust modules, FAQ, rationale surfaces, and places where inspectability is the key differentiator.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-head">
+          <div class="eyebrow">CTA Ladder and Trust Rules</div>
+          <h2>Keep the ask concrete, keep the proof boundary visible, and keep entry conditions legible.</h2>
+          <p>
+            Chapter 02 owns the language behavior of the CTA ladder. Later chapters may change composition and layout,
+            but they should not rename the ladder or weaken the surrounding explanation.
+          </p>
+        </div>
+
+        <div class="cta-grid">
+          <article class="cta-card">
+            <span class="strong-label">Public primary</span>
+            <h3><button class="btn primary" type="button">Build my job profile</button></h3>
+            <p>Use when the mechanism is already clear enough that a direct commitment feels believable.</p>
+            <ul class="rule-list">
+              <li>Keep a concrete explanation of Profile nearby.</li>
+              <li>Use on decisive public surfaces, not vague teaser fragments.</li>
+              <li>Do not imply auto-apply or recruiter-ready output.</li>
+            </ul>
+          </article>
+          <article class="cta-card">
+            <span class="strong-label">Exploratory</span>
+            <h3><button class="btn secondary" type="button">See how it works</button></h3>
+            <p>Use when the user still needs sequence, product proof, or a lower-commitment inspection path.</p>
+            <ul class="rule-list">
+              <li>Send it to concrete explanation, not generic browsing.</li>
+              <li>Use near How It Works, trust modules, FAQ, and comparison sections.</li>
+              <li>Do not let it outrank the public primary on decisive surfaces.</li>
+            </ul>
+          </article>
+          <article class="cta-card">
+            <span class="strong-label">Internal primary</span>
+            <h3><button class="btn internal" type="button">Continue setup</button></h3>
+            <p>Use once the user is already inside Profile and needs progress, not persuasion.</p>
+            <ul class="rule-list">
+              <li>Keep it quieter than the public primary.</li>
+              <li>Use on setup checkpoints and next-step moments inside the product.</li>
+              <li>Do not use it on public pages or concept-selling surfaces.</li>
+            </ul>
+          </article>
+        </div>
+
+        <div class="boundary-card">
+          <p>
+            Public copy may say <strong>free to start</strong> when clarity matters. That does not reopen the current
+            governance lock of <strong>Free tier</strong>. It is trust language, not a pricing reset.
+          </p>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Rule</th>
+                <th>Why it matters</th>
+                <th>Safe example</th>
+                <th>Risky version</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th>Mechanism before outcome</th>
+                <td>This market needs to understand how the product works before believing the benefit.</td>
+                <td>Build one job profile, then use it to drive better-fit applications.</td>
+                <td>Get hired faster with AI.</td>
+              </tr>
+              <tr>
+                <th>Show the review path</th>
+                <td>Trust rises when the user can inspect what changed before using it.</td>
+                <td>Review what was used, missing, or excluded before you accept a draft.</td>
+                <td>We generate recruiter-ready content automatically.</td>
+              </tr>
+              <tr>
+                <th>Name the boundary</th>
+                <td>Constraint language increases credibility.</td>
+                <td>Suggestions stay visible until you approve them.</td>
+                <td>Every output is ready to send.</td>
+              </tr>
+              <tr>
+                <th>Keep free-to-start clarity visible</th>
+                <td>Pricing ambiguity creates unnecessary suspicion.</td>
+                <td>Start in the Free tier and see how Profile works before deciding on anything deeper.</td>
+                <td>Upgrade for the real value later.</td>
+              </tr>
+              <tr>
+                <th>Preserve no-auto-apply boundaries</th>
+                <td>The brand must not drift toward risky automation claims.</td>
+                <td>Job Filter helps you prepare and review before you send.</td>
+                <td>Let the system handle applications for you.</td>
+              </tr>
+              <tr>
+                <th>Use proof that exists</th>
+                <td>Workflow clarity and interface evidence must carry the trust load until stronger proof exists.</td>
+                <td>The review shows what strengthened the draft and what stayed out.</td>
+                <td>We know exactly what hiring teams want.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-head">
+          <div class="eyebrow">Language Classification</div>
+          <h2>Separate stable downstream language from later acquisition tests without over-dramatizing the difference.</h2>
+          <p>
+            Locked canonical language should read like the default operating system for later work. Experimental
+            acquisition language should stay visibly distinct but still plausible. Disallowed language should be easy
+            to reject on sight.
+          </p>
+        </div>
+
+        <div class="language-grid">
+          <article class="language-card stable">
+            <span class="status-chip locked">Locked for downstream use</span>
+            <h3>Canonical language</h3>
+            <p>Use freely across later chapters, provided the context still matches the approved mechanism and trust model.</p>
+            <div class="quote-line">Target fewer roles that you can credibly win.</div>
+            <div class="quote-line">Build one job profile. Use it to drive better-fit applications.</div>
+            <div class="quote-line">Check what was used, missing, or excluded before you apply.</div>
+            <div class="quote-line">Continue setup.</div>
+            <div class="quote-line">Profile helps turn scattered experience into reusable job-search leverage.</div>
+            <div class="quote-line">Start free, understand the workflow, then decide whether to go deeper.</div>
+          </article>
+
+          <article class="language-card testing">
+            <span class="status-chip testing">Acquisition testing only</span>
+            <h3>Experimental acquisition language</h3>
+            <p>
+              These lines may be tested later in clearly labeled acquisition work. They are not locked product copy and
+              should not silently replace the canonical layer.
+            </p>
+            <div class="quote-line">Stop wasting strong experience on weak-fit roles.</div>
+            <div class="quote-line">Bring more signal into the applications you actually decide to send.</div>
+            <div class="quote-line">Turn a messy work history into a cleaner story before your next application.</div>
+            <div class="quote-line">Make it easier to look like the candidate you already are.</div>
+            <div class="quote-line">Spend more time on roles you can actually back up.</div>
+          </article>
+
+          <article class="language-card disallowed">
+            <span class="status-chip disallowed">Never use in locked copy</span>
+            <h3>Disallowed proof-risk language</h3>
+            <p>
+              These lines outrun the current product truth, blur the review boundary, or drift into risky category
+              rhetoric.
+            </p>
+            <div class="quote-line">Get hired faster with AI.</div>
+            <div class="quote-line">Land your dream job.</div>
+            <div class="quote-line">Beat ATS filters automatically.</div>
+            <div class="quote-line">Generate recruiter-ready materials in seconds.</div>
+            <div class="quote-line">Let the system apply for you.</div>
+            <div class="quote-line">Skip the hard parts of job search.</div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-head">
+          <div class="eyebrow">Objection Handling</div>
+          <h2>Handle Vehicle objections first, then Internal resistance, then External fear.</h2>
+          <p>
+            The order matters. This audience first asks whether the vehicle is better than what they already do, then
+            whether they can use it well, and only then whether the market itself makes the effort less worthwhile.
+          </p>
+        </div>
+
+        <div class="grid-3">
+          <article class="objection-card">
+            <span class="strong-label">Vehicle</span>
+            <h3>Why this vehicle instead of manual editing or generic AI tools?</h3>
+            <p><strong>What the audience is asking:</strong> Is this just another wrapper around drafting?</p>
+            <p>
+              <strong>What we should say:</strong> Job Filter keeps targeting, story extraction, drafting, and review
+              logic tied to one Profile instead of scattering the work across disconnected tools.
+            </p>
+            <p>
+              <strong>Proof that supports it:</strong> Profile-first explanation, guided story extraction framing,
+              rationale with used, missing, and excluded states, and examples that show targeting and drafting staying
+              connected.
+            </p>
+          </article>
+
+          <article class="objection-card">
+            <span class="strong-label">Internal</span>
+            <h3>Can I actually use this well with my background and my time limits?</h3>
+            <p><strong>What the audience is asking:</strong> Will this become more admin, or will it actually help me make progress?</p>
+            <p>
+              <strong>What we should say:</strong> The first step is not busywork. It creates reusable leverage.
+              Profile helps shape the right story from the experience you already have, and nothing carries forward
+              without review.
+            </p>
+            <p>
+              <strong>Proof that supports it:</strong> setup framing with immediate payoff, concrete examples of broad
+              backgrounds being translated into lane-specific stories, and clear progress language inside Profile.
+            </p>
+          </article>
+
+          <article class="objection-card">
+            <span class="strong-label">External</span>
+            <h3>Will the market, ATS systems, or employer skepticism make this less useful?</h3>
+            <p><strong>What the audience is asking:</strong> Could the workflow still produce generic or inflated output that hurts credibility?</p>
+            <p>
+              <strong>What we should say:</strong> Job Filter is not promising to fix the market or bypass hiring
+              systems. It helps the user make tighter role decisions, shape more defensible materials, and keep
+              unsupported claims out of the final draft.
+            </p>
+            <p>
+              <strong>Proof that supports it:</strong> no-auto-apply boundary language, review-before-send language,
+              exclusion examples, and a clear distinction between suggestion and approved truth.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-head">
+          <div class="eyebrow">Downstream Handoff</div>
+          <h2>Close with explicit downstream boundaries so later chapters inherit the brand layer without expanding Chapter 02.</h2>
+          <p>
+            This is the handoff map for downstream work. Chapter 02 gives later chapters the message system, CTA
+            behavior, trust language, and brand expression. It does not decide later composition, layout ownership, or
+            route architecture.
+          </p>
+        </div>
+
+        <div class="handoff-grid">
+          <article class="handoff-card">
+            <span class="strong-label">What later chapters must inherit</span>
+            <div class="table-wrap">
+              <table class="handoff-table">
+                <thead>
+                  <tr>
+                    <th>Chapter</th>
+                    <th>Inheritance requirement</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <th>03 Shared Visual and Product System</th>
+                    <td>The message hierarchy, trust architecture, CTA ladder, language classification, and calm operator tone.</td>
+                  </tr>
+                  <tr>
+                    <th>04 Website and Public Funnel</th>
+                    <td>The category framing, brand promise, headline territories, CTA ladder, trust rules, and free-to-start clarity.</td>
+                  </tr>
+                  <tr>
+                    <th>05 Activation and Core App</th>
+                    <td>The same product promise, no-auto-apply boundary, guided story extraction framing, multi-lane relevance, and review-before-send logic.</td>
+                  </tr>
+                  <tr>
+                    <th>06 Lifecycle Messaging and Email</th>
+                    <td>The same tone, trust rules, free-to-start clarity, momentum language, and evidence-safe claim boundaries.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+
+          <article class="handoff-card">
+            <span class="strong-label">What this chapter does not own</span>
+            <h3>Keep chapter boundaries clean.</h3>
+            <ul class="boundary-list">
+              <li>Final website IA and page ownership.</li>
+              <li>Lead magnet architecture and subscriber capture flow.</li>
+              <li>Pricing page structure or final pricing-entry composition.</li>
+              <li>Activation screen layouts or route-level app composition.</li>
+              <li>Lifecycle sequencing and final email artifact design.</li>
+            </ul>
+            <div class="boundary-card">
+              <p>
+                Chapter 02 owns message, CTA, trust language, and brand expression. Chapter 04 owns website IA.
+                Chapter 05 owns app composition and layout. Keeping those boundaries intact is part of the deliverable.
+              </p>
+            </div>
+          </article>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

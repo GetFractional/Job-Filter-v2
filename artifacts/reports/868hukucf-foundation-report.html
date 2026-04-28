@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Job Filter Chapter 05 Correction Report, FS5S8R1</title>
+    <style>
+      :root {
+        --bg: #0b1013;
+        --panel: #121a1f;
+        --panel-2: #172127;
+        --panel-3: #1c2830;
+        --border: rgba(164, 184, 190, 0.18);
+        --text: #eef4f2;
+        --muted: #9faeb1;
+        --accent: #79d6b4;
+        --accent-strong: #49b98d;
+        --accent-soft: rgba(121, 214, 180, 0.12);
+        --blue-soft: rgba(96, 149, 194, 0.12);
+        --warning: #f0a37e;
+        --danger: #f28686;
+        --radius: 18px;
+        --shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: Inter, "Segoe UI", sans-serif;
+        background:
+          radial-gradient(circle at top right, rgba(73, 185, 141, 0.1), transparent 30%),
+          linear-gradient(180deg, #0b1013 0%, #0d1317 100%);
+        color: var(--text);
+      }
+
+      main {
+        width: min(1180px, calc(100vw - 48px));
+        margin: 32px auto 64px;
+      }
+
+      section {
+        background: linear-gradient(180deg, rgba(18, 26, 31, 0.96), rgba(18, 26, 31, 0.88));
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        padding: 28px;
+        margin-bottom: 20px;
+      }
+
+      h1,
+      h2,
+      h3,
+      p,
+      ul,
+      table {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: 2.6rem;
+        line-height: 1.06;
+        letter-spacing: -0.04em;
+        max-width: 13ch;
+      }
+
+      h2 {
+        font-size: 1.45rem;
+        margin-bottom: 16px;
+        letter-spacing: -0.02em;
+      }
+
+      h3 {
+        font-size: 1rem;
+        margin-bottom: 10px;
+      }
+
+      p,
+      li {
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      ul {
+        padding-left: 18px;
+      }
+
+      .hero {
+        padding: 36px;
+      }
+
+      .hero-grid,
+      .grid-2,
+      .grid-3 {
+        display: grid;
+        gap: 16px;
+      }
+
+      .hero-grid {
+        grid-template-columns: 1.3fr 0.9fr;
+        align-items: start;
+      }
+
+      .grid-2 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .grid-3 {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .eyebrow,
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-size: 0.78rem;
+        letter-spacing: 0.02em;
+      }
+
+      .eyebrow {
+        color: var(--accent);
+        background: var(--accent-soft);
+        margin-bottom: 18px;
+      }
+
+      .pill {
+        color: var(--muted);
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.02);
+      }
+
+      .pill-accent {
+        color: var(--accent);
+        border-color: rgba(121, 214, 180, 0.18);
+        background: var(--accent-soft);
+      }
+
+      .pill-warning {
+        color: var(--warning);
+        border-color: rgba(240, 163, 126, 0.2);
+        background: rgba(240, 163, 126, 0.09);
+      }
+
+      .summary-card,
+      .note,
+      .mini-card {
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 16px;
+        background: rgba(255, 255, 255, 0.02);
+      }
+
+      .summary-card strong,
+      .mini-card strong,
+      td strong {
+        color: var(--text);
+      }
+
+      .summary-card p,
+      .mini-card p,
+      .note p {
+        margin-top: 8px;
+      }
+
+      .table-wrap {
+        overflow-x: auto;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 760px;
+      }
+
+      th,
+      td {
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--border);
+        vertical-align: top;
+        text-align: left;
+      }
+
+      th {
+        color: var(--text);
+        font-size: 0.84rem;
+        letter-spacing: 0.02em;
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      tr:last-child td {
+        border-bottom: none;
+      }
+
+      code {
+        font-family: "SFMono-Regular", Menlo, monospace;
+        color: var(--text);
+        background: rgba(255, 255, 255, 0.05);
+        padding: 0.12rem 0.34rem;
+        border-radius: 6px;
+      }
+
+      .stack {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 18px;
+      }
+
+      .tight > * + * {
+        margin-top: 12px;
+      }
+
+      .accent {
+        color: var(--accent);
+      }
+
+      .note {
+        background: linear-gradient(180deg, rgba(73, 185, 141, 0.08), rgba(73, 185, 141, 0.03));
+      }
+
+      @media (max-width: 900px) {
+        main {
+          width: min(100vw - 24px, 1180px);
+          margin-top: 12px;
+        }
+
+        section,
+        .hero {
+          padding: 22px;
+        }
+
+        .hero-grid,
+        .grid-2,
+        .grid-3 {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="hero">
+        <div class="hero-grid">
+          <div class="tight">
+            <span class="eyebrow">FS5S8R1 correction pass</span>
+            <h1>Refresh Chapter 05 authority before the next desktop rebuild.</h1>
+            <p>
+              This report replaces the stale Chapter 05 artifact guidance with one corrected authority
+              stack for the next activation desktop pass. The goal is simple: make the next rebuild feel
+              like a legitimate signed-in SaaS product, not an artifact gallery.
+            </p>
+            <div class="stack">
+              <span class="pill pill-accent">No standalone D3</span>
+              <span class="pill pill-accent">One active lane now</span>
+              <span class="pill pill-accent">Explicit disqualifiers</span>
+              <span class="pill pill-warning">Current HTML is evidence only</span>
+            </div>
+          </div>
+          <div class="grid-2">
+            <div class="summary-card">
+              <strong>Authority ordering</strong>
+              <p>
+                This report now owns persona, journey, IA, scoring vocabulary, D8 and D9 scope, and D2
+                or D3 simplification. The synced Chapter 05 docs still own live route constraints.
+              </p>
+            </div>
+            <div class="summary-card">
+              <strong>Superseded artifact rule</strong>
+              <p>
+                <code>10-activation-desktop.html</code> is salvage evidence only. It must not override
+                the corrected source model, inline proof model, role matrix model, or calmer
+                Applications and Workspace hierarchy.
+              </p>
+            </div>
+            <div class="summary-card">
+              <strong>Design direction</strong>
+              <p>
+                Keep premium dark. Remove brown or amber accents. Use a greenish metallic or translucent
+                highlight direction and denser real-app behavior.
+              </p>
+            </div>
+            <div class="summary-card">
+              <strong>Artifact bar</strong>
+              <p>
+                The next builder should not need to make product or design decisions. The report and
+                packets now make those calls explicitly.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Decisions now locked</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Topic</th>
+                <th>Locked decision</th>
+                <th>Reason</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Source start</td>
+                <td><code>Resume</code>, <code>LinkedIn</code>, and <code>Start manually</code> only</td>
+                <td>D1 needs one obvious trusted-source start, no <code>Paste text</code>, and no duplicate manual control.</td>
+              </tr>
+              <tr>
+                <td>Proof model</td>
+                <td>Proof stays implicit inside the D2 Profile editing flow.</td>
+                <td>The first slice should not fork the user into a separate proof-approval surface.</td>
+              </tr>
+              <tr>
+                <td>Route set</td>
+                <td>No standalone <code>D3</code>. No standalone <code>Proof Library</code>.</td>
+                <td>The trust boundary is part of <code>Profile</code>, not a detached route family.</td>
+              </tr>
+              <tr>
+                <td>Lane model</td>
+                <td>One active role lane now, multi-lane later or paid.</td>
+                <td>The current product needs clarity and credibility before expansion.</td>
+              </tr>
+              <tr>
+                <td>Role discovery pattern</td>
+                <td>Use a real role table or matrix.</td>
+                <td>Comparison cards and lane-opportunity sheets hide logic instead of explaining it.</td>
+              </tr>
+              <tr>
+                <td>Score system</td>
+                <td>Use <code>Role fit</code>, <code>Job fit</code>, <code>Lane opportunity</code>, and operational <code>Priority</code> only.</td>
+                <td>Visible score language must stay explainable and constrained.</td>
+              </tr>
+              <tr>
+                <td>Disqualifiers</td>
+                <td>Define <code>hard</code>, <code>soft</code>, and <code>verify</code> with override and filters.</td>
+                <td>Dealbreakers must be explicit, user-controlled, and visible across the flow.</td>
+              </tr>
+              <tr>
+                <td>D8 and D9 scope</td>
+                <td>Keep company context, message log, and minimum CRM support only.</td>
+                <td>These surfaces should feel real, not like fake enterprise suites.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>Primary user and journey truth</h2>
+        <div class="grid-2">
+          <div class="mini-card">
+            <h3>Primary user</h3>
+            <p>
+              A skeptical, overloaded applicant who wants reusable leverage, clear reasoning, and calm
+              operating surfaces. They dislike hype, black-box scoring, and admin sprawl.
+            </p>
+          </div>
+          <div class="mini-card">
+            <h3>Core belief shift</h3>
+            <p>
+              The product is not here to “write faster.” It is here to help the user decide better and
+              reuse verified work across serious applications.
+            </p>
+          </div>
+        </div>
+        <div class="table-wrap" style="margin-top: 16px">
+          <table>
+            <thead>
+              <tr>
+                <th>Stage</th>
+                <th>Dominant user question</th>
+                <th>Dominant move</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>D1</code> Add your experience</td>
+                <td>Is this setup worth doing?</td>
+                <td>Start from one trusted source and understand why the work compounds.</td>
+              </tr>
+              <tr>
+                <td><code>D2</code> Check your history</td>
+                <td>Are the facts right enough to trust?</td>
+                <td>Edit the profile, resolve conflicts, and approve reusable proof inline.</td>
+              </tr>
+              <tr>
+                <td><code>D4</code> Role Discovery</td>
+                <td>Which role direction is strongest now?</td>
+                <td>Compare roles in a matrix and activate one role lane.</td>
+              </tr>
+              <tr>
+                <td><code>D5</code> Feed</td>
+                <td>Which new jobs are worth saving?</td>
+                <td>Search first, quick-evaluate, and save intentionally.</td>
+              </tr>
+              <tr>
+                <td><code>D6</code> Saved</td>
+                <td>Which saved job deserves a real decision next?</td>
+                <td>Use the queue, filters, and quick inspector to pick the next review.</td>
+              </tr>
+              <tr>
+                <td><code>D7</code> Review</td>
+                <td>Should I spend real effort on this job?</td>
+                <td>Review fit, proof, disqualifiers, and asset direction before promotion.</td>
+              </tr>
+              <tr>
+                <td><code>D8</code> Applications</td>
+                <td>What active work needs attention today?</td>
+                <td>Manage stage, next action, due date, and lightweight context calmly.</td>
+              </tr>
+              <tr>
+                <td><code>D9</code> Workspace</td>
+                <td>How do I do the work without losing context?</td>
+                <td>Edit assets, keep notes and messages nearby, and complete the next action.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>IA and route ownership</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Surface</th>
+                <th>What it owns</th>
+                <th>What it must not become</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>Profile</code></td>
+                <td>Applicant truth, source conflicts, inline proof approval, role comparison</td>
+                <td>Standalone proof library, research suite, or generic account page</td>
+              </tr>
+              <tr>
+                <td><code>Jobs</code></td>
+                <td>Discovery feed and saved queue</td>
+                <td>Active application manager or analytics dashboard</td>
+              </tr>
+              <tr>
+                <td><code>Review</code></td>
+                <td>Job-specific decision workbench</td>
+                <td>Queue view or active-work dashboard</td>
+              </tr>
+              <tr>
+                <td><code>Applications</code></td>
+                <td>Calm active-work management</td>
+                <td>CRM theater, company research hub, or dashboard hero</td>
+              </tr>
+              <tr>
+                <td><code>Workspace</code></td>
+                <td>Asset editing with support context</td>
+                <td>Standalone doc editor or sibling route family</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="note" style="margin-top: 16px">
+          <p>
+            <strong class="accent">Child-route rule:</strong> <code>Review</code> remains the trust boundary
+            between a saved job and active work. <code>Workspace</code> remains the child surface under
+            <code>Applications</code>.
+          </p>
+        </div>
+      </section>
+
+      <section>
+        <h2>Global interaction grammar</h2>
+        <div class="grid-2">
+          <div class="mini-card">
+            <h3>Field grammar</h3>
+            <p>
+              Use type-aware controls only. Searchable multi-selects for skills and tools. Date pickers
+              for timelines. Numeric steppers or masked inputs for compensation and counts. Repeatable row
+              editors for responsibilities, outcomes, stories, contacts, and messages.
+            </p>
+          </div>
+          <div class="mini-card">
+            <h3>Validation and guidance</h3>
+            <p>
+              Keep validation inline. Tooltips and short helpers belong next to the relevant control. Do
+              not use helper rails, badge clutter, or long explainer paragraphs inside the product.
+            </p>
+          </div>
+          <div class="mini-card">
+            <h3>Add behavior</h3>
+            <p>
+              <code>Add role</code>, add-row, and add-record actions live inside the owning table,
+              inspector, or section header. They do not live as ornamental page-header actions.
+            </p>
+          </div>
+          <div class="mini-card">
+            <h3>Surface grammar</h3>
+            <p>
+              Tables for canonical records and role matrices. Boards only when stage scan matters.
+              Drawers for quick review. Modals for one bounded edit or confirmation only.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Source model, proof model, and D2 simplification</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Area</th>
+                <th>Corrected rule</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>D1 source chooser</td>
+                <td><code>Resume</code> is the obvious primary start. <code>LinkedIn</code> and <code>Start manually</code> remain valid secondary starts.</td>
+              </tr>
+              <tr>
+                <td>Manual start</td>
+                <td><code>Start manually</code> replaces <code>Paste text</code> and appears only once.</td>
+              </tr>
+              <tr>
+                <td>Second source</td>
+                <td>The user may add one optional second source later, and it can create explicit field conflicts.</td>
+              </tr>
+              <tr>
+                <td>Conflict handling</td>
+                <td>Conflicts must show field, current value, new value, source labels, and resolution actions. No silent merge.</td>
+              </tr>
+              <tr>
+                <td>Proof controls</td>
+                <td>Proof states stay attached to outcomes, stories, and claims inside D2. They are reversible and visible.</td>
+              </tr>
+              <tr>
+                <td>D3 simplification</td>
+                <td>Remove standalone D3 from the artifact contract. Keep proof approval inline in the D2 workspace only.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>Role lane, score, and disqualifier model</h2>
+        <div class="grid-2">
+          <div class="mini-card">
+            <h3>Lane model</h3>
+            <p>
+              One active role lane now. Role grouping remains visible and explainable. Multi-lane value
+              can be hinted later, but it must not become a required first-slice interaction model.
+            </p>
+          </div>
+          <div class="mini-card">
+            <h3>Role comparison pattern</h3>
+            <p>
+              D4 must use a real matrix with visible columns for role, recommendation, <code>Role fit</code>,
+              <code>Lane opportunity</code>, proof coverage, scope match, tools or domain match, comp or
+              remote alignment, and disqualifiers.
+            </p>
+          </div>
+        </div>
+        <div class="table-wrap" style="margin-top: 16px">
+          <table>
+            <thead>
+              <tr>
+                <th>Measure</th>
+                <th>Rule</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>Role fit</code></td>
+                <td>Visible only with factor-level explanation. No opaque composite score.</td>
+              </tr>
+              <tr>
+                <td><code>Job fit</code></td>
+                <td>Visible in <code>Saved</code>, <code>Review</code>, and compactly downstream, always with strengths, gaps, and proof usage context.</td>
+              </tr>
+              <tr>
+                <td><code>Lane opportunity</code></td>
+                <td>Visible and separate from <code>Role fit</code>. It is not a side-sheet gimmick.</td>
+              </tr>
+              <tr>
+                <td><code>Priority</code></td>
+                <td>Operational sorting helper only. Never the only explanation.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="table-wrap" style="margin-top: 16px">
+          <table>
+            <thead>
+              <tr>
+                <th>Disqualifier class</th>
+                <th>Meaning</th>
+                <th>Examples</th>
+                <th>Surface behavior</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>hard</code></td>
+                <td>Likely dealbreaker now</td>
+                <td>remote mismatch, comp mismatch, missing required skill or tool</td>
+                <td>Filterable, overrideable, and blocks promotion by default until overridden.</td>
+              </tr>
+              <tr>
+                <td><code>soft</code></td>
+                <td>Meaningful concern but not a blocker</td>
+                <td>limited industry match, weaker tenure signal</td>
+                <td>Stays visible in rows, inspectors, and review blocks.</td>
+              </tr>
+              <tr>
+                <td><code>verify</code></td>
+                <td>Missing or uncertain information</td>
+                <td>unclear remote policy, missing compensation detail, fuzzy seniority requirement</td>
+                <td>Prompt the user to confirm or temporarily override with rationale.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>Screen corrections the next rebuild must follow</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Surface</th>
+                <th>What it must become</th>
+                <th>What it must stop doing</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>D1</code> Add your experience</td>
+                <td>One believable trust-first start with corrected source controls, grounded resistance handling, and real setup payoff.</td>
+                <td>Stop using <code>Paste text</code>, duplicate manual start, hype, or the “Start with the source you trust most” box.</td>
+              </tr>
+              <tr>
+                <td><code>D2</code> Check your history</td>
+                <td>Dense table-first profile editor with schema-grounded columns, serious inspector, inline proof control, visible provenance, and real add or edit behavior.</td>
+                <td>Stop using vague columns, page-header <code>Add role</code>, low-value chips, and detached proof-state logic.</td>
+              </tr>
+              <tr>
+                <td><code>D4</code> Role Discovery</td>
+                <td>Role matrix with obvious recommendation, score breakdowns, explainable grouping, and one active-lane action.</td>
+                <td>Stop using role comparison cards, unsaved-lane hero cards, or lane-opportunity sheets.</td>
+              </tr>
+              <tr>
+                <td><code>D5</code> Feed</td>
+                <td>Search-first jobs surface with quick evaluation and detail drawer behavior.</td>
+                <td>Stop reading like decorative search chrome or dashboard filler.</td>
+              </tr>
+              <tr>
+                <td><code>D6</code> Saved</td>
+                <td>Sheet-first saved queue with real fields, fit and priority, and visible disqualifier state.</td>
+                <td>Stop using arbitrary fields or a board-first presentation.</td>
+              </tr>
+              <tr>
+                <td><code>D7</code> Review</td>
+                <td>Stepwise job-specific workbench with fit, proof, disqualifiers, and asset direction before promotion.</td>
+                <td>Stop acting like a score-only detail page.</td>
+              </tr>
+              <tr>
+                <td><code>D8</code> Applications</td>
+                <td>Calm, operational active-work manager with stage, next action, due date, last touch, and compact support context.</td>
+                <td>Stop acting like an analytics dashboard or recruiting CRM clone.</td>
+              </tr>
+              <tr>
+                <td><code>D9</code> Workspace</td>
+                <td>Serious workbench with standardized asset editors, next action, fit snapshot, proof snapshot, lightweight company context, and lightweight message log.</td>
+                <td>Stop acting like a detached document editor or research theater.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>Inspiration binding</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Source</th>
+                <th>Use it for</th>
+                <th>Do not inherit</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>DESIGN_INSPIRATION.md</code></td>
+                <td>Density, table-vs-board logic, split detail panels, metadata bars, and real-app behavior.</td>
+                <td>Stale light-theme tokens or generic SaaS card systems.</td>
+              </tr>
+              <tr>
+                <td>Dribbble matrix in the desktop screen contract</td>
+                <td>Screen-specific panel rhythm, queue density, and support-surface composition.</td>
+                <td>Hero analytics, recruiter avatar theater, or decorative score widgets.</td>
+              </tr>
+              <tr>
+                <td>Dribbble inputs in the user-system packet</td>
+                <td>Role-matrix posture, source-of-truth editor behavior, jobs density, and calm active-work structure.</td>
+                <td>Template-marketplace aesthetics, AI ornamentation, or light-theme shortcuts.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>Next artifact acceptance bar</h2>
+        <div class="grid-3">
+          <div class="summary-card">
+            <strong>D1 belief shift</strong>
+            <p>The first screen must make setup feel like reusable leverage, not like parser mechanics.</p>
+          </div>
+          <div class="summary-card">
+            <strong>D2 seriousness</strong>
+            <p>The profile workspace must read as a real source-of-truth editor with inline proof control.</p>
+          </div>
+          <div class="summary-card">
+            <strong>D4 explanation</strong>
+            <p>Role recommendations must be understandable row by row, not inferred from a hidden model.</p>
+          </div>
+          <div class="summary-card">
+            <strong>D5 to D7 continuity</strong>
+            <p>The job flow must feel like one evaluation system from search to review boundary.</p>
+          </div>
+          <div class="summary-card">
+            <strong>D8 legitimacy</strong>
+            <p>Applications must feel calmer and more operational than the current dashboard-like versions.</p>
+          </div>
+          <div class="summary-card">
+            <strong>D9 workbench quality</strong>
+            <p>Workspace must keep assets, notes, fit, proof, and next action connected without stealing the page for support context.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
