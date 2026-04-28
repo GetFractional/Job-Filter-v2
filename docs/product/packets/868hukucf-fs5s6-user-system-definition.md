@@ -570,7 +570,7 @@ Only these labels are allowed:
 | --- | --- |
 | prototype rule | approved `D1` stays accessible and literal; the next artifact pass rebuilds `D1` and `D2` together as linked `Profile` states rather than replacing prior approved screens |
 | workspace model | dense split-view master-detail pattern, with the role table as master view and a right-side detail drawer as the default detail view |
-| readiness model | sticky `Verification progress` leads with category-based `X/Y` progress, while `Imported`, `Conflict`, and `Verified` remain as secondary summary counts that control `Continue to Role Discovery` |
+| readiness model | sticky `Verification progress` leads with category-based `X/Y` progress, while Imported, Conflict, and Verified counts are encoded as stacked status-bar segments with hover/focus count labels that control `Continue to Role Discovery` |
 | proof control | inline inside the same workspace, with `Source evidence` only as a local drawer title when a record has inspectable proof context, and no standalone `Issues to resolve` or `Verified for reuse` drawer sections |
 | trust model | standardized issues, source visibility, `Which is your truth?` conflict resolution, and reversible proof decisions stay visible and are resolved here |
 | reject | vague columns, page-header `Add role`, decorative summary cards, row-expansion clutter, or separate proof-route logic |

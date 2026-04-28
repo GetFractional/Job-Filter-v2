@@ -1340,38 +1340,40 @@
       .mix-row {
         display: flex;
         align-items: center;
-        gap: 8px;
-        flex-wrap: wrap;
+        gap: 10px;
       }
 
-      .mix-tag {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        min-height: 28px;
-        padding: 0 10px;
-        border-radius: 10px;
-        border: 1px solid rgba(167, 184, 186, 0.14);
-        background: rgba(255, 255, 255, 0.03);
-        color: var(--text-muted);
-        font-size: 0.78rem;
+      .mix-bar {
+        display: flex;
+        width: 100%;
+        min-width: 0;
+        height: 12px;
+        border-radius: 999px;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.06);
+        outline: 1px solid rgba(167, 184, 186, 0.1);
       }
 
-      .mix-dot {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
+      .mix-segment {
+        position: relative;
+        min-width: 10px;
       }
 
-      .mix-dot.imported {
-        background: rgba(167, 184, 186, 0.7);
+      .mix-segment:focus-visible {
+        outline: 2px solid rgba(127, 225, 187, 0.82);
+        outline-offset: 2px;
+        z-index: 1;
       }
 
-      .mix-dot.conflict {
+      .mix-segment.imported {
+        background: rgba(167, 184, 186, 0.72);
+      }
+
+      .mix-segment.conflict {
         background: var(--danger);
       }
 
-      .mix-dot.verified {
+      .mix-segment.verified {
         background: var(--accent);
       }
 
@@ -1804,6 +1806,7 @@
         justify-content: space-between;
         gap: 12px;
         align-items: baseline;
+        flex-wrap: wrap;
       }
 
       .progress-head strong {
@@ -2279,6 +2282,96 @@
           grid-template-columns: repeat(2, minmax(0, 1fr));
         }
       }
+
+      @media (max-width: 760px) {
+        main {
+          width: calc(100vw - 24px);
+          margin: 12px auto;
+        }
+
+        .app-shell {
+          grid-template-columns: 1fr;
+          overflow: visible;
+        }
+
+        .sidebar {
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+          padding: 16px;
+        }
+
+        .sidebar-spacer,
+        .account-button {
+          display: none;
+        }
+
+        .nav,
+        .nav-group,
+        .submenu {
+          gap: 8px;
+        }
+
+        .submenu {
+          padding-left: 0;
+        }
+
+        .nav-link,
+        .submenu-link {
+          padding: 10px 12px;
+        }
+
+        .main-panel {
+          padding: 18px 14px 20px;
+        }
+
+        .screen-shell {
+          padding: 22px 18px 20px;
+          border-radius: 24px;
+        }
+
+        .route-row,
+        .toolbar-row,
+        .hotspot-row,
+        .entity-strip {
+          flex-wrap: wrap;
+        }
+
+        .screen-copy h1 {
+          font-size: 2.25rem;
+          line-height: 1.06;
+        }
+
+        .lead {
+          font-size: 0.98rem;
+          line-height: 1.62;
+        }
+
+        .readiness-bar {
+          position: static;
+          padding: 16px;
+          border-radius: 18px;
+        }
+
+        .progress-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .progress-head {
+          align-items: flex-start;
+        }
+
+        .toolbar-sequence,
+        .search-wrap.compact,
+        .search-wrap.compact:focus-within {
+          flex: 1 1 100%;
+          min-width: 0;
+        }
+
+        .tool-button.primary {
+          width: 100%;
+          justify-content: center;
+        }
+      }
     </style>
   </head>
   <body>
@@ -2476,7 +2569,7 @@
                 </div>
 
                 <div class="screen-copy">
-                  <h1 id="d2-title">Clean the few facts that will decide where your search can go next.</h1>
+                  <h1 id="d2-title">Verify what you've done</h1>
                   <p class="lead">
                     Review only the roles, responsibilities, outcomes, and skills that change
                     downstream decisions. When this workspace is clean, Job Filter can help
@@ -2501,9 +2594,11 @@
                         </div>
                         <div class="progress-meter"><span style="width: 50%"></span></div>
                         <div class="mix-row">
-                          <span class="mix-tag"><span class="mix-dot imported"></span>Imported 1</span>
-                          <span class="mix-tag"><span class="mix-dot conflict"></span>Conflict 2</span>
-                          <span class="mix-tag"><span class="mix-dot verified"></span>Verified 1</span>
+                          <div class="mix-bar" aria-label="Role identity and timeline status: Imported 1, Conflict 2, Verified 1">
+                            <span class="mix-segment imported" style="flex: 1" tabindex="0" title="Imported: 1" aria-label="Imported: 1"></span>
+                            <span class="mix-segment conflict" style="flex: 2" tabindex="0" title="Conflict: 2" aria-label="Conflict: 2"></span>
+                            <span class="mix-segment verified" style="flex: 1" tabindex="0" title="Verified: 1" aria-label="Verified: 1"></span>
+                          </div>
                         </div>
                       </article>
                       <article class="progress-card">
@@ -2513,9 +2608,10 @@
                         </div>
                         <div class="progress-meter"><span style="width: 75%"></span></div>
                         <div class="mix-row">
-                          <span class="mix-tag"><span class="mix-dot imported"></span>Imported 0</span>
-                          <span class="mix-tag"><span class="mix-dot conflict"></span>Conflict 1</span>
-                          <span class="mix-tag"><span class="mix-dot verified"></span>Verified 3</span>
+                          <div class="mix-bar" aria-label="Responsibilities status: Imported 0, Conflict 1, Verified 3">
+                            <span class="mix-segment conflict" style="flex: 1" tabindex="0" title="Conflict: 1" aria-label="Conflict: 1"></span>
+                            <span class="mix-segment verified" style="flex: 3" tabindex="0" title="Verified: 3" aria-label="Verified: 3"></span>
+                          </div>
                         </div>
                       </article>
                       <article class="progress-card">
@@ -2525,9 +2621,10 @@
                         </div>
                         <div class="progress-meter"><span style="width: 50%"></span></div>
                         <div class="mix-row">
-                          <span class="mix-tag"><span class="mix-dot imported"></span>Imported 0</span>
-                          <span class="mix-tag"><span class="mix-dot conflict"></span>Conflict 2</span>
-                          <span class="mix-tag"><span class="mix-dot verified"></span>Verified 2</span>
+                          <div class="mix-bar" aria-label="Outcomes status: Imported 0, Conflict 2, Verified 2">
+                            <span class="mix-segment conflict" style="flex: 2" tabindex="0" title="Conflict: 2" aria-label="Conflict: 2"></span>
+                            <span class="mix-segment verified" style="flex: 2" tabindex="0" title="Verified: 2" aria-label="Verified: 2"></span>
+                          </div>
                         </div>
                       </article>
                       <article class="progress-card">
@@ -2537,9 +2634,10 @@
                         </div>
                         <div class="progress-meter"><span style="width: 75%"></span></div>
                         <div class="mix-row">
-                          <span class="mix-tag"><span class="mix-dot imported"></span>Imported 1</span>
-                          <span class="mix-tag"><span class="mix-dot conflict"></span>Conflict 0</span>
-                          <span class="mix-tag"><span class="mix-dot verified"></span>Verified 3</span>
+                          <div class="mix-bar" aria-label="Skills and tools status: Imported 1, Conflict 0, Verified 3">
+                            <span class="mix-segment imported" style="flex: 1" tabindex="0" title="Imported: 1" aria-label="Imported: 1"></span>
+                            <span class="mix-segment verified" style="flex: 3" tabindex="0" title="Verified: 3" aria-label="Verified: 3"></span>
+                          </div>
                         </div>
                       </article>
                     </div>

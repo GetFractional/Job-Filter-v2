@@ -269,7 +269,7 @@ Use specific actions for decisive state exits:
 | stage label | `Check your history` |
 | route-context row | `Profile • Check your history` |
 | page title | `Profile` |
-| primary headline | `Clean the few facts that will decide where your search can go next.` |
+| primary headline | `Verify what you've done` |
 | supporting copy | `Review only the roles, responsibilities, outcomes, and skills that change downstream decisions. When this workspace is clean, Job Filter can help without making you recheck the same history on every role.` |
 | dominant CTA | `None in the header. D2 uses the sticky Verification progress bar action instead.` |
 | secondary CTA | `None` |

@@ -96,7 +96,7 @@ Help a skeptical, overloaded applicant verify the few facts that change downstre
 #### Information hierarchy
 
 1. In-panel route-context row: `Profile • Check your history`
-2. H1: `Clean the few facts that will decide where your search can go next.`
+2. H1: `Verify what you've done`
 3. Supporting copy: `Review only the roles, responsibilities, outcomes, and skills that change downstream decisions. When this workspace is clean, Job Filter can help without making you recheck the same history on every role.`
 4. Sticky `Verification progress` bar with category progress and `Continue to Role Discovery`
 5. Grouped company master table
@@ -108,7 +108,7 @@ Help a skeptical, overloaded applicant verify the few facts that change downstre
 - signed-in app shell with `Profile` active
 - compact route-context row
 - D2 page title and supporting copy
-- sticky `Verification progress` readiness bar
+- sticky `Verification progress` readiness bar with stacked status bars for Imported, Conflict, and Verified counts
 - grouped company master table
 - frozen `Company` structural lane with quiet role carry-label
 - one-row toolbar ordered as search, filter icon, columns icon, sort icon, `Add role`
@@ -125,7 +125,7 @@ Help a skeptical, overloaded applicant verify the few facts that change downstre
 #### Exact copy
 
 - route-context row: `Profile • Check your history`
-- H1: `Clean the few facts that will decide where your search can go next.`
+- H1: `Verify what you've done`
 - supporting copy: `Review only the roles, responsibilities, outcomes, and skills that change downstream decisions. When this workspace is clean, Job Filter can help without making you recheck the same history on every role.`
 - readiness title: `Verification progress`
 - readiness body: `Once you verify crucial info like roles, responsibilities, outcomes, and skills, Job Filter can confidently help you find and apply to roles best suited for you.`

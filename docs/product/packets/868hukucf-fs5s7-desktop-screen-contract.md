@@ -456,7 +456,7 @@ Locked first-slice contract:
 ### Required header structure
 
 1. in-panel route-context row `Profile • Check your history`
-2. H1 `Clean the few facts that will decide where your search can go next.`
+2. H1 `Verify what you've done`
 3. body copy `Review only the roles, responsibilities, outcomes, and skills that change downstream decisions. When this workspace is clean, Job Filter can help without making you recheck the same history on every role.`
 4. no dominant header CTA
 
@@ -475,6 +475,14 @@ Rationale:
 - it names the next user outcome directly instead of relying on abstract foundation language
 - it keeps route-level momentum tied to the verified-state threshold rather than to header chrome
 - it makes the readiness model visible where the user is editing, not detached above the workspace
+
+Readiness category presentation:
+
+- replace standalone `Imported`, `Conflict`, and `Verified` count badges with a single stacked status bar per required category
+- segment colors are imported gray, conflict red, and verified green
+- each non-zero segment must expose hover and keyboard-focus text with the segment name and count
+- category cards still show the visible `X/Y verified` summary in the header
+- fully verified sections should expose a visual checkmark state without adding another redundant status badge
 
 ### Default visible master-view structure
 
